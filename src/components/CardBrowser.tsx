@@ -69,9 +69,12 @@ export function CardBrowser() {
   const sets = useMemo(() => {
     if (!catalog) return []
     const map = new Map<string, string>()
-    for (const c of catalog.cards) map.set(c.setId, c.setName)
+    for (const c of catalog.cards) {
+      if (format && !isCardLegalInFormat(c, format).legal) continue
+      map.set(c.setId, c.setName)
+    }
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
-  }, [catalog])
+  }, [catalog, format])
 
   const allColors = useMemo(() => {
     if (!catalog) return []
@@ -93,7 +96,13 @@ export function CardBrowser() {
       }
       if (setId !== 'all' && c.setId !== setId) return false
       if (colors.size > 0 && !c.colors.some((col) => colors.has(col))) return false
-      if (q && !c.name.toLowerCase().includes(q) && !c.text?.toLowerCase().includes(q)) return false
+      if (
+        q &&
+        !c.name.toLowerCase().includes(q) &&
+        !c.text?.toLowerCase().includes(q) &&
+        !c.subtypes.some((s) => s.toLowerCase().includes(q))
+      )
+        return false
       return true
     })
   }, [catalog, deferredQuery, category, setId, colors, stage, adapter, format])
