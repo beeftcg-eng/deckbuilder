@@ -100,9 +100,29 @@ const deckRules: DeckRules = {
 const defaultFormats: Format[] = [
   {
     id: 'standard',
-    label: 'Standard (current ban list)',
+    label: 'Standard (current rotation + ban list)',
     description:
-      'All released sets, applying the current official banned/restricted list as a snapshot from onepiece.gg. Bandai rotates the legal block window each April 1st — re-check onepiece.gg periodically, this list is not auto-updated.',
+      'Block 2 onward (OP-05 and later) as of the April 2026 rotation, which retired Block 1 (OP-01–OP-04). Also applies the current official banned/restricted list as a snapshot from onepiece.gg. Bandai rotates the legal block window each April 1st (next: April 2027) — re-check onepiece.gg periodically, neither list is auto-updated.',
+    legalSetIds: [
+      'EB-01',
+      'EB-02',
+      'EB-03',
+      'OP-05',
+      'OP-06',
+      'OP-07',
+      'OP-08',
+      'OP-09',
+      'OP-10',
+      'OP-11',
+      'OP-12',
+      'OP-13',
+      'OP-16',
+      'OP-17',
+      'OP14-EB04',
+      'OP15-EB04',
+      'PRB-01',
+      'PRB-02',
+    ],
     bannedCardIds: ['onepiece:OP06-116', 'onepiece:ST10-001', 'onepiece:OP06-086', 'onepiece:OP03-040', 'onepiece:OP06-047'],
     restrictedCardIds: [],
     bannedPairs: [

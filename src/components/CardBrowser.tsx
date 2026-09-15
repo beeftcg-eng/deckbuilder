@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore, useCardsById } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import type { Card } from '../shared/types'
@@ -36,10 +36,26 @@ export function CardBrowser() {
   const cardsById = useCardsById(currentGameId)
   const stage = deck ? (adapter.getGuidedStage?.(deck, cardsById) ?? null) : null
 
+  const identityZoneId = adapter.deckRules.identityZoneId
+  const identityCard = useMemo(() => {
+    if (!deck || !identityZoneId) return undefined
+    const entry = (deck.zones[identityZoneId] ?? [])[0]
+    return entry ? cardsById.get(entry.cardId) : undefined
+  }, [deck, identityZoneId, cardsById])
+
+  const lastIdentityCardId = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (!adapter.deckRules.colorLocked) return
+    if (identityCard?.id === lastIdentityCardId.current) return
+    lastIdentityCardId.current = identityCard?.id
+    setColors(new Set(identityCard?.colors ?? []))
+  }, [identityCard?.id, adapter.deckRules.colorLocked])
+
   const categories = useMemo(() => {
     if (!catalog) return []
-    return [...new Set(catalog.cards.map((c) => c.category))].sort()
-  }, [catalog])
+    const excluded = new Set(adapter.mainDeckExcludedCategories ?? [])
+    return [...new Set(catalog.cards.map((c) => c.category))].filter((c) => !excluded.has(c)).sort()
+  }, [catalog, adapter])
 
   const sets = useMemo(() => {
     if (!catalog) return []
