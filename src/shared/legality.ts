@@ -23,7 +23,7 @@ function checkCount(zone: DeckZoneRule, total: number, issues: LegalityIssue[]) 
   }
 }
 
-function isCardLegalInFormat(card: Card, format: Format): { legal: boolean; reason?: string } {
+export function isCardLegalInFormat(card: Card, format: Format): { legal: boolean; reason?: string } {
   if (card.gameId === 'pokemon') {
     const legal = card.legality?.[format.id] === 'legal'
     return legal ? { legal: true } : { legal: false, reason: `is not legal in ${format.label}` }

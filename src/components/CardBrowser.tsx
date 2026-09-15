@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore, useCardsById } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
+import { isCardLegalInFormat } from '../shared/legality'
 import type { Card } from '../shared/types'
 import { CardTile } from './CardTile'
 import { CardDetailModal } from './CardDetailModal'
@@ -18,6 +19,8 @@ export function CardBrowser() {
   const currentDeckId = useAppStore((s) => s.currentDeckId)
   const decks = useAppStore((s) => s.decks)
   const setCardQuantity = useAppStore((s) => s.setCardQuantity)
+  const formats = useAppStore((s) => s.formats)
+  const loadFormats = useAppStore((s) => s.loadFormats)
 
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<string>('all')
@@ -35,6 +38,13 @@ export function CardBrowser() {
   const adapter = getAdapter(currentGameId)
   const cardsById = useCardsById(currentGameId)
   const stage = deck ? (adapter.getGuidedStage?.(deck, cardsById) ?? null) : null
+
+  useEffect(() => {
+    if (deck && !formats[deck.gameId]) loadFormats(deck.gameId)
+  }, [deck?.gameId])
+
+  const gameFormats = deck ? (formats[deck.gameId] ?? adapter.defaultFormats) : []
+  const format = deck ? (gameFormats.find((f) => f.id === deck.formatId) ?? gameFormats[0]) : undefined
 
   const identityZoneId = adapter.deckRules.identityZoneId
   const identityCard = useMemo(() => {
@@ -73,6 +83,7 @@ export function CardBrowser() {
     if (!catalog) return []
     const q = deferredQuery.trim().toLowerCase()
     return catalog.cards.filter((c) => {
+      if (format && !isCardLegalInFormat(c, format).legal) return false
       if (stage?.filter && !stage.filter(c)) return false
       if (!stage?.filter) {
         if (deferredCategory !== 'all') {
@@ -86,7 +97,7 @@ export function CardBrowser() {
       if (q && !c.name.toLowerCase().includes(q) && !c.text?.toLowerCase().includes(q)) return false
       return true
     })
-  }, [catalog, deferredQuery, deferredCategory, deferredSetId, deferredColors, stage, adapter])
+  }, [catalog, deferredQuery, deferredCategory, deferredSetId, deferredColors, stage, adapter, format])
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)

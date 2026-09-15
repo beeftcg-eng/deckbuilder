@@ -4,6 +4,8 @@ import { fetchJson } from './fetchUtil'
 
 const API_BASE = 'https://www.optcgapi.com/api'
 
+const KNOWN_COLORS = new Set(['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'])
+
 interface OnePieceApiCard {
   card_name: string
   set_name: string
@@ -54,7 +56,13 @@ function normalizeCard(raw: OnePieceApiCard): Card {
     rarity: raw.rarity,
     category: raw.card_type,
     subtypes: raw.sub_types ? [raw.sub_types] : [],
-    colors: raw.card_color ? raw.card_color.split('/').map((c) => c.trim()) : [],
+    // Dual-color cards (e.g. leaders) use a space, not a slash, to separate colors: "Purple Yellow".
+    colors: raw.card_color
+      ? raw.card_color
+          .split(/[/\s]+/)
+          .map((c) => c.trim())
+          .filter((c) => KNOWN_COLORS.has(c))
+      : [],
     cost: raw.card_cost,
     text: infoParts.length ? infoParts.join('\n') : null,
     legality: null,
