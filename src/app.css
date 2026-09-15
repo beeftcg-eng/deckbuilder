@@ -1,0 +1,477 @@
+.app-shell {
+  display: flex;
+  height: 100vh;
+}
+
+.text-dim {
+  color: var(--text-dim);
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.sidebar-title {
+  font-weight: 700;
+  font-size: 16px;
+  padding: 0 4px;
+}
+
+.game-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.game-tab {
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.game-tab:hover {
+  background: var(--bg-elevated-2);
+  color: var(--text);
+}
+
+.game-tab.active {
+  background: var(--accent-dim);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.sync-box {
+  background: var(--bg-elevated-2);
+  border-radius: var(--radius);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sync-status {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.progress-bar {
+  height: 5px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.sync-error {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.deck-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.deck-list-empty {
+  padding: 8px;
+  font-size: 12px;
+}
+
+.deck-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.deck-row:hover {
+  background: var(--bg-elevated-2);
+}
+
+.deck-row.active {
+  background: var(--accent-dim);
+}
+
+.deck-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-row-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.deck-row-delete:hover {
+  color: var(--danger);
+}
+
+/* Main content */
+.app-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.welcome-screen {
+  margin: auto;
+  text-align: center;
+}
+
+.empty-state {
+  margin: auto;
+  text-align: center;
+  color: var(--text-dim);
+  padding: 40px;
+}
+
+/* Card browser */
+.card-browser {
+  flex: 1.4;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+
+.card-browser-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.search-input {
+  flex: 1;
+}
+
+.card-browser-count {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  overflow-y: auto;
+  padding-bottom: 20px;
+}
+
+.card-tile {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-tile.in-deck {
+  border-color: var(--accent);
+}
+
+.card-tile-image {
+  position: relative;
+  aspect-ratio: 5 / 7;
+  background: var(--bg);
+}
+
+.card-tile-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.card-tile-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 11px;
+  padding: 8px;
+  color: var(--text-dim);
+}
+
+.card-tile-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--accent);
+  color: #10131f;
+  font-weight: 700;
+  font-size: 12px;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-tile-info {
+  padding: 6px 8px 4px;
+}
+
+.card-tile-name {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-tile-meta {
+  font-size: 11px;
+}
+
+.card-tile-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 8px 8px;
+}
+
+.stepper-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.stepper-value {
+  min-width: 16px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Deck panel */
+.deck-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.deck-panel-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.deck-name-input {
+  flex: 1;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.format-description {
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.legality-panel {
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+.legality-panel.legal .legality-summary {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.legality-panel.illegal .legality-summary {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.legality-issues {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.legality-issues li.error {
+  color: var(--danger);
+}
+
+.legality-issues li.warning {
+  color: var(--warning);
+}
+
+.deck-zones {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.deck-zone-header {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: var(--text-dim);
+}
+
+.deck-zone-empty {
+  font-size: 12px;
+}
+
+.deck-zone-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deck-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+
+.deck-entry-thumb {
+  width: 28px;
+  height: 39px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.deck-entry-name {
+  flex: 1;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rune-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rune-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elevated);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: #00000099;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 16px;
+  width: 560px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+}
+
+.export-textarea {
+  flex: 1;
+  min-height: 320px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.export-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.paste-result {
+  display: flex;
+  gap: 8px;
+}
+
+.paste-result input {
+  flex: 1;
+}
