@@ -29,10 +29,9 @@ export function CardBrowser() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [detailCard, setDetailCard] = useState<Card | null>(null)
 
+  // Only the free-text search is deferred (it fires on every keystroke against a large list);
+  // category/set/color are discrete button/dropdown picks and should apply immediately.
   const deferredQuery = useDeferredValue(query)
-  const deferredCategory = useDeferredValue(category)
-  const deferredSetId = useDeferredValue(setId)
-  const deferredColors = useDeferredValue(colors)
 
   const deck = decks.find((d) => d.id === currentDeckId)
   const adapter = getAdapter(currentGameId)
@@ -86,22 +85,22 @@ export function CardBrowser() {
       if (format && !isCardLegalInFormat(c, format).legal) return false
       if (stage?.filter && !stage.filter(c)) return false
       if (!stage?.filter) {
-        if (deferredCategory !== 'all') {
-          if (c.category !== deferredCategory) return false
+        if (category !== 'all') {
+          if (c.category !== category) return false
         } else if (adapter.mainDeckExcludedCategories?.includes(c.category)) {
           return false
         }
       }
-      if (deferredSetId !== 'all' && c.setId !== deferredSetId) return false
-      if (deferredColors.size > 0 && !c.colors.some((col) => deferredColors.has(col))) return false
+      if (setId !== 'all' && c.setId !== setId) return false
+      if (colors.size > 0 && !c.colors.some((col) => colors.has(col))) return false
       if (q && !c.name.toLowerCase().includes(q) && !c.text?.toLowerCase().includes(q)) return false
       return true
     })
-  }, [catalog, deferredQuery, deferredCategory, deferredSetId, deferredColors, stage, adapter, format])
+  }, [catalog, deferredQuery, category, setId, colors, stage, adapter, format])
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
-  }, [deferredQuery, deferredCategory, deferredSetId, deferredColors, currentGameId, stage?.label])
+  }, [deferredQuery, category, setId, colors, currentGameId, stage?.label])
 
   function toggleColor(color: string) {
     setColors((prev) => {
