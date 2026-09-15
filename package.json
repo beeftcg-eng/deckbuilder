@@ -39,7 +39,8 @@
     "productName": "Deckbuilder",
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "build/icon.png"
     ],
     "directories": {
       "output": "release"
@@ -49,7 +50,7 @@
         "AppImage"
       ],
       "category": "Game",
-      "desktopName": "deckbuilder.desktop"
+      "icon": "build/icon.png"
     },
     "mac": {
       "target": [

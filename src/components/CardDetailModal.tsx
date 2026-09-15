@@ -1,0 +1,41 @@
+import type { Card } from '../shared/types'
+
+export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => void }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal card-detail-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="card-detail-image">
+          {card.imageUrl ? (
+            <img
+              src={card.imageUrl}
+              alt={card.name}
+              width={card.orientation === 'landscape' ? 700 : 500}
+              height={card.orientation === 'landscape' ? 500 : 700}
+            />
+          ) : (
+            <div className="card-tile-placeholder">{card.name}</div>
+          )}
+        </div>
+        <div className="card-detail-info">
+          <div className="modal-header">
+            <span>{card.name}</span>
+            <button className="btn" onClick={onClose}>
+              Close
+            </button>
+          </div>
+          <div className="text-dim">
+            {card.setName} · {card.setCode} {card.number}
+            {card.rarity ? ` · ${card.rarity}` : ''}
+          </div>
+          <div className="text-dim">
+            {card.category}
+            {card.subtypes.length ? ` — ${card.subtypes.join(', ')}` : ''}
+          </div>
+          {card.colors.length > 0 && <div className="text-dim">Colors: {card.colors.join(', ')}</div>}
+          {card.cost != null && <div className="text-dim">Cost: {card.cost}</div>}
+          {card.text && <p className="card-detail-text">{card.text}</p>}
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -50,6 +50,7 @@ function normalizeCard(raw: PokemonApiCard): Card {
     name: raw.name,
     imageUrl: raw.images?.large ?? null,
     imageUrlSmall: raw.images?.small ?? null,
+    orientation: 'portrait',
     setId: raw.set.id,
     setName: raw.set.name,
     setCode: raw.set.ptcgoCode ?? raw.set.id.toUpperCase(),

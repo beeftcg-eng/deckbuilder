@@ -6,16 +6,28 @@ interface Props {
   maxQuantity: number
   disabled?: boolean
   onChange: (quantity: number) => void
+  onOpenDetail: () => void
 }
 
-export function CardTile({ card, quantity, maxQuantity, disabled, onChange }: Props) {
+export function CardTile({ card, quantity, maxQuantity, disabled, onChange, onOpenDetail }: Props) {
   return (
     <div className={`card-tile ${quantity > 0 ? 'in-deck' : ''}`}>
-      <div className="card-tile-image">
+      <div className="card-tile-image" onClick={onOpenDetail} role="button" tabIndex={0}>
         {card.imageUrl ? (
-          <img src={card.imageUrl} alt={card.name} loading="lazy" />
+          <img
+            src={card.imageUrl}
+            alt={card.name}
+            loading="lazy"
+            width={card.orientation === 'landscape' ? 700 : 500}
+            height={card.orientation === 'landscape' ? 500 : 700}
+          />
         ) : (
-          <div className="card-tile-placeholder">{card.name}</div>
+          <div
+            className="card-tile-placeholder"
+            style={{ aspectRatio: card.orientation === 'landscape' ? '7 / 5' : '5 / 7' }}
+          >
+            {card.name}
+          </div>
         )}
         {quantity > 0 && <div className="card-tile-badge">{quantity}</div>}
       </div>

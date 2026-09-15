@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Card, Deck, Format } from '../shared/types'
 import { getAdapter } from '../shared/games/registry'
 import { buildExportText } from '../shared/export'
+import { renderDeckImage } from '../lib/deckImage'
 
 interface Props {
   deck: Deck
@@ -17,6 +18,9 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
   const [pasteError, setPasteError] = useState<string | null>(null)
   const [pasting, setPasting] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
+  const [imageError, setImageError] = useState<string | null>(null)
+  const [generatingImage, setGeneratingImage] = useState(false)
 
   async function handleCopy() {
     window.api.clipboard.writeText(text)
@@ -41,6 +45,24 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
     await window.api.exportSaveFile(text, `${deck.name.replace(/[^a-z0-9-_ ]/gi, '_')}.txt`)
   }
 
+  async function handleGenerateImage() {
+    setGeneratingImage(true)
+    setImageError(null)
+    try {
+      const dataUrl = await renderDeckImage(deck, adapter, cardsById)
+      setImageDataUrl(dataUrl)
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setGeneratingImage(false)
+    }
+  }
+
+  async function handleSaveImage() {
+    if (!imageDataUrl) return
+    await window.api.exportSavePng(imageDataUrl, `${deck.name.replace(/[^a-z0-9-_ ]/gi, '_')}.png`)
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal export-modal" onClick={(e) => e.stopPropagation()}>
@@ -61,6 +83,9 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
           <button className="btn btn-primary" onClick={handlePaste} disabled={pasting}>
             {pasting ? 'Uploading…' : 'Get shareable paste link'}
           </button>
+          <button className="btn" onClick={handleGenerateImage} disabled={generatingImage}>
+            {generatingImage ? 'Rendering image…' : 'Export as image'}
+          </button>
         </div>
         {pasteUrl && (
           <div className="paste-result">
@@ -74,6 +99,15 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
           </div>
         )}
         {pasteError && <div className="sync-error">Upload failed: {pasteError}</div>}
+        {imageError && <div className="sync-error">Image render failed: {imageError}</div>}
+        {imageDataUrl && (
+          <div className="image-preview">
+            <img src={imageDataUrl} alt={`${deck.name} deck image`} />
+            <button className="btn btn-primary" onClick={handleSaveImage}>
+              Save image as .png
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

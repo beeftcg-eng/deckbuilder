@@ -5,11 +5,13 @@ import { registerCardDataIpc } from './ipc/cardData'
 import { registerDecksIpc } from './ipc/decks'
 import { registerFormatsIpc } from './ipc/formats'
 import { registerExportIpc } from './ipc/exportPaste'
+import { registerImagesIpc } from './ipc/images'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-process.env.APP_ROOT = join(__dirname, '..')
-const RENDERER_DIST = join(process.env.APP_ROOT, 'dist')
+const APP_ROOT = join(__dirname, '..')
+process.env.APP_ROOT = APP_ROOT
+const RENDERER_DIST = join(APP_ROOT, 'dist')
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null = null
@@ -21,6 +23,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 700,
     backgroundColor: '#14151a',
+    icon: join(APP_ROOT, 'build/icon.png'),
     webPreferences: {
       preload: join(__dirname, 'preload.mjs'),
       contextIsolation: true,
@@ -40,6 +43,7 @@ registerCardDataIpc()
 registerDecksIpc()
 registerFormatsIpc()
 registerExportIpc()
+registerImagesIpc()
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

@@ -151,5 +151,12 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
     }
   }
 
+  if (adapter.id === 'riftbound') {
+    const hasChampion = (deck.zones.main ?? []).some((e) => cardsById.get(e.cardId)?.subtypes.includes('Champion'))
+    if (!hasChampion) {
+      issues.push({ severity: 'error', message: 'Main Deck must include exactly 1 chosen Champion.' })
+    }
+  }
+
   return { legal: issues.filter((i) => i.severity === 'error').length === 0, issues }
 }

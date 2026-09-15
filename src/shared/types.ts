@@ -10,6 +10,8 @@ export interface Card {
   name: string
   imageUrl: string | null
   imageUrlSmall: string | null
+  /** Real aspect orientation of the card image — most cards are portrait, but some (e.g. Riftbound Battlefields) are landscape. */
+  orientation: 'portrait' | 'landscape'
   setId: string
   setName: string
   /** Short human-facing set code used in decklist exports (e.g. "SVI", "OP-01", "UNL"). */

@@ -1,5 +1,5 @@
 import type { Card, DeckRules, Deck, Format } from '../types'
-import type { GameAdapter, FetchProgress } from './types'
+import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
 
 const API_BASE = 'https://api.riftcodex.com/cards'
@@ -17,6 +17,7 @@ interface RiftboundApiCard {
   set: { set_id: string; label: string }
   media: { image_url: string | null }
   attributes: { energy: number | null }
+  orientation: 'portrait' | 'landscape'
 }
 
 interface RiftboundApiResponse {
@@ -35,6 +36,7 @@ function normalizeCard(raw: RiftboundApiCard): Card {
     name: raw.name,
     imageUrl: raw.media.image_url,
     imageUrlSmall: raw.media.image_url,
+    orientation: raw.orientation === 'landscape' ? 'landscape' : 'portrait',
     setId: raw.set.set_id,
     setName: raw.set.label,
     setCode: raw.set.set_id.toUpperCase(),
@@ -96,7 +98,7 @@ const deckRules: DeckRules = {
       id: 'sideboard',
       label: 'Sideboard',
       match: (card) => card.category !== 'Legend' && card.category !== 'Battlefield',
-      allowedCounts: [0, 8],
+      allowedCounts: [0, 10],
     },
     {
       id: 'runes',
@@ -156,7 +158,7 @@ function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
   if (sideboard.length > 0) {
     lines.push('')
     const sideTotal = sideboard.reduce((sum, e) => sum + e.quantity, 0)
-    lines.push(`Sideboard (${sideTotal}/8):`)
+    lines.push(`Sideboard (${sideTotal}/10):`)
     for (const entry of sideboard) {
       const card = cardsById.get(entry.cardId)
       if (!card) continue
@@ -167,6 +169,24 @@ function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
   return lines.join('\n')
 }
 
+function getGuidedStage(deck: Deck, cardsById: Map<string, Card>): GuidedStage | null {
+  const hasLegend = (deck.zones.legend ?? []).length > 0
+  if (!hasLegend) {
+    return { label: 'Pick your Legend', filter: (card) => card.category === 'Legend', targetZoneId: 'legend' }
+  }
+
+  const mainEntries = deck.zones.main ?? []
+  const hasChampion = mainEntries.some((e) => cardsById.get(e.cardId)?.subtypes.includes('Champion'))
+  if (!hasChampion) {
+    return { label: 'Pick your Champion', filter: (card) => card.subtypes.includes('Champion'), targetZoneId: 'main' }
+  }
+
+  const mainTotal = mainEntries.reduce((sum, e) => sum + e.quantity, 0)
+  if (mainTotal < 40) return null // back to normal main-deck browsing
+
+  return { label: 'Fill your Sideboard', targetZoneId: 'sideboard' }
+}
+
 export const riftboundAdapter: GameAdapter = {
   id: 'riftbound',
   name: 'Riftbound: League of Legends TCG',
@@ -175,4 +195,6 @@ export const riftboundAdapter: GameAdapter = {
   defaultFormats,
   fetchAllCards,
   formatDecklistText,
+  getGuidedStage,
+  mainDeckExcludedCategories: ['Legend', 'Rune'],
 }

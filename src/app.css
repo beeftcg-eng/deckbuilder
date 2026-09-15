@@ -190,20 +190,68 @@
 }
 
 .card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 18px;
   overflow-y: auto;
-  padding-bottom: 20px;
+  padding-bottom: 12px;
+}
+
+.load-more-btn {
+  margin: 14px auto 4px;
+  display: block;
+  padding: 10px 20px;
+}
+
+.stage-banner {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.color-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.color-chip {
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.color-chip:hover {
+  color: var(--text);
+}
+
+.color-chip.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.color-chip.clear {
+  border-style: dashed;
 }
 
 .card-tile {
+  flex: 0 0 230px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
 .card-tile.in-deck {
@@ -212,20 +260,19 @@
 
 .card-tile-image {
   position: relative;
-  aspect-ratio: 5 / 7;
   background: var(--bg);
+  cursor: zoom-in;
+  line-height: 0;
 }
 
 .card-tile-image img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
   display: block;
 }
 
 .card-tile-placeholder {
   width: 100%;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -256,7 +303,7 @@
 }
 
 .card-tile-name {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -264,7 +311,7 @@
 }
 
 .card-tile-meta {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .card-tile-controls {
@@ -474,4 +521,57 @@
 
 .paste-result input {
   flex: 1;
+}
+
+.image-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+
+.image-preview img {
+  width: 100%;
+  border-radius: 4px;
+  display: block;
+}
+
+.card-detail-modal {
+  flex-direction: row;
+  align-items: flex-start;
+  width: 720px;
+  max-width: 92vw;
+}
+
+.card-detail-image {
+  width: 260px;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.card-detail-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.card-detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.card-detail-text {
+  white-space: pre-line;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 8px 0 0;
 }

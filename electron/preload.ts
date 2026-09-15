@@ -26,6 +26,11 @@ const api = {
   exportPaste: (content: string): Promise<string> => ipcRenderer.invoke('export:paste', content),
   exportSaveFile: (content: string, suggestedName: string): Promise<boolean> =>
     ipcRenderer.invoke('export:saveFile', content, suggestedName),
+  exportSavePng: (dataUrl: string, suggestedName: string): Promise<boolean> =>
+    ipcRenderer.invoke('export:savePng', dataUrl, suggestedName),
+  images: {
+    fetchDataUri: (url: string): Promise<string> => ipcRenderer.invoke('images:fetchDataUri', url),
+  },
   system: {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:openExternal', url),
     showFile: (path: string): Promise<void> => ipcRenderer.invoke('system:showFile', path),

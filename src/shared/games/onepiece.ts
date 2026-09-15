@@ -1,5 +1,5 @@
 import type { Card, DeckRules, Deck, Format } from '../types'
-import type { GameAdapter, FetchProgress } from './types'
+import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
 
 const API_BASE = 'https://www.optcgapi.com/api'
@@ -46,6 +46,7 @@ function normalizeCard(raw: OnePieceApiCard): Card {
     name: raw.card_name,
     imageUrl: raw.card_image,
     imageUrlSmall: raw.card_image,
+    orientation: 'portrait',
     setId: raw.set_id,
     setName: raw.set_name,
     setCode: raw.set_id,
@@ -141,6 +142,14 @@ function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
   return lines.join('\n')
 }
 
+function getGuidedStage(deck: Deck): GuidedStage | null {
+  const hasLeader = (deck.zones.leader ?? []).length > 0
+  if (!hasLeader) {
+    return { label: 'Pick your Leader', filter: (card) => card.category === 'Leader', targetZoneId: 'leader' }
+  }
+  return null
+}
+
 export const onepieceAdapter: GameAdapter = {
   id: 'onepiece',
   name: 'One Piece Card Game',
@@ -149,4 +158,6 @@ export const onepieceAdapter: GameAdapter = {
   defaultFormats,
   fetchAllCards,
   formatDecklistText,
+  getGuidedStage,
+  mainDeckExcludedCategories: ['Leader', 'DON!!'],
 }
