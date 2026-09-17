@@ -10,8 +10,9 @@ import type { ResolvedWishlistEntry } from '../shared/export'
 // make lower-res sources blurrier, not sharper.
 const TARGET_WIDTH = 600
 const GAP = 24
-const CANVAS_WIDTH = 1920
 const PADDING = 40
+const PER_ROW = 4
+const CANVAS_WIDTH = PER_ROW * TARGET_WIDTH + (PER_ROW - 1) * GAP + 2 * PADDING
 const MAX_HEIGHT = 60000
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
