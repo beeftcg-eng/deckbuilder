@@ -67,7 +67,7 @@ Inside: `decks.json` and `wishlist.json` (your real data — what **Backup…**/
 
 All three are free community APIs with no login required. Click "Sync card data" in the sidebar for each game the first time you use it — Pokémon has ~20k cards and can take a couple of minutes; the others are quick.
 
-**Known gap:** optcgapi.com doesn't carry One Piece's starter deck sets (`ST-01`, `ST-02`, etc. all 404 on its API) — confirmed by querying it directly, not something this app filters out. Their starter-exclusive cards (leaders/characters that never got reprinted in a numbered `OP-`/`EB-` set) won't show up in the browser until that API adds them.
+One Piece's starter/structure decks (`ST-01`, `ST-02`, ...) live under a separate endpoint (`/api/allSTCards/`) from numbered `OP-`/`EB-`/`PRB-` sets, fetched alongside them on sync. Promo cards and DON!! cards have their own endpoints too (`/api/allPromoCards/`, `/api/allDonCards/`) but aren't pulled in yet.
 
 ## Format / ban list data
 
