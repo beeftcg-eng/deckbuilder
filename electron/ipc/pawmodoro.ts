@@ -92,6 +92,7 @@ export function registerPawmodoroIpc(): void {
           const task = (await request(config.url, config.anonKey, '/rest/v1/rpc/add_task', {
             p_text: item.text,
             p_recurrence: 'once',
+            p_source: 'wishlist',
           }, accessToken)) as { id: string }
           pushed.push({ entryId: item.entryId, taskId: task.id })
         } catch (err) {
