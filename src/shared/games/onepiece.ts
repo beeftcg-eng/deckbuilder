@@ -121,6 +121,12 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
 
 const deckRules: DeckRules = {
   defaultMaxCopiesPerCard: 4,
+  // Official rule: the 4-copy limit is per card number, not name — e.g.
+  // Monkey.D.Luffy (ST01-001) and Monkey.D.Luffy (OP01-003) are legally
+  // separate cards for deckbuilding despite sharing a name, so a reprint
+  // with its own card number (like ST34-003 vs OP08-066 Charlotte Brulee)
+  // gets its own independent 4 copies rather than sharing a pool.
+  copyLimitBy: 'sourceId',
   colorLocked: true,
   identityZoneId: 'leader',
   zones: [

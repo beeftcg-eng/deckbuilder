@@ -52,8 +52,18 @@ export interface DeckZoneRule {
 
 export interface DeckRules {
   zones: DeckZoneRule[]
-  /** Default max copies of a single card (by name) across the whole deck, unless a zone overrides it. */
+  /** Default max copies of a single card across the whole deck, unless a zone overrides it. Pooled by name or by sourceId — see copyLimitBy. */
   defaultMaxCopiesPerCard: number
+  /**
+   * What counts as "the same card" for the copy limit: different printings/art
+   * of a card share one pool under 'name' (e.g. Pokémon, Riftbound — official
+   * rules cap by card name regardless of set), or each get their own
+   * independent limit under 'sourceId' (e.g. One Piece, where a reprint with
+   * a different card number, such as ST34-003 vs OP08-066, is legally a
+   * separate card for deckbuilding purposes despite sharing a name).
+   * Defaults to 'name'.
+   */
+  copyLimitBy?: 'name' | 'sourceId'
   /** If true, all non-basic cards must share a color/domain with the deck's designated identity card. */
   colorLocked: boolean
   identityZoneId?: string

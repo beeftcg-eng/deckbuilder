@@ -44,7 +44,10 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
   const rules = adapter.deckRules
 
   // Combined copy-limit pool: zones that don't override maxCopiesPerCard share the deck-wide limit.
+  // Pooled by name or by sourceId depending on the game's actual rules — see DeckRules.copyLimitBy.
+  const poolKeyFor = (card: Card) => (rules.copyLimitBy === 'sourceId' ? card.sourceId : card.name)
   const pooledCounts = new Map<string, number>()
+  const pooledDisplayNames = new Map<string, string>()
 
   for (const zone of rules.zones) {
     if (zone.freeText) {
@@ -87,7 +90,9 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
           issues.push({ severity: 'error', message: `${card.name}: only ${zoneMaxCopies} allowed in ${zone.label}.` })
         }
       } else {
-        pooledCounts.set(card.name, (pooledCounts.get(card.name) ?? 0) + entry.quantity)
+        const poolKey = poolKeyFor(card)
+        pooledCounts.set(poolKey, (pooledCounts.get(poolKey) ?? 0) + entry.quantity)
+        pooledDisplayNames.set(poolKey, card.name)
       }
 
       const legality = isCardLegalInFormat(card, format)
@@ -100,13 +105,14 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
     }
   }
 
-  for (const [name, count] of pooledCounts) {
+  for (const [key, count] of pooledCounts) {
     if (count > rules.defaultMaxCopiesPerCard) {
-      const anyCard = [...cardsById.values()].find((c) => c.name === name && c.gameId === adapter.id)
+      const anyCard = [...cardsById.values()].find((c) => c.gameId === adapter.id && poolKeyFor(c) === key)
       if (anyCard && BASIC_ENERGY_UNLIMITED(anyCard)) continue
+      const displayName = pooledDisplayNames.get(key) ?? key
       issues.push({
         severity: 'error',
-        message: `${name}: ${count} copies exceeds the ${rules.defaultMaxCopiesPerCard}-copy limit.`,
+        message: `${displayName}: ${count} copies exceeds the ${rules.defaultMaxCopiesPerCard}-copy limit.`,
       })
     }
   }
