@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore, GAME_LIST } from '../state/useAppStore'
 
 function formatRelativeTime(iso: string | null): string {
@@ -28,6 +28,9 @@ export function Sidebar() {
   const showWishlist = useAppStore((s) => s.showWishlist)
   const setShowWishlist = useAppStore((s) => s.setShowWishlist)
   const wishlist = useAppStore((s) => s.wishlist)
+  const exportBackup = useAppStore((s) => s.exportBackup)
+  const importBackup = useAppStore((s) => s.importBackup)
+  const [backupStatus, setBackupStatus] = useState<string | null>(null)
 
   const meta = syncMeta[currentGameId]
   const progress = syncProgress[currentGameId]
@@ -42,6 +45,22 @@ export function Sidebar() {
   }, [progress?.done])
 
   const gameDecks = decks.filter((d) => d.gameId === currentGameId)
+
+  async function handleBackupExport() {
+    setBackupStatus(null)
+    const saved = await exportBackup()
+    setBackupStatus(saved ? 'Saved.' : null)
+    if (saved) setTimeout(() => setBackupStatus(null), 2500)
+  }
+
+  async function handleBackupImport() {
+    if (!confirm('This replaces every deck and wishlist entry on this machine with what\'s in the backup file. Continue?')) return
+    setBackupStatus(null)
+    const result = await importBackup()
+    setBackupStatus(
+      result.imported ? `Restored ${result.deckCount} deck(s), ${result.wishlistCount} wishlist card(s).` : null,
+    )
+  }
 
   return (
     <aside className="sidebar">
@@ -105,6 +124,19 @@ export function Sidebar() {
             </button>
           </div>
         ))}
+      </div>
+
+      <div className="backup-box">
+        <div className="backup-box-title">Backup decks &amp; wishlist</div>
+        <div className="backup-actions">
+          <button className="btn" onClick={handleBackupExport}>
+            Backup…
+          </button>
+          <button className="btn" onClick={handleBackupImport}>
+            Restore…
+          </button>
+        </div>
+        {backupStatus && <div className="text-dim">{backupStatus}</div>}
       </div>
     </aside>
   )

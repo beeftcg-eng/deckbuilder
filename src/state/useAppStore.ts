@@ -70,6 +70,9 @@ interface AppState {
   connectPawmodoro: (url: string, anonKey: string, email: string, password: string) => Promise<void>
   disconnectPawmodoro: () => Promise<void>
   pushWishlistToPawmodoro: (items: { entryId: string; text: string }[]) => Promise<{ pushedCount: number; failedCount: number }>
+
+  exportBackup: () => Promise<boolean>
+  importBackup: () => Promise<{ imported: boolean; deckCount: number; wishlistCount: number }>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -227,6 +230,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     } finally {
       set({ pushingWishlist: false })
     }
+  },
+
+  exportBackup: () => window.api.backup.export(),
+
+  importBackup: async () => {
+    const result = await window.api.backup.import()
+    if (result.imported) {
+      await get().loadDecks()
+      await get().loadWishlist()
+    }
+    return result
   },
 }))
 

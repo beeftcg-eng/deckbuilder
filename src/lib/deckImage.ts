@@ -1,10 +1,13 @@
 import type { Card, Deck, DeckCardEntry, DeckFreeTextEntry } from '../shared/types'
 import type { GameAdapter } from '../shared/games/types'
 
-const THUMB_WIDTH = 100
-const GAP = 8
-const CANVAS_WIDTH = 1000
-const PADDING = 28
+// Wide enough that a card's rules text is actually legible in the
+// exported image, not just its name/art — matches roughly what you'd
+// see zoomed into a phone screen, at 4 cards per row.
+const THUMB_WIDTH = 320
+const GAP = 16
+const CANVAS_WIDTH = 1400
+const PADDING = 32
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
   const dataUri = await window.api.images.fetchDataUri(url)
@@ -51,20 +54,20 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
 
   function drawHeader() {
     ctx.fillStyle = '#e8e9ee'
-    ctx.font = '700 26px sans-serif'
-    ctx.fillText(deck.name, PADDING, y + 26)
-    y += 34
+    ctx.font = '700 34px sans-serif'
+    ctx.fillText(deck.name, PADDING, y + 34)
+    y += 44
     ctx.fillStyle = '#9a9db3'
-    ctx.font = '400 13px sans-serif'
-    ctx.fillText(adapter.name, PADDING, y + 14)
-    y += 32
+    ctx.font = '400 16px sans-serif'
+    ctx.fillText(adapter.name, PADDING, y + 16)
+    y += 36
   }
 
   function drawSectionLabel(label: string) {
     ctx.fillStyle = '#9a9db3'
-    ctx.font = '600 14px sans-serif'
-    ctx.fillText(label.toUpperCase(), PADDING, y + 12)
-    y += 22
+    ctx.font = '600 18px sans-serif'
+    ctx.fillText(label.toUpperCase(), PADDING, y + 14)
+    y += 28
   }
 
   function drawThumbRow(entries: ThumbEntry[]) {
@@ -87,12 +90,12 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
       if (quantity > 1) {
         ctx.fillStyle = '#7c9eff'
         ctx.beginPath()
-        ctx.arc(x + THUMB_WIDTH - 12, y + 12, 11, 0, Math.PI * 2)
+        ctx.arc(x + THUMB_WIDTH - 22, y + 22, 20, 0, Math.PI * 2)
         ctx.fill()
         ctx.fillStyle = '#10131f'
-        ctx.font = '700 12px sans-serif'
+        ctx.font = '700 20px sans-serif'
         ctx.textAlign = 'center'
-        ctx.fillText(String(quantity), x + THUMB_WIDTH - 12, y + 16)
+        ctx.fillText(String(quantity), x + THUMB_WIDTH - 22, y + 29)
         ctx.textAlign = 'left'
       }
 
@@ -127,7 +130,7 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
   // First pass: measure total height by simulating layout on a throwaway context of the same width.
   // Simpler: draw twice — once to measure (into a temp canvas), once for real — but since our draw
   // functions are deterministic given the same inputs, we instead just render generously tall then crop.
-  const MAX_HEIGHT = 4000
+  const MAX_HEIGHT = 30000
   canvas.height = MAX_HEIGHT
 
   drawHeader()

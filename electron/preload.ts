@@ -45,6 +45,11 @@ const api = {
     ): Promise<{ pushed: { entryId: string; taskId: string }[]; failed: { entryId: string; message: string }[] }> =>
       ipcRenderer.invoke('pawmodoro:pushWishlist', items),
   },
+  backup: {
+    export: (): Promise<boolean> => ipcRenderer.invoke('backup:export'),
+    import: (): Promise<{ imported: boolean; deckCount: number; wishlistCount: number }> =>
+      ipcRenderer.invoke('backup:import'),
+  },
   exportPaste: (content: string): Promise<string> => ipcRenderer.invoke('export:paste', content),
   exportSaveFile: (content: string, suggestedName: string): Promise<boolean> =>
     ipcRenderer.invoke('export:saveFile', content, suggestedName),

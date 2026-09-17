@@ -2,11 +2,14 @@ import type { GameId } from '../shared/types'
 import { getAdapter } from '../shared/games/registry'
 import type { ResolvedWishlistEntry } from '../shared/export'
 
-const THUMB_WIDTH = 100
-const GAP = 8
-const CANVAS_WIDTH = 1000
-const PADDING = 28
-const MAX_HEIGHT = 8000
+// Wide enough that a card's rules text is actually legible in the
+// exported image, not just its name/art — matches roughly what you'd
+// see zoomed into a phone screen, at 4 cards per row.
+const THUMB_WIDTH = 320
+const GAP = 16
+const CANVAS_WIDTH = 1400
+const PADDING = 32
+const MAX_HEIGHT = 30000
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
   const dataUri = await window.api.images.fetchDataUri(url)
@@ -46,21 +49,21 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
   let y = PADDING
 
   ctx.fillStyle = '#e8e9ee'
-  ctx.font = '700 26px sans-serif'
-  ctx.fillText('Card Wishlist', PADDING, y + 26)
-  y += 34
+  ctx.font = '700 34px sans-serif'
+  ctx.fillText('Card Wishlist', PADDING, y + 34)
+  y += 44
 
   const total = entries.reduce((sum, e) => sum + e.quantity, 0)
   ctx.fillStyle = '#9a9db3'
-  ctx.font = '400 13px sans-serif'
-  ctx.fillText(`${total} card${total === 1 ? '' : 's'} wanted`, PADDING, y + 14)
-  y += 32
+  ctx.font = '400 16px sans-serif'
+  ctx.fillText(`${total} card${total === 1 ? '' : 's'} wanted`, PADDING, y + 16)
+  y += 36
 
   for (const [gameId, list] of byGame) {
     ctx.fillStyle = '#9a9db3'
-    ctx.font = '600 14px sans-serif'
-    ctx.fillText(getAdapter(gameId).shortName.toUpperCase(), PADDING, y + 12)
-    y += 22
+    ctx.font = '600 18px sans-serif'
+    ctx.fillText(getAdapter(gameId).shortName.toUpperCase(), PADDING, y + 14)
+    y += 28
 
     let x = PADDING
     let rowHeight = 0
@@ -81,12 +84,12 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
       if (quantity > 1) {
         ctx.fillStyle = '#7c9eff'
         ctx.beginPath()
-        ctx.arc(x + THUMB_WIDTH - 12, y + 12, 11, 0, Math.PI * 2)
+        ctx.arc(x + THUMB_WIDTH - 22, y + 22, 20, 0, Math.PI * 2)
         ctx.fill()
         ctx.fillStyle = '#10131f'
-        ctx.font = '700 12px sans-serif'
+        ctx.font = '700 20px sans-serif'
         ctx.textAlign = 'center'
-        ctx.fillText(String(quantity), x + THUMB_WIDTH - 12, y + 16)
+        ctx.fillText(String(quantity), x + THUMB_WIDTH - 22, y + 29)
         ctx.textAlign = 'left'
       }
 

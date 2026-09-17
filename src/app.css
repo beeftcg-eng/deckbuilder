@@ -63,6 +63,31 @@
   gap: 8px;
 }
 
+.backup-box {
+  background: var(--bg-elevated-2);
+  border-radius: var(--radius);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.backup-box-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.backup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.backup-actions .btn {
+  flex: 1;
+}
+
 .sync-status {
   display: flex;
   justify-content: space-between;

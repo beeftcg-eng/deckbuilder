@@ -8,6 +8,7 @@ import { registerExportIpc } from './ipc/exportPaste'
 import { registerImagesIpc } from './ipc/images'
 import { registerWishlistIpc } from './ipc/wishlist'
 import { registerPawmodoroIpc } from './ipc/pawmodoro'
+import { registerBackupIpc } from './ipc/backup'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -48,6 +49,7 @@ registerExportIpc()
 registerImagesIpc()
 registerWishlistIpc()
 registerPawmodoroIpc()
+registerBackupIpc()
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
