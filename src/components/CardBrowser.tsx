@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore, useCardsById } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { isCardLegalInFormat } from '../shared/legality'
@@ -28,10 +28,6 @@ export function CardBrowser() {
   const [colors, setColors] = useState<Set<string>>(new Set())
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [detailCard, setDetailCard] = useState<Card | null>(null)
-
-  // Only the free-text search is deferred (it fires on every keystroke against a large list);
-  // category/set/color are discrete button/dropdown picks and should apply immediately.
-  const deferredQuery = useDeferredValue(query)
 
   const deck = decks.find((d) => d.id === currentDeckId)
   const adapter = getAdapter(currentGameId)
@@ -83,7 +79,7 @@ export function CardBrowser() {
 
   const results = useMemo(() => {
     if (!catalog) return []
-    const q = deferredQuery.trim().toLowerCase()
+    const q = query.trim().toLowerCase()
     return catalog.cards.filter((c) => {
       if (format && !isCardLegalInFormat(c, format).legal) return false
       if (stage?.filter && !stage.filter(c)) return false
@@ -105,11 +101,11 @@ export function CardBrowser() {
         return false
       return true
     })
-  }, [catalog, deferredQuery, category, setId, colors, stage, adapter, format])
+  }, [catalog, query, category, setId, colors, stage, adapter, format])
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
-  }, [deferredQuery, category, setId, colors, currentGameId, stage?.label])
+  }, [query, category, setId, colors, currentGameId, stage?.label])
 
   function toggleColor(color: string) {
     setColors((prev) => {

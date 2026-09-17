@@ -67,6 +67,8 @@ Inside: `decks.json` and `wishlist.json` (your real data — what **Backup…**/
 
 All three are free community APIs with no login required. Click "Sync card data" in the sidebar for each game the first time you use it — Pokémon has ~20k cards and can take a couple of minutes; the others are quick.
 
+**Known gap:** optcgapi.com doesn't carry One Piece's starter deck sets (`ST-01`, `ST-02`, etc. all 404 on its API) — confirmed by querying it directly, not something this app filters out. Their starter-exclusive cards (leaders/characters that never got reprinted in a numbered `OP-`/`EB-` set) won't show up in the browser until that API adds them.
+
 ## Format / ban list data
 
 One Piece and Riftbound don't have an API that exposes official legality, so their ban lists are shipped as a snapshot (see `src/shared/games/onepiece.ts` / `riftbound.ts`) and copied on first launch to an editable JSON file in your user data directory (typically `~/.config/deckbuilder/formats.json` on Linux — see "Where your data lives" above). Edit that file directly if Bandai/Riot update their ban list and you want the checker to reflect it — the app will pick up your edits on next launch. Pokémon legality always comes straight from the API and needs no maintenance.
