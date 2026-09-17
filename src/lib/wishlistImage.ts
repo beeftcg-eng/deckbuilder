@@ -2,14 +2,17 @@ import type { GameId } from '../shared/types'
 import { getAdapter } from '../shared/games/registry'
 import type { ResolvedWishlistEntry } from '../shared/export'
 
-// Wide enough that a card's rules text is actually legible in the
-// exported image, not just its name/art — matches roughly what you'd
-// see zoomed into a phone screen, at 4 cards per row.
-const THUMB_WIDTH = 320
-const GAP = 16
-const CANVAS_WIDTH = 1400
-const PADDING = 32
-const MAX_HEIGHT = 30000
+// Card art/text needs to hold up to zooming in on the exported image, not
+// just be "readable at a glance" — so this targets close to the card's
+// own native resolution (source images run roughly 600-1000px wide
+// across these games) rather than a small thumbnail. Never upscaled
+// past a card's actual resolution (see Math.min below) since that would
+// make lower-res sources blurrier, not sharper.
+const TARGET_WIDTH = 600
+const GAP = 24
+const CANVAS_WIDTH = 1920
+const PADDING = 40
+const MAX_HEIGHT = 60000
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
   const dataUri = await window.api.images.fetchDataUri(url)
@@ -46,6 +49,8 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
   canvas.width = CANVAS_WIDTH
   canvas.height = MAX_HEIGHT
   const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
   let y = PADDING
 
   ctx.fillStyle = '#e8e9ee'
@@ -72,29 +77,33 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
     for (const { card, quantity } of list) {
       const img = imageCache.get(card.id)
       if (!img) continue
-      const h = Math.round(THUMB_WIDTH * (img.naturalHeight / img.naturalWidth))
+      const w = Math.min(TARGET_WIDTH, img.naturalWidth)
+      const h = Math.round(w * (img.naturalHeight / img.naturalWidth))
 
-      if (x + THUMB_WIDTH > maxX) {
+      if (x + w > maxX) {
         x = PADDING
         y += rowHeight + GAP
         rowHeight = 0
       }
 
-      ctx.drawImage(img, x, y, THUMB_WIDTH, h)
+      ctx.drawImage(img, x, y, w, h)
       if (quantity > 1) {
+        const r = Math.round(w * 0.065)
         ctx.fillStyle = '#7c9eff'
         ctx.beginPath()
-        ctx.arc(x + THUMB_WIDTH - 22, y + 22, 20, 0, Math.PI * 2)
+        ctx.arc(x + w - r - 4, y + r + 4, r, 0, Math.PI * 2)
         ctx.fill()
         ctx.fillStyle = '#10131f'
-        ctx.font = '700 20px sans-serif'
+        ctx.font = `700 ${Math.round(r * 1.1)}px sans-serif`
         ctx.textAlign = 'center'
-        ctx.fillText(String(quantity), x + THUMB_WIDTH - 22, y + 29)
+        ctx.textBaseline = 'middle'
+        ctx.fillText(String(quantity), x + w - r - 4, y + r + 5)
         ctx.textAlign = 'left'
+        ctx.textBaseline = 'alphabetic'
       }
 
       rowHeight = Math.max(rowHeight, h)
-      x += THUMB_WIDTH + GAP
+      x += w + GAP
     }
 
     y += rowHeight + GAP + 14
