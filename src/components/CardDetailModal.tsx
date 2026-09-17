@@ -1,6 +1,10 @@
 import type { Card } from '../shared/types'
+import { useAppStore } from '../state/useAppStore'
 
 export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => void }) {
+  const addToWishlist = useAppStore((s) => s.addToWishlist)
+  const onWishlist = useAppStore((s) => s.wishlist.some((e) => e.cardId === card.id))
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal card-detail-modal" onClick={(e) => e.stopPropagation()}>
@@ -19,6 +23,9 @@ export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => 
         <div className="card-detail-info">
           <div className="modal-header">
             <span>{card.name}</span>
+            <button className="btn" onClick={() => addToWishlist(card, 1)}>
+              {onWishlist ? '★ On wishlist' : '☆ Add to wishlist'}
+            </button>
             <button className="btn" onClick={onClose}>
               Close
             </button>

@@ -3,6 +3,7 @@ import './app.css'
 import { Sidebar } from './components/Sidebar'
 import { CardBrowser } from './components/CardBrowser'
 import { DeckPanel } from './components/DeckPanel'
+import { WishlistPanel } from './components/WishlistPanel'
 import { useAppStore, GAME_LIST } from './state/useAppStore'
 import { useSyncProgressListener } from './state/syncProgress'
 
@@ -10,8 +11,10 @@ export default function App() {
   const loadMeta = useAppStore((s) => s.loadMeta)
   const loadCatalog = useAppStore((s) => s.loadCatalog)
   const loadDecks = useAppStore((s) => s.loadDecks)
+  const loadWishlist = useAppStore((s) => s.loadWishlist)
   const currentGameId = useAppStore((s) => s.currentGameId)
   const currentDeckId = useAppStore((s) => s.currentDeckId)
+  const showWishlist = useAppStore((s) => s.showWishlist)
   const catalogs = useAppStore((s) => s.catalogs)
   const syncMeta = useAppStore((s) => s.syncMeta)
 
@@ -19,6 +22,7 @@ export default function App() {
 
   useEffect(() => {
     loadDecks()
+    loadWishlist()
     for (const adapter of GAME_LIST) loadMeta(adapter.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -35,7 +39,9 @@ export default function App() {
     <div className="app-shell">
       <Sidebar />
       <main className="app-main">
-        {currentDeckId ? (
+        {showWishlist ? (
+          <WishlistPanel />
+        ) : currentDeckId ? (
           <>
             <CardBrowser />
             <DeckPanel />

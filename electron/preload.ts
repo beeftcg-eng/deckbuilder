@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, clipboard } from 'electron'
-import type { Card, CardCacheMeta, Deck, Format, GameId, SyncProgress } from '../src/shared/types'
+import type { Card, CardCacheMeta, Deck, Format, GameId, PawmodoroConfig, SyncProgress, WishlistEntry } from '../src/shared/types'
 
 const api = {
   cards: {
@@ -22,6 +22,26 @@ const api = {
   formats: {
     list: (gameId: GameId): Promise<Format[]> => ipcRenderer.invoke('formats:list', gameId),
     path: (): Promise<string> => ipcRenderer.invoke('formats:path'),
+  },
+  wishlist: {
+    list: (): Promise<WishlistEntry[]> => ipcRenderer.invoke('wishlist:list'),
+    add: (gameId: GameId, cardId: string, quantity: number): Promise<WishlistEntry[]> =>
+      ipcRenderer.invoke('wishlist:add', gameId, cardId, quantity),
+    setQuantity: (entryId: string, quantity: number): Promise<WishlistEntry[]> =>
+      ipcRenderer.invoke('wishlist:setQuantity', entryId, quantity),
+    remove: (entryId: string): Promise<WishlistEntry[]> => ipcRenderer.invoke('wishlist:remove', entryId),
+    markPushed: (results: { entryId: string; taskId: string }[]): Promise<WishlistEntry[]> =>
+      ipcRenderer.invoke('wishlist:markPushed', results),
+  },
+  pawmodoro: {
+    getConfig: (): Promise<PawmodoroConfig> => ipcRenderer.invoke('pawmodoro:getConfig'),
+    connect: (url: string, anonKey: string, email: string, password: string): Promise<PawmodoroConfig> =>
+      ipcRenderer.invoke('pawmodoro:connect', url, anonKey, email, password),
+    disconnect: (): Promise<PawmodoroConfig> => ipcRenderer.invoke('pawmodoro:disconnect'),
+    pushWishlist: (
+      items: { entryId: string; text: string }[],
+    ): Promise<{ pushed: { entryId: string; taskId: string }[]; failed: { entryId: string; message: string }[] }> =>
+      ipcRenderer.invoke('pawmodoro:pushWishlist', items),
   },
   exportPaste: (content: string): Promise<string> => ipcRenderer.invoke('export:paste', content),
   exportSaveFile: (content: string, suggestedName: string): Promise<boolean> =>

@@ -18,6 +18,14 @@ export function formatsFile(): string {
   return join(userDataDir(), 'formats.json')
 }
 
+export function wishlistFile(): string {
+  return join(userDataDir(), 'wishlist.json')
+}
+
+export function pawmodoroConfigFile(): string {
+  return join(userDataDir(), 'pawmodoro-sync.json')
+}
+
 export async function ensureDataDirs(): Promise<void> {
   await mkdir(cardsCacheDir(), { recursive: true })
 }

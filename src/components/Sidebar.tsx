@@ -25,6 +25,9 @@ export function Sidebar() {
   const deleteDeck = useAppStore((s) => s.deleteDeck)
   const loadMeta = useAppStore((s) => s.loadMeta)
   const loadCatalog = useAppStore((s) => s.loadCatalog)
+  const showWishlist = useAppStore((s) => s.showWishlist)
+  const setShowWishlist = useAppStore((s) => s.setShowWishlist)
+  const wishlist = useAppStore((s) => s.wishlist)
 
   const meta = syncMeta[currentGameId]
   const progress = syncProgress[currentGameId]
@@ -43,6 +46,10 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-title">Deckbuilder</div>
+
+      <button className={`wishlist-nav-btn ${showWishlist ? 'active' : ''}`} onClick={() => setShowWishlist(!showWishlist)}>
+        ★ Wishlist{wishlist.length > 0 ? ` (${wishlist.reduce((n, e) => n + e.quantity, 0)})` : ''}
+      </button>
 
       <nav className="game-tabs">
         {GAME_LIST.map((adapter) => (

@@ -1,4 +1,5 @@
 import type { Card } from '../shared/types'
+import { useAppStore } from '../state/useAppStore'
 
 interface Props {
   card: Card
@@ -10,6 +11,9 @@ interface Props {
 }
 
 export function CardTile({ card, quantity, maxQuantity, disabled, onChange, onOpenDetail }: Props) {
+  const addToWishlist = useAppStore((s) => s.addToWishlist)
+  const onWishlist = useAppStore((s) => s.wishlist.some((e) => e.cardId === card.id))
+
   return (
     <div className={`card-tile ${quantity > 0 ? 'in-deck' : ''}`}>
       <div className="card-tile-image" onClick={onOpenDetail} role="button" tabIndex={0}>
@@ -30,6 +34,16 @@ export function CardTile({ card, quantity, maxQuantity, disabled, onChange, onOp
           </div>
         )}
         {quantity > 0 && <div className="card-tile-badge">{quantity}</div>}
+        <button
+          className={`wishlist-toggle ${onWishlist ? 'active' : ''}`}
+          title={onWishlist ? 'On your wishlist' : 'Add to wishlist'}
+          onClick={(e) => {
+            e.stopPropagation()
+            addToWishlist(card, 1)
+          }}
+        >
+          {onWishlist ? '★' : '☆'}
+        </button>
       </div>
       <div className="card-tile-info">
         <div className="card-tile-name" title={card.name}>

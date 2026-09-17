@@ -1,5 +1,16 @@
 import { create } from 'zustand'
-import type { Card, CardCacheMeta, Deck, DeckCardEntry, DeckFreeTextEntry, Format, GameId, SyncProgress } from '../shared/types'
+import type {
+  Card,
+  CardCacheMeta,
+  Deck,
+  DeckCardEntry,
+  DeckFreeTextEntry,
+  Format,
+  GameId,
+  PawmodoroConfig,
+  SyncProgress,
+  WishlistEntry,
+} from '../shared/types'
 import { GAME_LIST, getAdapter } from '../shared/games/registry'
 
 interface Catalog {
@@ -29,6 +40,11 @@ interface AppState {
   formats: Partial<Record<GameId, Format[]>>
   decks: Deck[]
   currentDeckId: string | null
+  showWishlist: boolean
+
+  wishlist: WishlistEntry[]
+  pawmodoroConfig: PawmodoroConfig
+  pushingWishlist: boolean
 
   setGame: (gameId: GameId) => void
   loadMeta: (gameId: GameId) => Promise<void>
@@ -43,6 +59,16 @@ interface AppState {
   setCardQuantity: (zoneId: string, card: Card, quantity: number) => Promise<void>
   setFreeTextQuantity: (zoneId: string, label: string, quantity: number) => Promise<void>
   applySyncProgress: (progress: SyncProgress) => void
+
+  setShowWishlist: (show: boolean) => void
+  loadWishlist: () => Promise<void>
+  addToWishlist: (card: Card, quantity?: number) => Promise<void>
+  setWishlistQuantity: (entryId: string, quantity: number) => Promise<void>
+  removeFromWishlist: (entryId: string) => Promise<void>
+  loadPawmodoroConfig: () => Promise<void>
+  connectPawmodoro: (url: string, anonKey: string, email: string, password: string) => Promise<void>
+  disconnectPawmodoro: () => Promise<void>
+  pushWishlistToPawmodoro: (items: { entryId: string; text: string }[]) => Promise<{ pushedCount: number; failedCount: number }>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -53,6 +79,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   formats: {},
   decks: [],
   currentDeckId: null,
+  showWishlist: false,
+
+  wishlist: [],
+  pawmodoroConfig: { url: '', anonKey: '', email: '', connected: false },
+  pushingWishlist: false,
 
   setGame: (gameId) => set({ currentGameId: gameId }),
 
@@ -132,6 +163,57 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
   },
   applySyncProgress: (progress) => set((s) => ({ syncProgress: { ...s.syncProgress, [progress.gameId]: progress } })),
+
+  setShowWishlist: (show) => set({ showWishlist: show }),
+
+  loadWishlist: async () => {
+    const wishlist = await window.api.wishlist.list()
+    set({ wishlist })
+  },
+
+  addToWishlist: async (card, quantity = 1) => {
+    const wishlist = await window.api.wishlist.add(card.gameId, card.id, quantity)
+    set({ wishlist })
+  },
+
+  setWishlistQuantity: async (entryId, quantity) => {
+    const wishlist = await window.api.wishlist.setQuantity(entryId, quantity)
+    set({ wishlist })
+  },
+
+  removeFromWishlist: async (entryId) => {
+    const wishlist = await window.api.wishlist.remove(entryId)
+    set({ wishlist })
+  },
+
+  loadPawmodoroConfig: async () => {
+    const pawmodoroConfig = await window.api.pawmodoro.getConfig()
+    set({ pawmodoroConfig })
+  },
+
+  connectPawmodoro: async (url, anonKey, email, password) => {
+    const pawmodoroConfig = await window.api.pawmodoro.connect(url, anonKey, email, password)
+    set({ pawmodoroConfig })
+  },
+
+  disconnectPawmodoro: async () => {
+    const pawmodoroConfig = await window.api.pawmodoro.disconnect()
+    set({ pawmodoroConfig })
+  },
+
+  pushWishlistToPawmodoro: async (items) => {
+    set({ pushingWishlist: true })
+    try {
+      const { pushed, failed } = await window.api.pawmodoro.pushWishlist(items)
+      if (pushed.length > 0) {
+        const wishlist = await window.api.wishlist.markPushed(pushed)
+        set({ wishlist })
+      }
+      return { pushedCount: pushed.length, failedCount: failed.length }
+    } finally {
+      set({ pushingWishlist: false })
+    }
+  },
 }))
 
 export function useCardsById(gameId: GameId): Map<string, Card> {

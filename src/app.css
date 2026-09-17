@@ -575,3 +575,153 @@
   line-height: 1.5;
   margin: 8px 0 0;
 }
+
+/* Wishlist */
+.wishlist-nav-btn {
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wishlist-nav-btn:hover {
+  background: var(--bg-elevated-2);
+  color: var(--text);
+}
+
+.wishlist-nav-btn.active {
+  background: var(--accent-dim);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.wishlist-toggle {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: #00000099;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wishlist-toggle:hover {
+  color: var(--warning);
+}
+
+.wishlist-toggle.active {
+  color: var(--warning);
+}
+
+.wishlist-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow-y: auto;
+  gap: 14px;
+}
+
+.wishlist-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.wishlist-header h2 {
+  margin: 0;
+}
+
+.pawmodoro-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pawmodoro-box-title {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.pawmodoro-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pawmodoro-form input {
+  flex: 1 1 200px;
+}
+
+.wishlist-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wishlist-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.wishlist-group-header {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.wishlist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  margin-bottom: 4px;
+}
+
+.wishlist-thumb {
+  width: 32px;
+  height: 45px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: var(--bg);
+}
+
+.wishlist-thumb-empty {
+  border: 1px dashed var(--border-strong);
+}
+
+.wishlist-row-name {
+  flex: 1;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wishlist-pushed {
+  font-size: 11px;
+  color: var(--success);
+  white-space: nowrap;
+}

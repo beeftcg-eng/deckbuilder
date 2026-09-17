@@ -6,6 +6,8 @@ import { registerDecksIpc } from './ipc/decks'
 import { registerFormatsIpc } from './ipc/formats'
 import { registerExportIpc } from './ipc/exportPaste'
 import { registerImagesIpc } from './ipc/images'
+import { registerWishlistIpc } from './ipc/wishlist'
+import { registerPawmodoroIpc } from './ipc/pawmodoro'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -44,6 +46,8 @@ registerDecksIpc()
 registerFormatsIpc()
 registerExportIpc()
 registerImagesIpc()
+registerWishlistIpc()
+registerPawmodoroIpc()
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

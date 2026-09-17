@@ -116,3 +116,20 @@ export interface CardCacheMeta {
   count: number
   lastSynced: string | null
 }
+
+export interface WishlistEntry {
+  id: string
+  gameId: GameId
+  cardId: string
+  quantity: number
+  addedAt: string
+  /** The Pawmodoro checklist_tasks.id this entry was pushed as, or null if never pushed. */
+  pushedTaskId: string | null
+}
+
+export interface PawmodoroConfig {
+  url: string
+  anonKey: string
+  email: string
+  connected: boolean
+}
