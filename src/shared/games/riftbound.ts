@@ -172,13 +172,25 @@ function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
 function getGuidedStage(deck: Deck, cardsById: Map<string, Card>): GuidedStage | null {
   const hasLegend = (deck.zones.legend ?? []).length > 0
   if (!hasLegend) {
-    return { label: 'Pick your Legend', filter: (card) => card.category === 'Legend', targetZoneId: 'legend' }
+    // Battlefields are their own independent zone with no bearing on which
+    // Legend you pick, so there's no reason a stage filter should hide them
+    // — you can queue them up any time during the build, not just once the
+    // guided flow happens to land on a stage with no filter of its own.
+    return {
+      label: 'Pick your Legend',
+      filter: (card) => card.category === 'Legend' || card.category === 'Battlefield',
+      targetZoneId: 'legend',
+    }
   }
 
   const mainEntries = deck.zones.main ?? []
   const hasChampion = mainEntries.some((e) => cardsById.get(e.cardId)?.subtypes.includes('Champion'))
   if (!hasChampion) {
-    return { label: 'Pick your Champion', filter: (card) => card.subtypes.includes('Champion'), targetZoneId: 'main' }
+    return {
+      label: 'Pick your Champion',
+      filter: (card) => card.subtypes.includes('Champion') || card.category === 'Battlefield',
+      targetZoneId: 'main',
+    }
   }
 
   const mainTotal = mainEntries.reduce((sum, e) => sum + e.quantity, 0)

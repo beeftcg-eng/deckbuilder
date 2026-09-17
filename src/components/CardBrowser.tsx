@@ -187,9 +187,14 @@ export function CardBrowser() {
 
       <div className="card-grid">
         {visible.map((card) => {
-          const zone = stage?.targetZoneId
-            ? adapter.deckRules.zones.find((z) => z.id === stage.targetZoneId)
-            : primaryZoneFor(card, currentGameId)
+          // A guided stage's targetZoneId is a *default* for whatever the
+          // stage is generally about (e.g. "Fill your Sideboard"), not a
+          // dump zone for every card shown alongside it — a card that
+          // doesn't actually belong in that zone (e.g. a Battlefield showing
+          // up during the sideboard stage) still goes to wherever it
+          // naturally matches instead of being miscategorized.
+          const targetZone = stage?.targetZoneId ? adapter.deckRules.zones.find((z) => z.id === stage.targetZoneId) : undefined
+          const zone = targetZone && targetZone.match(card) ? targetZone : primaryZoneFor(card, currentGameId)
           const quantity = deck && zone ? (deck.zones[zone.id] ?? []).find((e) => e.cardId === card.id)?.quantity ?? 0 : 0
           const maxQuantity = zone?.maxCopiesPerCard ?? adapter.deckRules.defaultMaxCopiesPerCard
           return (

@@ -351,12 +351,13 @@
 
 .deck-panel-header {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 8px;
 }
 
 .deck-name-input {
-  flex: 1;
+  flex: 1 1 120px;
   font-weight: 700;
   font-size: 15px;
 }
@@ -603,13 +604,13 @@
   position: absolute;
   top: 6px;
   left: 6px;
-  background: #00000099;
-  border: none;
-  color: var(--text-dim);
-  font-size: 16px;
+  background: #000000cc;
+  border: 1px solid #ffffff40;
+  color: var(--text);
+  font-size: 18px;
   line-height: 1;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -618,10 +619,12 @@
 
 .wishlist-toggle:hover {
   color: var(--warning);
+  border-color: var(--warning);
 }
 
 .wishlist-toggle.active {
   color: var(--warning);
+  border-color: var(--warning);
 }
 
 .wishlist-panel {
@@ -641,6 +644,12 @@
 
 .wishlist-header h2 {
   margin: 0;
+}
+
+.wishlist-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .pawmodoro-box {

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
+import type { ResolvedWishlistEntry } from '../shared/export'
+import { WishlistExportModal } from './WishlistExportModal'
 import type { GameId, WishlistEntry } from '../shared/types'
 
 export function WishlistPanel() {
@@ -39,6 +41,7 @@ export function WishlistPanel() {
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
   const [pushResult, setPushResult] = useState<string | null>(null)
+  const [showExport, setShowExport] = useState(false)
 
   useEffect(() => {
     setUrl(pawmodoroConfig.url)
@@ -75,6 +78,15 @@ export function WishlistPanel() {
     return `${entry.quantity}x ${card.name} (${card.setCode} #${card.number}) — ${getAdapter(entry.gameId).shortName}`
   }
 
+  const resolvedEntries = useMemo<ResolvedWishlistEntry[]>(() => {
+    const entries: ResolvedWishlistEntry[] = []
+    for (const entry of wishlist) {
+      const card = catalogs[entry.gameId]?.byId.get(entry.cardId)
+      if (card) entries.push({ card, quantity: entry.quantity })
+    }
+    return entries
+  }, [wishlist, catalogs])
+
   const unpushed = wishlist.filter((e) => !e.pushedTaskId)
 
   async function handlePush() {
@@ -93,10 +105,17 @@ export function WishlistPanel() {
     <div className="wishlist-panel">
       <div className="wishlist-header">
         <h2>Card Wishlist</h2>
-        <span className="text-dim">
-          {wishlist.reduce((n, e) => n + e.quantity, 0)} card{wishlist.reduce((n, e) => n + e.quantity, 0) === 1 ? '' : 's'} wanted
-        </span>
+        <div className="wishlist-header-actions">
+          <span className="text-dim">
+            {wishlist.reduce((n, e) => n + e.quantity, 0)} card{wishlist.reduce((n, e) => n + e.quantity, 0) === 1 ? '' : 's'} wanted
+          </span>
+          <button className="btn" onClick={() => setShowExport(true)} disabled={wishlist.length === 0}>
+            Export
+          </button>
+        </div>
       </div>
+
+      {showExport && <WishlistExportModal entries={resolvedEntries} onClose={() => setShowExport(false)} />}
 
       <div className="pawmodoro-box">
         <div className="pawmodoro-box-title">Pawmodoro Cloud Sync</div>
