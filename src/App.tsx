@@ -39,17 +39,17 @@ export default function App() {
     <div className="app-shell">
       <Sidebar />
       <main className="app-main">
+        <CardBrowser />
         {showWishlist ? (
           <WishlistPanel />
         ) : currentDeckId ? (
-          <>
-            <CardBrowser />
-            <DeckPanel />
-          </>
+          <DeckPanel />
         ) : (
           <div className="welcome-screen">
-            <h1>Deckbuilder</h1>
-            <p className="text-dim">Pick a game and create a deck to get started.</p>
+            <p className="text-dim">
+              Pick or create a deck in the sidebar to start building —<br />
+              you can still browse and wishlist cards without one.
+            </p>
           </div>
         )}
       </main>
