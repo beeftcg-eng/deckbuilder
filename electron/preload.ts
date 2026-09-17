@@ -27,6 +27,8 @@ const api = {
     list: (): Promise<WishlistEntry[]> => ipcRenderer.invoke('wishlist:list'),
     add: (gameId: GameId, cardId: string, quantity: number): Promise<WishlistEntry[]> =>
       ipcRenderer.invoke('wishlist:add', gameId, cardId, quantity),
+    addMany: (items: { gameId: GameId; cardId: string; quantity: number }[]): Promise<WishlistEntry[]> =>
+      ipcRenderer.invoke('wishlist:addMany', items),
     setQuantity: (entryId: string, quantity: number): Promise<WishlistEntry[]> =>
       ipcRenderer.invoke('wishlist:setQuantity', entryId, quantity),
     remove: (entryId: string): Promise<WishlistEntry[]> => ipcRenderer.invoke('wishlist:remove', entryId),

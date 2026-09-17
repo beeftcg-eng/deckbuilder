@@ -63,6 +63,7 @@ interface AppState {
   setShowWishlist: (show: boolean) => void
   loadWishlist: () => Promise<void>
   addToWishlist: (card: Card, quantity?: number) => Promise<void>
+  addDeckToWishlist: (deck: Deck) => Promise<number>
   setWishlistQuantity: (entryId: string, quantity: number) => Promise<void>
   removeFromWishlist: (entryId: string) => Promise<void>
   loadPawmodoroConfig: () => Promise<void>
@@ -174,6 +175,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   addToWishlist: async (card, quantity = 1) => {
     const wishlist = await window.api.wishlist.add(card.gameId, card.id, quantity)
     set({ wishlist })
+  },
+
+  addDeckToWishlist: async (deck) => {
+    // Only real cards (deck.zones) count — freeTextZones hold labels like
+    // Riftbound rune requirements, not actual Card ids, so there's nothing
+    // to look up or wishlist for those.
+    const items = Object.values(deck.zones)
+      .flat()
+      .map((entry) => ({ gameId: deck.gameId, cardId: entry.cardId, quantity: entry.quantity }))
+    if (items.length === 0) return 0
+    const wishlist = await window.api.wishlist.addMany(items)
+    set({ wishlist })
+    return items.length
   },
 
   setWishlistQuantity: async (entryId, quantity) => {

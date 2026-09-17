@@ -12,10 +12,12 @@ export function DeckPanel() {
   const updateDeck = useAppStore((s) => s.updateDeck)
   const setCardQuantity = useAppStore((s) => s.setCardQuantity)
   const setFreeTextQuantity = useAppStore((s) => s.setFreeTextQuantity)
+  const addDeckToWishlist = useAppStore((s) => s.addDeckToWishlist)
   const formats = useAppStore((s) => s.formats)
   const loadFormats = useAppStore((s) => s.loadFormats)
   const [showExport, setShowExport] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
+  const [wishlistedMsg, setWishlistedMsg] = useState<string | null>(null)
 
   const deck = decks.find((d) => d.id === currentDeckId)
   const cardsById = useCardsById(deck?.gameId ?? 'riftbound')
@@ -41,6 +43,12 @@ export function DeckPanel() {
   const format = gameFormats.find((f) => f.id === deck.formatId) ?? gameFormats[0]
   const result = format ? checkDeckLegality(deck, adapter, format, cardsById) : null
 
+  async function handleWishlistDeck() {
+    const count = await addDeckToWishlist(deck!)
+    setWishlistedMsg(count > 0 ? `★ Added ${count} card${count === 1 ? '' : 's'} to your wishlist.` : 'This deck has no cards yet.')
+    setTimeout(() => setWishlistedMsg(null), 3000)
+  }
+
   return (
     <div className="deck-panel">
       <div className="deck-panel-header">
@@ -60,10 +68,15 @@ export function DeckPanel() {
             </option>
           ))}
         </select>
+        <button className="btn" onClick={handleWishlistDeck} title="Add every card in this deck to your wishlist">
+          ☆ Wishlist deck
+        </button>
         <button className="btn btn-primary" onClick={() => setShowExport(true)}>
           Export
         </button>
       </div>
+
+      {wishlistedMsg && <div className="text-dim">{wishlistedMsg}</div>}
 
       {format?.description && <div className="format-description text-dim">{format.description}</div>}
 

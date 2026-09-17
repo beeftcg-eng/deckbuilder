@@ -38,6 +38,23 @@ export function registerWishlistIpc(): void {
     },
   )
 
+  ipcMain.handle(
+    'wishlist:addMany',
+    async (_e, items: { gameId: GameId; cardId: string; quantity: number }[]): Promise<WishlistEntry[]> => {
+      const entries = await readWishlist()
+      for (const { gameId, cardId, quantity } of items) {
+        const existing = entries.find((e) => e.gameId === gameId && e.cardId === cardId)
+        if (existing) {
+          existing.quantity += quantity
+        } else {
+          entries.push({ id: randomUUID(), gameId, cardId, quantity, addedAt: new Date().toISOString(), pushedTaskId: null })
+        }
+      }
+      await writeWishlist(entries)
+      return entries
+    },
+  )
+
   ipcMain.handle('wishlist:setQuantity', async (_e, entryId: string, quantity: number): Promise<WishlistEntry[]> => {
     let entries = await readWishlist()
     if (quantity <= 0) {
