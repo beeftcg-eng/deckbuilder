@@ -13,6 +13,12 @@ interface OnePieceApiCard {
   set_id: string
   rarity: string | null
   card_set_id: string
+  // Unique per exact printing (base/reprint/foil/alt-art/full-art all get
+  // their own suffix, e.g. "OP01-006" vs "OP01-006_p5") — unlike
+  // card_set_id, which every reprint of the same official card shares.
+  // Cards.id is built from this so lookalike reprints don't collide into
+  // one browsable entry (see normalizeCard).
+  card_image_id: string
   card_color: string | null
   card_type: string
   life: string | null
@@ -42,7 +48,13 @@ function normalizeCard(raw: OnePieceApiCard): Card {
   if (raw.card_text) infoParts.push(raw.card_text)
 
   return {
-    id: `onepiece:${raw.card_set_id}`,
+    // card_image_id (not card_set_id) so a reprint/foil/alt-art of the same
+    // official card gets its own browsable entry, deck slot, and wishlist
+    // star instead of colliding with every other printing of that number.
+    // sourceId stays card_set_id — the official number reprints share, used
+    // for the copy-limit pool and banned/restricted-card matching (see
+    // legality.ts) and for decklist export text.
+    id: `onepiece:${raw.card_image_id}`,
     gameId: 'onepiece',
     sourceId: raw.card_set_id,
     name: raw.card_name,

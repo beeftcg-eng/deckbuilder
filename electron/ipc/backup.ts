@@ -36,16 +36,31 @@ export function registerBackupIpc(): void {
 
   ipcMain.handle(
     'backup:import',
-    async (e): Promise<{ imported: boolean; deckCount: number; wishlistCount: number }> => {
+    async (e): Promise<{ imported: boolean; deckCount: number; wishlistCount: number; error?: string }> => {
       const win = BrowserWindow.fromWebContents(e.sender)
       const options: Electron.OpenDialogOptions = { properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] }
       const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
       if (result.canceled || result.filePaths.length === 0) return { imported: false, deckCount: 0, wishlistCount: 0 }
 
-      const raw = await readFile(result.filePaths[0], 'utf-8')
-      const bundle = JSON.parse(raw) as { decks?: unknown[]; wishlist?: unknown[] }
-      const decks = Array.isArray(bundle.decks) ? bundle.decks : []
-      const wishlist = Array.isArray(bundle.wishlist) ? bundle.wishlist : []
+      let bundle: unknown
+      try {
+        const raw = await readFile(result.filePaths[0], 'utf-8')
+        bundle = JSON.parse(raw)
+      } catch (err) {
+        return {
+          imported: false,
+          deckCount: 0,
+          wishlistCount: 0,
+          error: `Couldn't read that file as JSON (${err instanceof Error ? err.message : String(err)}).`,
+        }
+      }
+      if (typeof bundle !== 'object' || bundle === null) {
+        return { imported: false, deckCount: 0, wishlistCount: 0, error: "That file isn't a backup bundle." }
+      }
+
+      const { decks: rawDecks, wishlist: rawWishlist } = bundle as { decks?: unknown; wishlist?: unknown }
+      const decks = Array.isArray(rawDecks) ? rawDecks : []
+      const wishlist = Array.isArray(rawWishlist) ? rawWishlist : []
 
       await writeFile(decksFile(), JSON.stringify(decks, null, 2), 'utf-8')
       await writeFile(wishlistFile(), JSON.stringify(wishlist, null, 2), 'utf-8')

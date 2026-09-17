@@ -48,18 +48,28 @@ export function Sidebar() {
 
   async function handleBackupExport() {
     setBackupStatus(null)
-    const saved = await exportBackup()
-    setBackupStatus(saved ? 'Saved.' : null)
-    if (saved) setTimeout(() => setBackupStatus(null), 2500)
+    try {
+      const saved = await exportBackup()
+      setBackupStatus(saved ? 'Saved.' : null)
+      if (saved) setTimeout(() => setBackupStatus(null), 2500)
+    } catch (err) {
+      setBackupStatus(`Backup failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
   }
 
   async function handleBackupImport() {
     if (!confirm('This replaces every deck and wishlist entry on this machine with what\'s in the backup file. Continue?')) return
     setBackupStatus(null)
-    const result = await importBackup()
-    setBackupStatus(
-      result.imported ? `Restored ${result.deckCount} deck(s), ${result.wishlistCount} wishlist card(s).` : null,
-    )
+    try {
+      const result = await importBackup()
+      if (result.imported) {
+        setBackupStatus(`Restored ${result.deckCount} deck(s), ${result.wishlistCount} wishlist card(s).`)
+      } else if (result.error) {
+        setBackupStatus(result.error)
+      }
+    } catch (err) {
+      setBackupStatus(`Restore failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
   }
 
   return (
@@ -103,14 +113,27 @@ export function Sidebar() {
 
       <div className="deck-list-header">
         <span>Decks</span>
-        <button className="btn" onClick={() => createDeck(currentGameId)}>
+        <button
+          className="btn"
+          onClick={() => {
+            setShowWishlist(false)
+            createDeck(currentGameId)
+          }}
+        >
           + New
         </button>
       </div>
       <div className="deck-list">
         {gameDecks.length === 0 && <div className="text-dim deck-list-empty">No decks yet.</div>}
         {gameDecks.map((deck) => (
-          <div key={deck.id} className={`deck-row ${deck.id === currentDeckId ? 'active' : ''}`} onClick={() => selectDeck(deck.id)}>
+          <div
+            key={deck.id}
+            className={`deck-row ${deck.id === currentDeckId ? 'active' : ''}`}
+            onClick={() => {
+              setShowWishlist(false)
+              selectDeck(deck.id)
+            }}
+          >
             <span className="deck-row-name">{deck.name}</span>
             <button
               className="deck-row-delete"

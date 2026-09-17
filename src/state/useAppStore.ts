@@ -72,7 +72,7 @@ interface AppState {
   pushWishlistToPawmodoro: (items: { entryId: string; text: string }[]) => Promise<{ pushedCount: number; failedCount: number }>
 
   exportBackup: () => Promise<boolean>
-  importBackup: () => Promise<{ imported: boolean; deckCount: number; wishlistCount: number }>
+  importBackup: () => Promise<{ imported: boolean; deckCount: number; wishlistCount: number; error?: string }>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -190,7 +190,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (items.length === 0) return 0
     const wishlist = await window.api.wishlist.addMany(items)
     set({ wishlist })
-    return items.length
+    return items.reduce((sum, item) => sum + item.quantity, 0)
   },
 
   setWishlistQuantity: async (entryId, quantity) => {

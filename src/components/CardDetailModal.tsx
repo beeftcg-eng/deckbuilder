@@ -3,7 +3,9 @@ import { useAppStore } from '../state/useAppStore'
 
 export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => void }) {
   const addToWishlist = useAppStore((s) => s.addToWishlist)
-  const onWishlist = useAppStore((s) => s.wishlist.some((e) => e.cardId === card.id))
+  const removeFromWishlist = useAppStore((s) => s.removeFromWishlist)
+  const wishlistEntryId = useAppStore((s) => s.wishlist.find((e) => e.cardId === card.id)?.id)
+  const onWishlist = wishlistEntryId != null
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -23,8 +25,11 @@ export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => 
         <div className="card-detail-info">
           <div className="modal-header">
             <span>{card.name}</span>
-            <button className="btn" onClick={() => addToWishlist(card, 1)}>
-              {onWishlist ? '★ On wishlist' : '☆ Add to wishlist'}
+            <button
+              className="btn"
+              onClick={() => (wishlistEntryId != null ? removeFromWishlist(wishlistEntryId) : addToWishlist(card, 1))}
+            >
+              {onWishlist ? '★ Remove from wishlist' : '☆ Add to wishlist'}
             </button>
             <button className="btn" onClick={onClose}>
               Close

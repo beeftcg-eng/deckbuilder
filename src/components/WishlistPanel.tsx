@@ -41,6 +41,7 @@ export function WishlistPanel() {
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
   const [pushResult, setPushResult] = useState<string | null>(null)
+  const [pushError, setPushError] = useState<string | null>(null)
   const [showExport, setShowExport] = useState(false)
 
   useEffect(() => {
@@ -95,10 +96,15 @@ export function WishlistPanel() {
       .map((e) => ({ entryId: e.id, text: taskTextFor(e) }))
       .filter((i): i is { entryId: string; text: string } => i.text != null)
     if (items.length === 0) return
-    const { pushedCount, failedCount } = await pushWishlistToPawmodoro(items)
-    setPushResult(
-      `Pushed ${pushedCount} card${pushedCount === 1 ? '' : 's'}${failedCount ? `, ${failedCount} failed` : ''} to your Pawmodoro checklist.`,
-    )
+    setPushError(null)
+    try {
+      const { pushedCount, failedCount } = await pushWishlistToPawmodoro(items)
+      setPushResult(
+        `Pushed ${pushedCount} card${pushedCount === 1 ? '' : 's'}${failedCount ? `, ${failedCount} failed` : ''} to your Pawmodoro checklist.`,
+      )
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : String(err))
+    }
   }
 
   return (
@@ -131,6 +137,7 @@ export function WishlistPanel() {
               </button>
             </div>
             {pushResult && <div className="text-dim">{pushResult}</div>}
+            {pushError && <div className="sync-error">Couldn't push to Pawmodoro: {pushError}</div>}
           </>
         ) : (
           <>

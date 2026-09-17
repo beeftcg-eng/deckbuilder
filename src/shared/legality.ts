@@ -23,6 +23,15 @@ function checkCount(zone: DeckZoneRule, total: number, issues: LegalityIssue[]) 
   }
 }
 
+// Banned/restricted lists and banned pairs are authored against
+// `${gameId}:${sourceId}` — the official card number, not `card.id` (which
+// for a game like One Piece is unique *per printing*, so a reprint/foil/
+// alt-art of a banned card would otherwise slip through a card.id check
+// with a different id despite being the same banned card).
+function gameSourceKey(card: Card): string {
+  return `${card.gameId}:${card.sourceId}`
+}
+
 export function isCardLegalInFormat(card: Card, format: Format): { legal: boolean; reason?: string } {
   if (card.gameId === 'pokemon') {
     const legal = card.legality?.[format.id] === 'legal'
@@ -31,7 +40,7 @@ export function isCardLegalInFormat(card: Card, format: Format): { legal: boolea
   if (format.legalSetIds && !format.legalSetIds.includes(card.setId)) {
     return { legal: false, reason: `is from a set not legal in ${format.label}` }
   }
-  if (format.bannedCardIds.includes(card.id)) {
+  if (format.bannedCardIds.includes(gameSourceKey(card))) {
     return { legal: false, reason: 'is banned' }
   }
   return { legal: true }
@@ -99,7 +108,7 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
       if (!legality.legal) {
         issues.push({ severity: 'error', message: `${card.name} ${legality.reason}.` })
       }
-      if (format.restrictedCardIds.includes(card.id) && entry.quantity > 1) {
+      if (format.restrictedCardIds.includes(gameSourceKey(card)) && entry.quantity > 1) {
         issues.push({ severity: 'error', message: `${card.name} is restricted to 1 copy in ${format.label}.` })
       }
     }
@@ -118,14 +127,18 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
   }
 
   if (format.bannedPairs.length > 0) {
-    const includedCardIds = new Set<string>()
+    const includedSourceKeys = new Set<string>()
     for (const zoneEntries of Object.values(deck.zones)) {
-      for (const e of zoneEntries) includedCardIds.add(e.cardId)
+      for (const e of zoneEntries) {
+        const card = cardsById.get(e.cardId)
+        if (card) includedSourceKeys.add(gameSourceKey(card))
+      }
     }
+    const nameForSourceKey = (key: string) => [...cardsById.values()].find((c) => gameSourceKey(c) === key)?.name ?? key
     for (const [a, b] of format.bannedPairs) {
-      if (includedCardIds.has(a) && includedCardIds.has(b)) {
-        const cardA = cardsById.get(a)?.name ?? a
-        const cardB = cardsById.get(b)?.name ?? b
+      if (includedSourceKeys.has(a) && includedSourceKeys.has(b)) {
+        const cardA = nameForSourceKey(a)
+        const cardB = nameForSourceKey(b)
         issues.push({ severity: 'error', message: `${cardA} and ${cardB} cannot be in the same deck together (banned pair).` })
       }
     }

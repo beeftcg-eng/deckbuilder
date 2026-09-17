@@ -12,7 +12,9 @@ interface Props {
 
 export function CardTile({ card, quantity, maxQuantity, disabled, onChange, onOpenDetail }: Props) {
   const addToWishlist = useAppStore((s) => s.addToWishlist)
-  const onWishlist = useAppStore((s) => s.wishlist.some((e) => e.cardId === card.id))
+  const removeFromWishlist = useAppStore((s) => s.removeFromWishlist)
+  const wishlistEntryId = useAppStore((s) => s.wishlist.find((e) => e.cardId === card.id)?.id)
+  const onWishlist = wishlistEntryId != null
 
   return (
     <div className={`card-tile ${quantity > 0 ? 'in-deck' : ''}`}>
@@ -36,10 +38,11 @@ export function CardTile({ card, quantity, maxQuantity, disabled, onChange, onOp
         {quantity > 0 && <div className="card-tile-badge">{quantity}</div>}
         <button
           className={`wishlist-toggle ${onWishlist ? 'active' : ''}`}
-          title={onWishlist ? 'On your wishlist' : 'Add to wishlist'}
+          title={onWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
           onClick={(e) => {
             e.stopPropagation()
-            addToWishlist(card, 1)
+            if (wishlistEntryId != null) removeFromWishlist(wishlistEntryId)
+            else addToWishlist(card, 1)
           }}
         >
           {onWishlist ? '★' : '☆'}

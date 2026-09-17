@@ -47,7 +47,7 @@ const api = {
   },
   backup: {
     export: (): Promise<boolean> => ipcRenderer.invoke('backup:export'),
-    import: (): Promise<{ imported: boolean; deckCount: number; wishlistCount: number }> =>
+    import: (): Promise<{ imported: boolean; deckCount: number; wishlistCount: number; error?: string }> =>
       ipcRenderer.invoke('backup:import'),
   },
   exportPaste: (content: string): Promise<string> => ipcRenderer.invoke('export:paste', content),
