@@ -1,11 +1,14 @@
 import type { Card } from '../shared/types'
 import { useAppStore } from '../state/useAppStore'
+import { formatPrice } from '../shared/collection'
 
 export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => void }) {
   const addToWishlist = useAppStore((s) => s.addToWishlist)
   const removeFromWishlist = useAppStore((s) => s.removeFromWishlist)
   const wishlistEntryId = useAppStore((s) => s.wishlist.find((e) => e.cardId === card.id)?.id)
   const onWishlist = wishlistEntryId != null
+  const owned = useAppStore((s) => s.collection[card.id] ?? 0)
+  const changeOwned = useAppStore((s) => s.changeOwned)
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -45,6 +48,17 @@ export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => 
           </div>
           {card.colors.length > 0 && <div className="text-dim">Colors: {card.colors.join(', ')}</div>}
           {card.cost != null && <div className="text-dim">Cost: {card.cost}</div>}
+          {card.price != null && <div className="text-dim">Market price ≈ {formatPrice(card.price)}</div>}
+          <div className="detail-owned">
+            <span>Owned (this printing)</span>
+            <button className="btn stepper-btn" disabled={owned <= 0} onClick={() => changeOwned(card.id, -1)}>
+              −
+            </button>
+            <span className="stepper-value">{owned}</span>
+            <button className="btn stepper-btn" onClick={() => changeOwned(card.id, 1)}>
+              +
+            </button>
+          </div>
           {card.text && <p className="card-detail-text">{card.text}</p>}
         </div>
       </div>

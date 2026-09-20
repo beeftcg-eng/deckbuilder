@@ -9,6 +9,10 @@ import { registerImagesIpc } from './ipc/images'
 import { registerWishlistIpc } from './ipc/wishlist'
 import { registerPawmodoroIpc } from './ipc/pawmodoro'
 import { registerBackupIpc } from './ipc/backup'
+import { registerCollectionIpc } from './ipc/collection'
+import { registerSettingsIpc } from './ipc/settings'
+import { snapshot } from './lib/backups'
+import { withDataLock } from './lib/dataFiles'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -50,6 +54,8 @@ registerImagesIpc()
 registerWishlistIpc()
 registerPawmodoroIpc()
 registerBackupIpc()
+registerCollectionIpc()
+registerSettingsIpc()
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -62,4 +68,10 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow()
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  // A fresh snapshot of decks/wishlist/collection on every launch (skipped if
+  // nothing changed since the last one), taken before the renderer can touch anything.
+  withDataLock(() => snapshot('auto'))
+    .catch((err) => console.error('Launch backup failed:', err))
+    .finally(createWindow)
+})

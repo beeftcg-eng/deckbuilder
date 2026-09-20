@@ -48,6 +48,8 @@ function normalizeCard(raw: RiftboundApiCard): Card {
     cost: raw.attributes.energy != null ? String(raw.attributes.energy) : null,
     text: raw.text.plain,
     legality: null,
+    // riftcodex doesn't expose prices (only a tcgplayer_id), so none are shown for Riftbound.
+    price: null,
   }
 }
 
@@ -205,6 +207,9 @@ export const riftboundAdapter: GameAdapter = {
   shortName: 'Riftbound',
   deckRules,
   defaultFormats,
+  legalitySource: 'local',
+  hasPrices: false,
+  openingHandSize: 4,
   fetchAllCards,
   formatDecklistText,
   getGuidedStage,

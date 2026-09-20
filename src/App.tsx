@@ -4,14 +4,14 @@ import { Sidebar } from './components/Sidebar'
 import { CardBrowser } from './components/CardBrowser'
 import { DeckPanel } from './components/DeckPanel'
 import { WishlistPanel } from './components/WishlistPanel'
-import { useAppStore, GAME_LIST } from './state/useAppStore'
+import { useAppStore } from './state/useAppStore'
 import { useSyncProgressListener } from './state/syncProgress'
 
 export default function App() {
-  const loadMeta = useAppStore((s) => s.loadMeta)
+  const initialize = useAppStore((s) => s.initialize)
   const loadCatalog = useAppStore((s) => s.loadCatalog)
-  const loadDecks = useAppStore((s) => s.loadDecks)
-  const loadWishlist = useAppStore((s) => s.loadWishlist)
+  const error = useAppStore((s) => s.error)
+  const setError = useAppStore((s) => s.setError)
   const currentGameId = useAppStore((s) => s.currentGameId)
   const currentDeckId = useAppStore((s) => s.currentDeckId)
   const showWishlist = useAppStore((s) => s.showWishlist)
@@ -21,10 +21,20 @@ export default function App() {
   useSyncProgressListener()
 
   useEffect(() => {
-    loadDecks()
-    loadWishlist()
-    for (const adapter of GAME_LIST) loadMeta(adapter.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    initialize()
+  }, [initialize])
+
+  // Ctrl/Cmd+Z undoes the last deck change — but not while typing, where it should undo the text.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return
+      const target = e.target as HTMLElement | null
+      if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return
+      e.preventDefault()
+      void useAppStore.getState().undo()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
   useEffect(() => {
@@ -37,6 +47,14 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {error && (
+        <div className="error-banner" role="alert">
+          <span>{error}</span>
+          <button className="deck-row-delete" title="Dismiss" onClick={() => setError(null)}>
+            ×
+          </button>
+        </div>
+      )}
       <Sidebar />
       <main className="app-main">
         <CardBrowser />

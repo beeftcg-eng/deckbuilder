@@ -28,6 +28,12 @@ export interface Card {
   cost: string | null
   text: string | null
   legality: Record<string, CardLegalityStatus> | null
+  /**
+   * Market price in USD, when the source API provides one (One Piece and
+   * Pokémon do; Riftbound doesn't). Optional because card caches synced
+   * before prices were added don't have the field until the next sync.
+   */
+  price?: number | null
 }
 
 export type CardLegalityStatus = 'legal' | 'banned' | 'restricted'
@@ -101,6 +107,12 @@ export interface Format {
   restrictedCardIds: string[]
   /** Pairs of card ids/names that cannot both appear in the same deck. */
   bannedPairs: [string, string][]
+  /**
+   * When this game's ban/rotation data was last reviewed or edited (ISO). Set
+   * when saving from the in-app editor; for files that predate it, the main
+   * process fills in the formats file's modified time when listing.
+   */
+  reviewedAt?: string
 }
 
 export interface LegalityIssue {
@@ -135,6 +147,15 @@ export interface WishlistEntry {
   addedAt: string
   /** The Pawmodoro checklist_tasks.id this entry was pushed as, or null if never pushed. */
   pushedTaskId: string | null
+}
+
+/** Cards you own, keyed by Card.id (one entry per printing) -> copies owned. */
+export type Collection = Record<string, number>
+
+export interface AppSettings {
+  lastGameId?: GameId
+  lastDeckId?: string | null
+  deckSort?: 'recent' | 'name'
 }
 
 export interface PawmodoroConfig {

@@ -1,5 +1,17 @@
 import { contextBridge, ipcRenderer, clipboard } from 'electron'
-import type { Card, CardCacheMeta, Deck, Format, GameId, PawmodoroConfig, SyncProgress, WishlistEntry } from '../src/shared/types'
+import type {
+  AppSettings,
+  Card,
+  CardCacheMeta,
+  Collection,
+  Deck,
+  Format,
+  GameId,
+  PawmodoroConfig,
+  SyncProgress,
+  WishlistEntry,
+} from '../src/shared/types'
+import type { ImportResult } from './ipc/backup'
 
 const api = {
   cards: {
@@ -22,6 +34,15 @@ const api = {
   formats: {
     list: (gameId: GameId): Promise<Format[]> => ipcRenderer.invoke('formats:list', gameId),
     path: (): Promise<string> => ipcRenderer.invoke('formats:path'),
+    save: (gameId: GameId, formats: Format[]): Promise<Format[]> => ipcRenderer.invoke('formats:save', gameId, formats),
+  },
+  collection: {
+    get: (): Promise<Collection> => ipcRenderer.invoke('collection:get'),
+    add: (items: { cardId: string; quantity: number }[]): Promise<Collection> => ipcRenderer.invoke('collection:add', items),
+  },
+  settings: {
+    get: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
+    set: (patch: AppSettings): Promise<AppSettings> => ipcRenderer.invoke('settings:set', patch),
   },
   wishlist: {
     list: (): Promise<WishlistEntry[]> => ipcRenderer.invoke('wishlist:list'),
@@ -47,8 +68,8 @@ const api = {
   },
   backup: {
     export: (): Promise<boolean> => ipcRenderer.invoke('backup:export'),
-    import: (): Promise<{ imported: boolean; deckCount: number; wishlistCount: number; error?: string }> =>
-      ipcRenderer.invoke('backup:import'),
+    import: (): Promise<ImportResult> => ipcRenderer.invoke('backup:import'),
+    openFolder: (): Promise<void> => ipcRenderer.invoke('backup:openFolder'),
   },
   exportPaste: (content: string): Promise<string> => ipcRenderer.invoke('export:paste', content),
   exportSaveFile: (content: string, suggestedName: string): Promise<boolean> =>

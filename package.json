@@ -1,14 +1,16 @@
 {
   "name": "deckbuilder",
   "private": true,
-  "version": "0.2.7",
+  "version": "0.3.0",
   "description": "A multi-game TCG deckbuilder with legality checking and export (Riftbound, One Piece, Pokemon)",
   "author": "beeftcg",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && electron-builder",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "build": "tsc -b && vitest run && vite build && electron-builder",
     "build:unpacked": "tsc -b && vite build && electron-builder --dir",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -32,6 +34,7 @@
     "vite": "^8.3.0",
     "vite-plugin-electron": "^1.1.2",
     "vite-plugin-electron-renderer": "^1.0.0",
+    "vitest": "^5.0.1",
     "wait-on": "^9.1.0"
   },
   "build": {
@@ -50,7 +53,8 @@
         "AppImage"
       ],
       "category": "Game",
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "artifactName": "${productName}.${ext}"
     },
     "mac": {
       "target": [

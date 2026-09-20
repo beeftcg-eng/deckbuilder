@@ -20,6 +20,16 @@ export interface GameAdapter {
   shortName: string
   deckRules: DeckRules
   defaultFormats: Format[]
+  /**
+   * Where legality comes from: 'api' when each card's legality is in the source
+   * data (Pokémon), 'local' when it's a ban list/rotation kept in formats.json
+   * that has to be maintained by hand (One Piece, Riftbound).
+   */
+  legalitySource: 'api' | 'local'
+  /** Whether the source API gives card prices (Riftbound's doesn't), so the UI knows when to hint at re-syncing. */
+  hasPrices: boolean
+  /** Cards drawn for an opening hand, used by the sample-hand simulator. */
+  openingHandSize: number
   /** Fetches every card for this game from its source API. Network-only; must run in the main process. */
   fetchAllCards: (onProgress: (p: FetchProgress) => void) => Promise<Card[]>
   /** Renders a deck as a plain-text decklist in this game's conventional format. */

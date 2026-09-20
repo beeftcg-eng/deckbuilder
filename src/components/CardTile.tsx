@@ -1,16 +1,23 @@
 import type { Card } from '../shared/types'
 import { useAppStore } from '../state/useAppStore'
+import { formatPrice } from '../shared/collection'
 
 interface Props {
   card: Card
   quantity: number
   maxQuantity: number
+  /** Copies of this exact printing you own. */
+  owned: number
+  /** Copies you own across every printing of this card (what a deck slot can use). */
+  ownedTotal: number
+  /** Called with +1 or −1; relative so rapid clicks can't overwrite one another. */
+  onOwnedChange: (delta: number) => void
   disabled?: boolean
   onChange: (quantity: number) => void
   onOpenDetail: () => void
 }
 
-export function CardTile({ card, quantity, maxQuantity, disabled, onChange, onOpenDetail }: Props) {
+export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwnedChange, disabled, onChange, onOpenDetail }: Props) {
   const addToWishlist = useAppStore((s) => s.addToWishlist)
   const removeFromWishlist = useAppStore((s) => s.removeFromWishlist)
   const wishlistEntryId = useAppStore((s) => s.wishlist.find((e) => e.cardId === card.id)?.id)
@@ -54,6 +61,7 @@ export function CardTile({ card, quantity, maxQuantity, disabled, onChange, onOp
         </div>
         <div className="card-tile-meta text-dim">
           {card.setCode} · {card.number}
+          {card.price != null ? ` · ${formatPrice(card.price)}` : ''}
         </div>
       </div>
       <div className="card-tile-controls">
@@ -68,6 +76,20 @@ export function CardTile({ card, quantity, maxQuantity, disabled, onChange, onOp
         >
           +
         </button>
+      </div>
+      <div
+        className="card-tile-owned"
+        title={ownedTotal > owned ? `${owned} of this printing · ${ownedTotal} across all printings` : 'Copies of this printing you own'}
+      >
+        <span className="text-dim">Own</span>
+        <button className="btn stepper-btn stepper-mini" disabled={owned <= 0} onClick={() => onOwnedChange(-1)}>
+          −
+        </button>
+        <span className="stepper-value">{owned}</span>
+        <button className="btn stepper-btn stepper-mini" onClick={() => onOwnedChange(1)}>
+          +
+        </button>
+        {ownedTotal > owned && <span className="text-dim">({ownedTotal} total)</span>}
       </div>
     </div>
   )

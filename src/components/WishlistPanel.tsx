@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
+import { formatPrice, totalPrice } from '../shared/collection'
 import type { ResolvedWishlistEntry } from '../shared/export'
 import { WishlistExportModal } from './WishlistExportModal'
 import type { GameId, WishlistEntry } from '../shared/types'
@@ -12,6 +13,7 @@ export function WishlistPanel() {
   const loadCatalog = useAppStore((s) => s.loadCatalog)
   const setWishlistQuantity = useAppStore((s) => s.setWishlistQuantity)
   const removeFromWishlist = useAppStore((s) => s.removeFromWishlist)
+  const markGotIt = useAppStore((s) => s.markGotIt)
   const pawmodoroConfig = useAppStore((s) => s.pawmodoroConfig)
   const loadPawmodoroConfig = useAppStore((s) => s.loadPawmodoroConfig)
   const connectPawmodoro = useAppStore((s) => s.connectPawmodoro)
@@ -88,6 +90,8 @@ export function WishlistPanel() {
     return entries
   }, [wishlist, catalogs])
 
+  const wishlistPrice = useMemo(() => totalPrice(resolvedEntries), [resolvedEntries])
+
   const unpushed = wishlist.filter((e) => !e.pushedTaskId)
 
   async function handlePush() {
@@ -115,6 +119,11 @@ export function WishlistPanel() {
           <span className="text-dim">
             {wishlist.reduce((n, e) => n + e.quantity, 0)} card{wishlist.reduce((n, e) => n + e.quantity, 0) === 1 ? '' : 's'} wanted
           </span>
+          {wishlistPrice.total > 0 && (
+            <span className="text-dim" title="Sum of TCGplayer market prices; cards without a price aren't counted">
+              ≈ {formatPrice(wishlistPrice.total)}
+            </span>
+          )}
           <button className="btn" onClick={() => setShowExport(true)} disabled={wishlist.length === 0}>
             Export
           </button>
@@ -188,6 +197,10 @@ export function WishlistPanel() {
                         ✓ in Pawmodoro
                       </span>
                     )}
+                    {card?.price != null && <span className="text-dim">{formatPrice(card.price * entry.quantity)}</span>}
+                    <button className="btn" title="Move to your collection and take it off the wishlist" onClick={() => markGotIt(entry.id)}>
+                      ✓ Got it
+                    </button>
                     <div className="stepper">
                       <button className="btn stepper-btn" onClick={() => setWishlistQuantity(entry.id, entry.quantity - 1)}>
                         −

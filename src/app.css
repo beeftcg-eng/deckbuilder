@@ -759,3 +759,333 @@
   color: var(--success);
   white-space: nowrap;
 }
+
+/* ---- Errors, undo, deck list tools ---- */
+.error-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: 80vw;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--danger-dim);
+  border: 1px solid var(--danger);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.undo-btn {
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-color: var(--accent-dim);
+}
+
+.deck-list-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.deck-list-tools {
+  display: flex;
+  gap: 6px;
+}
+.deck-list-tools input {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.deck-row-actions .deck-row-delete:first-child:hover {
+  color: var(--accent);
+}
+
+/* ---- Card tiles: owned counts ---- */
+.card-tile-owned {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px 8px;
+  font-size: 12px;
+}
+
+.stepper-mini {
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+}
+
+.owned-only {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.detail-owned {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ---- Deck panel ---- */
+.deck-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.deck-entry-short {
+  font-size: 11px;
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+.legality-banlist {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-strong);
+  font-size: 12px;
+}
+
+.ban-stale {
+  color: var(--warning);
+}
+
+.deck-stats {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.deck-stats-summary {
+  display: flex;
+  gap: 12px;
+  font-weight: 600;
+}
+
+.cost-curve {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 64px;
+}
+
+.cost-curve-col {
+  flex: 1;
+  max-width: 34px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.cost-curve-bar {
+  width: 100%;
+  min-height: 2px;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+}
+
+.cost-curve-count,
+.cost-curve-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1;
+}
+
+.stat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stat-chip {
+  background: var(--bg-elevated-2);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--text-dim);
+}
+
+.stat-chip b {
+  color: var(--text);
+}
+
+.stat-chip-color {
+  border: 1px solid var(--border-strong);
+}
+
+/* ---- Modals: import, sample hand, ban list ---- */
+.import-modal {
+  width: 640px;
+}
+
+.import-modal .export-textarea {
+  min-height: 240px;
+}
+
+.import-summary {
+  font-size: 13px;
+}
+
+.import-unmatched {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.import-fields {
+  display: flex;
+  gap: 8px;
+}
+.import-fields input {
+  flex: 1;
+}
+
+.sample-hand-modal {
+  width: 900px;
+}
+
+.sample-hand-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sample-hand-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.sample-hand-card {
+  width: 150px;
+  line-height: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.sample-hand-card img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.banlist-modal {
+  width: 640px;
+}
+
+.banlist-body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 4px;
+}
+
+.banlist-section h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.banlist-items {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.banlist-items li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.banlist-items li:hover {
+  background: var(--bg-elevated-2);
+}
+
+.card-picker {
+  position: relative;
+}
+.card-picker input {
+  width: 100%;
+}
+
+.card-picker-results {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 4px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+}
+
+.card-picker-result {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.card-picker-result:hover {
+  background: var(--accent-dim);
+}
+
+.pair-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.set-checklist {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 12px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.set-checklist label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}

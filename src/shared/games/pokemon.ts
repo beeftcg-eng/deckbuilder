@@ -20,6 +20,7 @@ interface PokemonApiCard {
   abilities?: { name: string; text?: string }[]
   rules?: string[]
   flavorText?: string
+  tcgplayer?: { prices?: Record<string, { market?: number | null; mid?: number | null } | undefined> }
 }
 
 interface PokemonApiResponse {
@@ -28,6 +29,15 @@ interface PokemonApiResponse {
   pageSize: number
   count: number
   totalCount: number
+}
+
+// TCGplayer lists a price per finish (normal, holofoil, reverseHolofoil, ...).
+// The cheapest one is what it costs to own the card at all, so that's the price used.
+function cheapestPrice(raw: PokemonApiCard): number | null {
+  const prices = Object.values(raw.tcgplayer?.prices ?? {})
+    .map((p) => p?.market ?? p?.mid ?? null)
+    .filter((n): n is number => n != null && n > 0)
+  return prices.length ? Math.min(...prices) : null
 }
 
 function normalizeCard(raw: PokemonApiCard): Card {
@@ -62,6 +72,7 @@ function normalizeCard(raw: PokemonApiCard): Card {
     cost: null,
     text: textParts.length ? textParts.join('\n') : (raw.flavorText ?? null),
     legality,
+    price: cheapestPrice(raw),
   }
 }
 
@@ -142,6 +153,9 @@ export const pokemonAdapter: GameAdapter = {
   shortName: 'Pokémon',
   deckRules,
   defaultFormats,
+  legalitySource: 'api',
+  hasPrices: true,
+  openingHandSize: 7,
   fetchAllCards,
   formatDecklistText,
 }

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useAppStore, useCardsById } from '../state/useAppStore'
+import { useMemo, useState } from 'react'
+import { useAppStore, useCardsById, useOwnedIndex } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { isCardLegalInFormat } from '../shared/legality'
+import { poolKey } from '../shared/collection'
 import type { Card } from '../shared/types'
 import { CardTile } from './CardTile'
 import { CardDetailModal } from './CardDetailModal'
@@ -20,23 +21,21 @@ export function CardBrowser() {
   const decks = useAppStore((s) => s.decks)
   const setCardQuantity = useAppStore((s) => s.setCardQuantity)
   const formats = useAppStore((s) => s.formats)
-  const loadFormats = useAppStore((s) => s.loadFormats)
+  const collection = useAppStore((s) => s.collection)
+  const changeOwned = useAppStore((s) => s.changeOwned)
+  const ownedIndex = useOwnedIndex()
 
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<string>('all')
   const [setId, setSetId] = useState<string>('all')
   const [colors, setColors] = useState<Set<string>>(new Set())
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [ownedOnly, setOwnedOnly] = useState(false)
   const [detailCard, setDetailCard] = useState<Card | null>(null)
 
   const deck = decks.find((d) => d.id === currentDeckId)
   const adapter = getAdapter(currentGameId)
   const cardsById = useCardsById(currentGameId)
   const stage = deck ? (adapter.getGuidedStage?.(deck, cardsById) ?? null) : null
-
-  useEffect(() => {
-    if (deck && !formats[deck.gameId]) loadFormats(deck.gameId)
-  }, [deck?.gameId])
 
   const gameFormats = deck ? (formats[deck.gameId] ?? adapter.defaultFormats) : []
   const format = deck ? (gameFormats.find((f) => f.id === deck.formatId) ?? gameFormats[0]) : undefined
@@ -48,13 +47,14 @@ export function CardBrowser() {
     return entry ? cardsById.get(entry.cardId) : undefined
   }, [deck, identityZoneId, cardsById])
 
-  const lastIdentityCardId = useRef<string | undefined>(undefined)
-  useEffect(() => {
-    if (!adapter.deckRules.colorLocked) return
-    if (identityCard?.id === lastIdentityCardId.current) return
-    lastIdentityCardId.current = identityCard?.id
+  // When the deck's Leader/Legend changes, snap the color filter to its colors. Done
+  // during render (React's "adjust state when a prop changes" pattern) rather than in
+  // an effect, so the filter is right on the same paint instead of one frame late.
+  const [lastIdentityCardId, setLastIdentityCardId] = useState<string | undefined>(undefined)
+  if (adapter.deckRules.colorLocked && identityCard?.id !== lastIdentityCardId) {
+    setLastIdentityCardId(identityCard?.id)
     setColors(new Set(identityCard?.colors ?? []))
-  }, [identityCard?.id, adapter.deckRules.colorLocked])
+  }
 
   const categories = useMemo(() => {
     if (!catalog) return []
@@ -92,6 +92,7 @@ export function CardBrowser() {
       }
       if (setId !== 'all' && c.setId !== setId) return false
       if (colors.size > 0 && !c.colors.some((col) => colors.has(col))) return false
+      if (ownedOnly && !ownedIndex.get(poolKey(c))) return false
       if (
         q &&
         !c.name.toLowerCase().includes(q) &&
@@ -101,11 +102,12 @@ export function CardBrowser() {
         return false
       return true
     })
-  }, [catalog, query, category, setId, colors, stage, adapter, format])
+  }, [catalog, query, category, setId, colors, stage, adapter, format, ownedOnly, ownedIndex])
 
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE)
-  }, [query, category, setId, colors, currentGameId, stage?.label])
+  // "Show more" only applies to the filters it was clicked under; any filter change starts back at one page.
+  const filterKey = [query, category, setId, [...colors].sort().join(','), ownedOnly, currentGameId, stage?.label ?? ''].join('|')
+  const [page, setPage] = useState({ key: filterKey, count: PAGE_SIZE })
+  const visibleCount = page.key === filterKey ? page.count : PAGE_SIZE
 
   function toggleColor(color: string) {
     setColors((prev) => {
@@ -146,6 +148,10 @@ export function CardBrowser() {
             ))}
           </select>
         )}
+        <label className="owned-only" title={Object.keys(collection).length === 0 ? 'Mark cards as owned to use this' : 'Only cards you own (any printing)'}>
+          <input type="checkbox" checked={ownedOnly} disabled={Object.keys(collection).length === 0} onChange={(e) => setOwnedOnly(e.target.checked)} />
+          Owned
+        </label>
         <select value={setId} onChange={(e) => setSetId(e.target.value)}>
           <option value="all">All sets</option>
           {sets.map(([id, name]) => (
@@ -199,6 +205,9 @@ export function CardBrowser() {
               card={card}
               quantity={quantity}
               maxQuantity={maxQuantity}
+              owned={collection[card.id] ?? 0}
+              ownedTotal={ownedIndex.get(poolKey(card)) ?? 0}
+              onOwnedChange={(delta) => changeOwned(card.id, delta)}
               disabled={!deck || !zone}
               onChange={(q) => zone && setCardQuantity(zone.id, card, q)}
               onOpenDetail={() => setDetailCard(card)}
@@ -208,7 +217,7 @@ export function CardBrowser() {
       </div>
 
       {visibleCount < results.length && (
-        <button className="btn load-more-btn" onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}>
+        <button className="btn load-more-btn" onClick={() => setPage({ key: filterKey, count: visibleCount + PAGE_SIZE })}>
           Show {Math.min(PAGE_SIZE, results.length - visibleCount)} more ({visibleCount}/{results.length})
         </button>
       )}

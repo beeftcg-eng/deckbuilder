@@ -22,6 +22,18 @@ export function wishlistFile(): string {
   return join(userDataDir(), 'wishlist.json')
 }
 
+export function collectionFile(): string {
+  return join(userDataDir(), 'collection.json')
+}
+
+export function settingsFile(): string {
+  return join(userDataDir(), 'settings.json')
+}
+
+export function backupsDir(): string {
+  return join(userDataDir(), 'backups')
+}
+
 export function pawmodoroConfigFile(): string {
   return join(userDataDir(), 'pawmodoro-sync.json')
 }

@@ -28,6 +28,7 @@ interface OnePieceApiCard {
   counter_amount: number | null
   attribute: string | null
   card_image: string | null
+  market_price?: number | null
 }
 
 interface OnePieceSet {
@@ -78,6 +79,7 @@ function normalizeCard(raw: OnePieceApiCard): Card {
     cost: raw.card_cost,
     text: infoParts.length ? infoParts.join('\n') : null,
     legality: null,
+    price: raw.market_price != null && raw.market_price > 0 ? raw.market_price : null,
   }
 }
 
@@ -265,6 +267,9 @@ export const onepieceAdapter: GameAdapter = {
   shortName: 'One Piece',
   deckRules,
   defaultFormats,
+  legalitySource: 'local',
+  hasPrices: true,
+  openingHandSize: 5,
   fetchAllCards,
   formatDecklistText,
   getGuidedStage,

@@ -1,81 +1,64 @@
 import { ipcMain } from 'electron'
-import { readFile, writeFile } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { WishlistEntry, GameId } from '../../src/shared/types'
-import { wishlistFile } from '../lib/paths'
+import { readWishlist, withDataLock, writeWishlist } from '../lib/dataFiles'
 
-async function readWishlist(): Promise<WishlistEntry[]> {
-  const path = wishlistFile()
-  if (!existsSync(path)) return []
-  try {
-    const raw = await readFile(path, 'utf-8')
-    return JSON.parse(raw) as WishlistEntry[]
-  } catch {
-    return []
+function addOrIncrement(entries: WishlistEntry[], gameId: GameId, cardId: string, quantity: number): void {
+  const existing = entries.find((e) => e.gameId === gameId && e.cardId === cardId)
+  if (existing) {
+    existing.quantity += quantity
+  } else {
+    entries.push({ id: randomUUID(), gameId, cardId, quantity, addedAt: new Date().toISOString(), pushedTaskId: null })
   }
 }
 
-async function writeWishlist(entries: WishlistEntry[]): Promise<void> {
-  await writeFile(wishlistFile(), JSON.stringify(entries, null, 2), 'utf-8')
-}
-
 export function registerWishlistIpc(): void {
-  ipcMain.handle('wishlist:list', async (): Promise<WishlistEntry[]> => readWishlist())
+  ipcMain.handle('wishlist:list', (): Promise<WishlistEntry[]> => withDataLock(readWishlist))
 
-  ipcMain.handle(
-    'wishlist:add',
-    async (_e, gameId: GameId, cardId: string, quantity: number): Promise<WishlistEntry[]> => {
+  ipcMain.handle('wishlist:add', (_e, gameId: GameId, cardId: string, quantity: number): Promise<WishlistEntry[]> =>
+    withDataLock(async () => {
       const entries = await readWishlist()
-      const existing = entries.find((e) => e.gameId === gameId && e.cardId === cardId)
-      if (existing) {
-        existing.quantity += quantity
-      } else {
-        entries.push({ id: randomUUID(), gameId, cardId, quantity, addedAt: new Date().toISOString(), pushedTaskId: null })
-      }
+      addOrIncrement(entries, gameId, cardId, quantity)
       await writeWishlist(entries)
       return entries
-    },
+    }),
   )
 
   ipcMain.handle(
     'wishlist:addMany',
-    async (_e, items: { gameId: GameId; cardId: string; quantity: number }[]): Promise<WishlistEntry[]> => {
-      const entries = await readWishlist()
-      for (const { gameId, cardId, quantity } of items) {
-        const existing = entries.find((e) => e.gameId === gameId && e.cardId === cardId)
-        if (existing) {
-          existing.quantity += quantity
-        } else {
-          entries.push({ id: randomUUID(), gameId, cardId, quantity, addedAt: new Date().toISOString(), pushedTaskId: null })
-        }
+    (_e, items: { gameId: GameId; cardId: string; quantity: number }[]): Promise<WishlistEntry[]> =>
+      withDataLock(async () => {
+        const entries = await readWishlist()
+        for (const { gameId, cardId, quantity } of items) addOrIncrement(entries, gameId, cardId, quantity)
+        await writeWishlist(entries)
+        return entries
+      }),
+  )
+
+  ipcMain.handle('wishlist:setQuantity', (_e, entryId: string, quantity: number): Promise<WishlistEntry[]> =>
+    withDataLock(async () => {
+      let entries = await readWishlist()
+      if (quantity <= 0) {
+        entries = entries.filter((e) => e.id !== entryId)
+      } else {
+        const entry = entries.find((e) => e.id === entryId)
+        if (entry) entry.quantity = quantity
       }
       await writeWishlist(entries)
       return entries
-    },
+    }),
   )
 
-  ipcMain.handle('wishlist:setQuantity', async (_e, entryId: string, quantity: number): Promise<WishlistEntry[]> => {
-    let entries = await readWishlist()
-    if (quantity <= 0) {
-      entries = entries.filter((e) => e.id !== entryId)
-    } else {
-      const entry = entries.find((e) => e.id === entryId)
-      if (entry) entry.quantity = quantity
-    }
-    await writeWishlist(entries)
-    return entries
-  })
+  ipcMain.handle('wishlist:remove', (_e, entryId: string): Promise<WishlistEntry[]> =>
+    withDataLock(async () => {
+      const entries = (await readWishlist()).filter((e) => e.id !== entryId)
+      await writeWishlist(entries)
+      return entries
+    }),
+  )
 
-  ipcMain.handle('wishlist:remove', async (_e, entryId: string): Promise<WishlistEntry[]> => {
-    const entries = (await readWishlist()).filter((e) => e.id !== entryId)
-    await writeWishlist(entries)
-    return entries
-  })
-
-  ipcMain.handle(
-    'wishlist:markPushed',
-    async (_e, results: { entryId: string; taskId: string }[]): Promise<WishlistEntry[]> => {
+  ipcMain.handle('wishlist:markPushed', (_e, results: { entryId: string; taskId: string }[]): Promise<WishlistEntry[]> =>
+    withDataLock(async () => {
       const entries = await readWishlist()
       for (const { entryId, taskId } of results) {
         const entry = entries.find((e) => e.id === entryId)
@@ -83,6 +66,6 @@ export function registerWishlistIpc(): void {
       }
       await writeWishlist(entries)
       return entries
-    },
+    }),
   )
 }
