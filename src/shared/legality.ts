@@ -1,5 +1,7 @@
 import type { Card, Deck, DeckZoneRule, Format, LegalityIssue, LegalityResult } from './types'
 import type { GameAdapter } from './games/types'
+import { rulesForFormat } from './games/rules'
+import { identityColors } from './cardColors'
 
 function checkCount(zone: DeckZoneRule, total: number, issues: LegalityIssue[]) {
   if (zone.allowedCounts && !zone.allowedCounts.includes(total)) {
@@ -33,9 +35,11 @@ function gameSourceKey(card: Card): string {
 }
 
 export function isCardLegalInFormat(card: Card, format: Format): { legal: boolean; reason?: string } {
-  if (card.gameId === 'pokemon') {
-    const legal = card.legality?.[format.id] === 'legal'
-    return legal ? { legal: true } : { legal: false, reason: `is not legal in ${format.label}` }
+  // Games whose source data carries per-format legality (Pokémon, Magic) use it as-is; the rest use the local ban list below.
+  if (card.legality) {
+    const status = card.legality[format.id]
+    if (status === 'legal' || status === 'restricted') return { legal: true }
+    return { legal: false, reason: status === 'banned' ? `is banned in ${format.label}` : `is not legal in ${format.label}` }
   }
   if (format.legalSetIds && !format.legalSetIds.includes(card.setId)) {
     return { legal: false, reason: `is from a set not legal in ${format.label}` }
@@ -46,17 +50,15 @@ export function isCardLegalInFormat(card: Card, format: Format): { legal: boolea
   return { legal: true }
 }
 
-const BASIC_ENERGY_UNLIMITED = (card: Card) => card.gameId === 'pokemon' && card.category === 'Energy' && card.subtypes.includes('Basic')
-
 export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Format, cardsById: Map<string, Card>): LegalityResult {
   const issues: LegalityIssue[] = []
-  const rules = adapter.deckRules
+  const rules = rulesForFormat(adapter, format.id)
 
   // Combined copy-limit pool: zones that don't override maxCopiesPerCard share the deck-wide limit.
   // Pooled by name or by sourceId depending on the game's actual rules — see DeckRules.copyLimitBy.
   const poolKeyFor = (card: Card) => (rules.copyLimitBy === 'sourceId' ? card.sourceId : card.name)
   const pooledCounts = new Map<string, number>()
-  const pooledDisplayNames = new Map<string, string>()
+  const pooledCards = new Map<string, Card>()
 
   for (const zone of rules.zones) {
     if (zone.freeText) {
@@ -101,7 +103,7 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
       } else {
         const poolKey = poolKeyFor(card)
         pooledCounts.set(poolKey, (pooledCounts.get(poolKey) ?? 0) + entry.quantity)
-        pooledDisplayNames.set(poolKey, card.name)
+        if (!pooledCards.has(poolKey)) pooledCards.set(poolKey, card)
       }
 
       const legality = isCardLegalInFormat(card, format)
@@ -114,15 +116,27 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
     }
   }
 
+  if (rules.totalCount != null) {
+    let total = 0
+    for (const zone of rules.zones) {
+      if (zone.freeText) continue
+      total += (deck.zones[zone.id] ?? []).reduce((sum, e) => sum + e.quantity, 0)
+    }
+    if (total !== rules.totalCount) {
+      issues.push({ severity: 'error', message: `The deck must have exactly ${rules.totalCount} cards in total (currently ${total}).` })
+    }
+  }
+
   for (const [key, count] of pooledCounts) {
-    if (count > rules.defaultMaxCopiesPerCard) {
-      const anyCard = [...cardsById.values()].find((c) => c.gameId === adapter.id && poolKeyFor(c) === key)
-      if (anyCard && BASIC_ENERGY_UNLIMITED(anyCard)) continue
-      const displayName = pooledDisplayNames.get(key) ?? key
-      issues.push({
-        severity: 'error',
-        message: `${displayName}: ${count} copies exceeds the ${rules.defaultMaxCopiesPerCard}-copy limit.`,
-      })
+    const card = pooledCards.get(key)
+    if (!card) continue
+    const limit = adapter.copyLimitFor?.(card) ?? rules.defaultMaxCopiesPerCard
+    if (count > limit) {
+      issues.push({ severity: 'error', message: `${card.name}: ${count} copies exceeds the ${limit}-copy limit.` })
+    }
+    // Vintage's restricted list: legal, but a single copy across main deck and sideboard.
+    if (card.legality?.[format.id] === 'restricted' && count > 1) {
+      issues.push({ severity: 'error', message: `${card.name} is restricted to 1 copy in ${format.label}.` })
     }
   }
 
@@ -145,25 +159,30 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
   }
 
   if (rules.colorLocked && rules.identityZoneId) {
-    const identityEntry = (deck.zones[rules.identityZoneId] ?? [])[0]
-    const identityCard = identityEntry ? cardsById.get(identityEntry.cardId) : undefined
-    if (identityCard) {
-      const identityColors = new Set(identityCard.colors)
+    // Every card in the identity zone counts (a Commander deck can have two Partners).
+    const identityCards = (deck.zones[rules.identityZoneId] ?? []).flatMap((e) => {
+      const card = cardsById.get(e.cardId)
+      return card ? [card] : []
+    })
+    if (identityCards.length > 0) {
+      const identityColorSet = new Set(identityCards.flatMap(identityColors))
+      const identityNames = identityCards.map((c) => c.name).join(' + ')
       for (const [zoneId, zoneEntries] of Object.entries(deck.zones)) {
         if (zoneId === rules.identityZoneId) continue
         for (const entry of zoneEntries) {
           const card = cardsById.get(entry.cardId)
           if (!card) continue
-          const outOfColor = card.colors.length > 0 && card.colors.some((c) => c !== 'Colorless' && !identityColors.has(c))
+          const cardColors = identityColors(card)
+          const outOfColor = cardColors.length > 0 && cardColors.some((c) => c !== 'Colorless' && !identityColorSet.has(c))
           if (outOfColor) {
-            issues.push({ severity: 'error', message: `${card.name} (${card.colors.join('/')}) doesn't match your ${identityCard.name} colors.` })
+            issues.push({ severity: 'error', message: `${card.name} (${cardColors.join('/')}) doesn't match your ${identityNames} colors.` })
           }
         }
       }
       for (const [zoneId, entries] of Object.entries(deck.freeTextZones)) {
         for (const entry of entries) {
-          if (!identityColors.has(entry.label)) {
-            issues.push({ severity: 'error', message: `"${entry.label}" in ${zoneId} doesn't match your ${identityCard.name} domains.` })
+          if (!identityColorSet.has(entry.label)) {
+            issues.push({ severity: 'error', message: `"${entry.label}" in ${zoneId} doesn't match your ${identityNames} domains.` })
           }
         }
       }

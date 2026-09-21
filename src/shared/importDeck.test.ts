@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { parseDecklistText } from './importDeck'
+import { detectFormatFromHeadings, parseDecklistText } from './importDeck'
 import { buildExportText } from './export'
 import { onepieceAdapter } from './games/onepiece'
 import { riftboundAdapter } from './games/riftbound'
 import { pokemonAdapter } from './games/pokemon'
+import { mtgAdapter } from './games/mtg'
 import { catalogOf, makeCard, makeDeck } from './testFixtures'
 
 describe('parseDecklistText', () => {
@@ -109,5 +110,118 @@ describe('parseDecklistText', () => {
       const parsed = parseDecklistText('3 Professor’s Research', pokemonAdapter, catalog)
       expect(parsed.zones.main).toEqual([{ cardId: research.id, quantity: 3 }])
     })
+  })
+})
+
+describe('parseDecklistText: Magic', () => {
+  const mtg = (name: string, over: Record<string, unknown> = {}) => makeCard('mtg', { name, category: 'Instant', ...over })
+  const bolt = mtg('Lightning Bolt')
+  const negate = mtg('Negate')
+  const solRing = mtg('Sol Ring', { category: 'Artifact' })
+  const forest = mtg('Forest', { category: 'Land', subtypes: ['Basic'] })
+  const delver = mtg('Delver of Secrets // Insectile Aberration', { category: 'Creature' })
+  const fireIce = mtg('Fire // Ice')
+  const vial = mtg('Aether Vial', { category: 'Artifact' })
+  const erase = mtg("Erase (Not the Urza's Legacy One)")
+  const atraxa = mtg("Atraxa, Praetors' Voice", { category: 'Creature', subtypes: ['Legendary'] })
+  const catalog = catalogOf([bolt, negate, solRing, forest, delver, fireIce, vial, erase, atraxa])
+  const q = (card: { id: string }, quantity: number) => ({ cardId: card.id, quantity })
+
+  it('reads an Arena export: headings without colons, and set/collector numbers after each name', () => {
+    const text = 'Deck\n4 Lightning Bolt (2XM) 141\n1 Sol Ring (C21) 263\n\nSideboard\n2 Negate (MH2) 267'
+    const parsed = parseDecklistText(text, mtgAdapter, catalog, 'modern')
+    expect(parsed.zones.main).toEqual([q(bolt, 4), q(solRing, 1)])
+    expect(parsed.zones.sideboard).toEqual([q(negate, 2)])
+    expect(parsed.unmatched).toEqual([])
+  })
+
+  it('reads an MTGO list, where the sideboard is just the block after a blank line', () => {
+    const parsed = parseDecklistText('4 Lightning Bolt\n20 Forest\n\n3 Negate\n', mtgAdapter, catalog, 'modern')
+    expect(parsed.zones.main).toEqual([q(bolt, 4), q(forest, 20)])
+    expect(parsed.zones.sideboard).toEqual([q(negate, 3)])
+  })
+
+  it('does not treat blank lines as a sideboard once the list has headings of its own', () => {
+    const parsed = parseDecklistText('Deck\n4 Lightning Bolt\n\n1 Sol Ring\n\nSideboard\n2 Negate', mtgAdapter, catalog, 'modern')
+    expect(parsed.zones.main).toEqual([q(bolt, 4), q(solRing, 1)])
+    expect(parsed.zones.sideboard).toEqual([q(negate, 2)])
+  })
+
+  it('reads "SB:" tagged lines and "1x" quantities', () => {
+    const parsed = parseDecklistText('4x Lightning Bolt\nSB: 2 Negate', mtgAdapter, catalog, 'modern')
+    expect(parsed.zones.main).toEqual([q(bolt, 4)])
+    expect(parsed.zones.sideboard).toEqual([q(negate, 2)])
+  })
+
+  it('strips foil markers, tags and printings when the whole line does not match a card', () => {
+    const text = '1 Sol Ring (C21) 263 *F*\n1x Lightning Bolt [Burn]\n1 Negate ^Have,#37d67a^\n1 Forest (PLST) INV-278'
+    const parsed = parseDecklistText(text, mtgAdapter, catalog, 'modern')
+    expect(parsed.matchedCopies).toBe(4)
+    expect(parsed.unmatched).toEqual([])
+  })
+
+  it('matches a real card name that itself ends in parentheses', () => {
+    const parsed = parseDecklistText("1 Erase (Not the Urza's Legacy One)", mtgAdapter, catalog, 'modern')
+    expect(parsed.zones.main).toEqual([q(erase, 1)])
+  })
+
+  it('finds double-faced and split cards by their full name or just the front face', () => {
+    const parsed = parseDecklistText('1 Delver of Secrets\n1 Delver of Secrets // Insectile Aberration\n1 Fire // Ice\n1 Fire', mtgAdapter, catalog, 'modern')
+    expect(parsed.zones.main).toEqual([q(delver, 2), q(fireIce, 2)])
+  })
+
+  it('accepts the ligature or its spelled-out form', () => {
+    const parsed = parseDecklistText('1 Æther Vial\n1 Aether Vial', mtgAdapter, catalog, 'modern')
+    expect(parsed.zones.main).toEqual([q(vial, 2)])
+  })
+
+  it('reports lines it cannot match', () => {
+    const parsed = parseDecklistText('4 Lightning Bolt\n2 Totally Fake Card', mtgAdapter, catalog, 'modern')
+    expect(parsed.unmatched).toEqual(['2 Totally Fake Card'])
+  })
+
+  it('puts a Commander heading’s card in the commander zone when importing as Commander', () => {
+    const text = 'Commander\n1 Atraxa, Praetors\' Voice\n\nDeck\n1 Sol Ring\n1 Forest'
+    const parsed = parseDecklistText(text, mtgAdapter, catalog, 'commander')
+    expect(parsed.zones.commander).toEqual([q(atraxa, 1)])
+    expect(parsed.zones.main).toEqual([q(solRing, 1), q(forest, 1)])
+  })
+
+  it('leaves a legendary creature in the main deck when nothing says it is the commander', () => {
+    const parsed = parseDecklistText("1 Atraxa, Praetors' Voice\n1 Sol Ring", mtgAdapter, catalog, 'commander')
+    expect(parsed.zones.commander).toBeUndefined()
+    expect(parsed.zones.main).toEqual([q(atraxa, 1), q(solRing, 1)])
+  })
+
+  it('knows a Commander heading means a Commander deck, and that other headings say nothing', () => {
+    expect(detectFormatFromHeadings("Commander\n1 Atraxa, Praetors' Voice\n\nDeck\n1 Sol Ring", mtgAdapter)).toBe('commander')
+    expect(detectFormatFromHeadings('Commander:\n1 Atraxa', mtgAdapter)).toBe('commander')
+    expect(detectFormatFromHeadings('Deck\n4 Lightning Bolt\n\nSideboard\n2 Negate', mtgAdapter)).toBeNull()
+    expect(detectFormatFromHeadings('4 Lightning Bolt', mtgAdapter)).toBeNull()
+    expect(detectFormatFromHeadings('Commander\n1 Atraxa', pokemonAdapter)).toBeNull()
+  })
+
+  it('round-trips its own export, Commander included', () => {
+    const deck = {
+      ...makeDeck('mtg', { commander: [[atraxa, 1]], main: [[solRing, 1], [forest, 30]], sideboard: [] }),
+      formatId: 'commander',
+    }
+    const text = buildExportText(deck, mtgAdapter, 'Commander', catalog)
+    const parsed = parseDecklistText(text, mtgAdapter, catalog, 'commander')
+    expect(parsed.name).toBe('Test Deck')
+    expect(parsed.formatLabel).toBe('Commander')
+    expect(parsed.zones.commander).toEqual([q(atraxa, 1)])
+    expect(parsed.zones.main).toEqual([q(forest, 30), q(solRing, 1)])
+  })
+
+  it('only strips printing suffixes for games that opt in', () => {
+    const xerneas = makeCard('pokemon', { name: 'Xerneas', category: 'Pokémon', setCode: 'XY', number: '95' })
+    const cyrus = makeCard('pokemon', { name: "Boss's Orders (Cyrus)", category: 'Trainer', setCode: 'BRS', number: '132' })
+    const pokemonCatalog = catalogOf([xerneas, cyrus])
+    // Magic reads "Name (SET) 123" as a printing of Name…
+    expect(parseDecklistText('2 Bolt (2XM) 141', mtgAdapter, catalogOf([mtg('Bolt')])).matchedCopies).toBe(2)
+    // …but for Pokémon that shape means nothing, and a name that really ends in parentheses still matches as written.
+    expect(parseDecklistText('2 Xerneas (XY) 95', pokemonAdapter, pokemonCatalog).unmatched).toEqual(['2 Xerneas (XY) 95'])
+    expect(parseDecklistText("2 Boss's Orders (Cyrus)", pokemonAdapter, pokemonCatalog).zones.main).toEqual([{ cardId: cyrus.id, quantity: 2 }])
   })
 })

@@ -3,15 +3,17 @@ import { useAppStore, useCardsById, useOwnedIndex } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { isCardLegalInFormat } from '../shared/legality'
 import { poolKey } from '../shared/collection'
-import type { Card } from '../shared/types'
+import { rulesForFormat } from '../shared/games/rules'
+import { identityColors } from '../shared/cardColors'
+import type { Card, DeckRules } from '../shared/types'
 import { CardTile } from './CardTile'
 import { CardDetailModal } from './CardDetailModal'
 
 const PAGE_SIZE = 60
 
-function primaryZoneFor(card: Card, gameId: Card['gameId']) {
-  const adapter = getAdapter(gameId)
-  return adapter.deckRules.zones.find((z) => !z.freeText && z.match(card))
+// Where a plain click puts a card: the first zone that takes it, skipping ones that are only filled deliberately (sideboard, commander).
+function primaryZoneFor(card: Card, rules: DeckRules) {
+  return rules.zones.find((z) => !z.freeText && !z.manualOnly && z.match(card))
 }
 
 export function CardBrowser() {
@@ -40,20 +42,26 @@ export function CardBrowser() {
   const gameFormats = deck ? (formats[deck.gameId] ?? adapter.defaultFormats) : []
   const format = deck ? (gameFormats.find((f) => f.id === deck.formatId) ?? gameFormats[0]) : undefined
 
-  const identityZoneId = adapter.deckRules.identityZoneId
-  const identityCard = useMemo(() => {
-    if (!deck || !identityZoneId) return undefined
-    const entry = (deck.zones[identityZoneId] ?? [])[0]
-    return entry ? cardsById.get(entry.cardId) : undefined
-  }, [deck, identityZoneId, cardsById])
+  // The deck's shape (zones, limits) can depend on its format — Magic's Commander vs 60-card formats.
+  const rules = deck ? rulesForFormat(adapter, deck.formatId) : adapter.deckRules
 
-  // When the deck's Leader/Legend changes, snap the color filter to its colors. Done
+  const identityZoneId = rules.identityZoneId
+  const identityCards = useMemo(() => {
+    if (!deck || !identityZoneId) return []
+    return (deck.zones[identityZoneId] ?? []).flatMap((entry) => {
+      const card = cardsById.get(entry.cardId)
+      return card ? [card] : []
+    })
+  }, [deck, identityZoneId, cardsById])
+  const identityKey = identityCards.map((c) => c.id).join('|')
+
+  // When the deck's Leader/Legend/Commander changes, snap the color filter to its colors. Done
   // during render (React's "adjust state when a prop changes" pattern) rather than in
   // an effect, so the filter is right on the same paint instead of one frame late.
-  const [lastIdentityCardId, setLastIdentityCardId] = useState<string | undefined>(undefined)
-  if (adapter.deckRules.colorLocked && identityCard?.id !== lastIdentityCardId) {
-    setLastIdentityCardId(identityCard?.id)
-    setColors(new Set(identityCard?.colors ?? []))
+  const [lastIdentityKey, setLastIdentityKey] = useState('')
+  if (rules.colorLocked && identityKey !== lastIdentityKey) {
+    setLastIdentityKey(identityKey)
+    setColors(new Set(identityCards.flatMap(identityColors)))
   }
 
   const categories = useMemo(() => {
@@ -74,8 +82,10 @@ export function CardBrowser() {
 
   const allColors = useMemo(() => {
     if (!catalog) return []
-    return [...new Set(catalog.cards.flatMap((c) => c.colors))].sort()
-  }, [catalog])
+    const order = adapter.colorOrder ?? []
+    const rank = (color: string) => (order.includes(color) ? order.indexOf(color) : order.length)
+    return [...new Set(catalog.cards.flatMap(identityColors))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+  }, [catalog, adapter])
 
   const results = useMemo(() => {
     if (!catalog) return []
@@ -91,7 +101,17 @@ export function CardBrowser() {
         }
       }
       if (setId !== 'all' && c.setId !== setId) return false
-      if (colors.size > 0 && !c.colors.some((col) => colors.has(col))) return false
+      if (colors.size > 0) {
+        const cardColors = identityColors(c)
+        let matches: boolean
+        if (adapter.identityColorFilter) {
+          // Colorless cards fit any deck; a color-locked deck can only use cards entirely inside its colors.
+          matches = cardColors.length === 0 || (rules.colorLocked ? cardColors.every((col) => colors.has(col)) : cardColors.some((col) => colors.has(col)))
+        } else {
+          matches = cardColors.some((col) => colors.has(col))
+        }
+        if (!matches) return false
+      }
       if (ownedOnly && !ownedIndex.get(poolKey(c))) return false
       if (
         q &&
@@ -102,7 +122,7 @@ export function CardBrowser() {
         return false
       return true
     })
-  }, [catalog, query, category, setId, colors, stage, adapter, format, ownedOnly, ownedIndex])
+  }, [catalog, query, category, setId, colors, stage, adapter, rules, format, ownedOnly, ownedIndex])
 
   // "Show more" only applies to the filters it was clicked under; any filter change starts back at one page.
   const filterKey = [query, category, setId, [...colors].sort().join(','), ownedOnly, currentGameId, stage?.label ?? ''].join('|')
@@ -195,10 +215,10 @@ export function CardBrowser() {
           // doesn't actually belong in that zone (e.g. a Battlefield showing
           // up during the sideboard stage) still goes to wherever it
           // naturally matches instead of being miscategorized.
-          const targetZone = stage?.targetZoneId ? adapter.deckRules.zones.find((z) => z.id === stage.targetZoneId) : undefined
-          const zone = targetZone && targetZone.match(card) ? targetZone : primaryZoneFor(card, currentGameId)
+          const targetZone = stage?.targetZoneId ? rules.zones.find((z) => z.id === stage.targetZoneId) : undefined
+          const zone = targetZone && targetZone.match(card) ? targetZone : primaryZoneFor(card, rules)
           const quantity = deck && zone ? (deck.zones[zone.id] ?? []).find((e) => e.cardId === card.id)?.quantity ?? 0 : 0
-          const maxQuantity = zone?.maxCopiesPerCard ?? adapter.deckRules.defaultMaxCopiesPerCard
+          const maxQuantity = zone?.maxCopiesPerCard ?? adapter.copyLimitFor?.(card) ?? rules.defaultMaxCopiesPerCard
           return (
             <CardTile
               key={card.id}

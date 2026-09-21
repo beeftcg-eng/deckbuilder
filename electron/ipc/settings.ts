@@ -1,9 +1,10 @@
 import { ipcMain } from 'electron'
 import type { AppSettings, GameId } from '../../src/shared/types'
+import { GAME_LIST } from '../../src/shared/games/registry'
 import { settingsFile } from '../lib/paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/jsonStore'
 
-const GAME_IDS: GameId[] = ['pokemon', 'onepiece', 'riftbound']
+const GAME_IDS: GameId[] = GAME_LIST.map((adapter) => adapter.id)
 
 // Only known keys with the right types get through, so a stale or hand-edited
 // settings file can't feed the renderer something it doesn't expect.

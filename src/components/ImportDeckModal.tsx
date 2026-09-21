@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useAppStore, useCardsById } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
-import { parseDecklistText } from '../shared/importDeck'
+import { detectFormatFromHeadings, parseDecklistText } from '../shared/importDeck'
 import type { GameId } from '../shared/types'
 
 const MAX_UNMATCHED_SHOWN = 8
@@ -18,12 +18,20 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const parsed = useMemo(() => parseDecklistText(text, adapter, cardsById), [text, adapter, cardsById])
+  const defaultFormatId = formats[0]?.id ?? ''
+  // A game's deck shape can depend on its format, so the text is parsed for the format that ends up chosen:
+  // once with the default (which is where this app's own export header names its format), then again if that differs.
+  const firstPass = useMemo(() => parseDecklistText(text, adapter, cardsById, defaultFormatId), [text, adapter, cardsById, defaultFormatId])
+  const detectedFormat = formats.find((f) => f.label === firstPass.formatLabel)
+  const hintedFormatId = useMemo(() => detectFormatFromHeadings(text, adapter), [text, adapter])
+  const formatId = formatDraft ?? detectedFormat?.id ?? hintedFormatId ?? defaultFormatId
+  const parsed = useMemo(
+    () => (formatId === defaultFormatId ? firstPass : parseDecklistText(text, adapter, cardsById, formatId)),
+    [formatId, defaultFormatId, firstPass, text, adapter, cardsById],
+  )
   const catalogReady = cardsById.size > 0
 
   const name = nameDraft ?? parsed.name ?? 'Imported deck'
-  const detectedFormat = formats.find((f) => f.label === parsed.formatLabel)
-  const formatId = formatDraft ?? detectedFormat?.id ?? formats[0]?.id ?? ''
 
   async function handleImport() {
     setImporting(true)
@@ -54,7 +62,7 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
             <textarea
               className="export-textarea"
               autoFocus
-              placeholder={'Paste a decklist — this app\'s export, or a list from a deck site:\n\n4x OP01-006 Otama\n3 Professor\'s Research SVI 189'}
+              placeholder={'Paste a decklist — this app\'s export, or a list from a deck site:\n\n4x OP01-006 Otama\n3 Professor\'s Research SVI 189\n4 Lightning Bolt (2XM) 141'}
               value={text}
               onChange={(e) => setText(e.target.value)}
             />

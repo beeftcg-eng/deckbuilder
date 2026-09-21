@@ -47,6 +47,9 @@ export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => 
             {card.subtypes.length ? ` — ${card.subtypes.join(', ')}` : ''}
           </div>
           {card.colors.length > 0 && <div className="text-dim">Colors: {card.colors.join(', ')}</div>}
+          {card.colorIdentity && card.colorIdentity.join() !== card.colors.join() && (
+            <div className="text-dim">Color identity: {card.colorIdentity.length > 0 ? card.colorIdentity.join(', ') : 'Colorless'}</div>
+          )}
           {card.cost != null && <div className="text-dim">Cost: {card.cost}</div>}
           {card.price != null && <div className="text-dim">Market price ≈ {formatPrice(card.price)}</div>}
           <div className="detail-owned">

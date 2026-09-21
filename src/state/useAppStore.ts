@@ -17,7 +17,7 @@ import type {
 import { GAME_LIST, getAdapter } from '../shared/games/registry'
 import { buildPoolIndex, gameIdOfCardId, missingForDeck } from '../shared/collection'
 import type { ParsedDeck } from '../shared/importDeck'
-import { withQuantity } from '../shared/deckEdits'
+import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 
 interface Catalog {
@@ -110,6 +110,8 @@ interface AppState {
   updateDeck: (updater: (deck: Deck) => Deck, undoLabel?: string) => Promise<void>
   setCardQuantity: (zoneId: string, card: Card, quantity: number) => Promise<void>
   setFreeTextQuantity: (zoneId: string, label: string, quantity: number) => Promise<void>
+  /** Moves one copy of a card between two zones of the open deck (e.g. main deck → sideboard), as one undoable edit. */
+  moveCard: (fromZoneId: string, toZone: { id: string; label: string }, card: Card) => Promise<void>
   undo: () => Promise<void>
   setDeckSort: (sort: 'recent' | 'name') => void
   applySyncProgress: (progress: SyncProgress) => void
@@ -322,6 +324,10 @@ export const useAppStore = create<AppState>((set, get) => {
         },
         `${quantity > previous ? 'Add' : 'Remove'} ${card.name}`,
       )
+    },
+
+    moveCard: async (fromZoneId, toZone, card) => {
+      await get().updateDeck((d) => moveOneCopy(d, fromZoneId, toZone.id, card.id), `Move ${card.name} to ${toZone.label}`)
     },
 
     setFreeTextQuantity: async (zoneId, label, quantity) => {

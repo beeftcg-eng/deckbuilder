@@ -1,5 +1,6 @@
 import type { Card, Deck, DeckCardEntry, DeckFreeTextEntry } from '../shared/types'
 import type { GameAdapter } from '../shared/games/types'
+import { rulesForFormat } from '../shared/games/rules'
 
 // Card art/text needs to hold up to zooming in on the exported image, not
 // just be "readable at a glance" — so this targets close to the card's
@@ -143,7 +144,7 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
 
     drawHeader()
 
-    for (const zone of adapter.deckRules.zones) {
+    for (const zone of rulesForFormat(adapter, deck.formatId).zones) {
       if (zone.freeText) {
         const entries: DeckFreeTextEntry[] = deck.freeTextZones[zone.id] ?? []
         if (entries.length === 0) continue

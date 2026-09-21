@@ -1,8 +1,8 @@
 {
   "name": "deckbuilder",
   "private": true,
-  "version": "0.4.0",
-  "description": "A multi-game TCG deckbuilder with legality checking and export (Riftbound, One Piece, Pokemon)",
+  "version": "0.5.0",
+  "description": "A multi-game TCG deckbuilder with legality checking and export (Riftbound, One Piece, Pokemon, Magic: The Gathering)",
   "author": "beeftcg",
   "type": "module",
   "main": "dist-electron/main.js",

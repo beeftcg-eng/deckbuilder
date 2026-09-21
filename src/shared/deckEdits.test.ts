@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { withQuantity } from './deckEdits'
+import { moveOneCopy, withQuantity } from './deckEdits'
+import { makeCard, makeDeck } from './testFixtures'
 
 interface Entry {
   cardId: string
@@ -35,5 +36,32 @@ describe('withQuantity', () => {
     const copy = structuredClone(entries)
     withQuantity(entries, is('a'), make('a'), 9)
     expect(entries).toEqual(copy)
+  })
+})
+
+describe('moveOneCopy', () => {
+  const a = makeCard('mtg', { name: 'A' })
+  const b = makeCard('mtg', { name: 'B' })
+
+  it('moves one copy and leaves the rest where they were', () => {
+    const deck = makeDeck('mtg', { main: [[a, 3], [b, 1]], sideboard: [[a, 1]] })
+    const moved = moveOneCopy(deck, 'main', 'sideboard', a.id)
+    expect(moved.zones.main).toEqual([{ cardId: a.id, quantity: 2 }, { cardId: b.id, quantity: 1 }])
+    expect(moved.zones.sideboard).toEqual([{ cardId: a.id, quantity: 2 }])
+  })
+
+  it('creates the entry in the target zone and removes the source entry when it was the last copy', () => {
+    const deck = makeDeck('mtg', { main: [[a, 1], [b, 1]] })
+    const moved = moveOneCopy(deck, 'main', 'commander', a.id)
+    expect(moved.zones.main).toEqual([{ cardId: b.id, quantity: 1 }])
+    expect(moved.zones.commander).toEqual([{ cardId: a.id, quantity: 1 }])
+  })
+
+  it('does nothing if the card is not in the source zone, and never mutates the original', () => {
+    const deck = makeDeck('mtg', { main: [[a, 2]] })
+    const before = structuredClone(deck)
+    expect(moveOneCopy(deck, 'sideboard', 'main', a.id)).toBe(deck)
+    moveOneCopy(deck, 'main', 'sideboard', a.id)
+    expect(deck).toEqual(before)
   })
 })

@@ -18,7 +18,10 @@ export interface GameAdapter {
   id: GameId
   name: string
   shortName: string
+  /** Zones and limits. Used for every format that has no entry in `deckRulesByFormat`. */
   deckRules: DeckRules
+  /** Formats whose deck shape differs from `deckRules` (Magic's 100-card singleton Commander vs 60-card constructed). Use rulesForFormat() to read. */
+  deckRulesByFormat?: Record<string, DeckRules>
   defaultFormats: Format[]
   /**
    * Where legality comes from: 'api' when each card's legality is in the source
@@ -40,6 +43,26 @@ export interface GameAdapter {
    * explicitly picking that category from the type dropdown.
    */
   mainDeckExcludedCategories?: string[]
+  /**
+   * A per-card copy limit that overrides the rule's default: Infinity for cards a deck can
+   * hold any number of (basic Energy, basic lands), or a smaller number. null = no override.
+   */
+  copyLimitFor?: (card: Card) => number | null
+  /** Order to show color filter chips in (default: alphabetical). */
+  colorOrder?: string[]
+  /**
+   * The browser's color chips follow color identity (Magic): cards with no colors — artifacts, Sol Ring —
+   * always show, and in a color-locked deck only cards entirely within the chosen colors do, rather than any
+   * card sharing one of them.
+   */
+  identityColorFilter?: boolean
+  /** Quirks of this game's community decklist formats, used when importing pasted text. */
+  importOptions?: {
+    /** MTGO-style lists have no "Sideboard" heading: a blank line just starts it. */
+    blankLineStartsSideboard?: boolean
+    /** Drop a trailing "(SET) 123", "*F*" or "[tag]" from a card line when the full line doesn't match a card. */
+    stripPrintingSuffix?: boolean
+  }
   /** Returns the current step of a guided deckbuilding flow (e.g. pick Legend, then Champion), or null once nothing more needs steering. */
   getGuidedStage?: (deck: Deck, cardsById: Map<string, Card>) => GuidedStage | null
 }

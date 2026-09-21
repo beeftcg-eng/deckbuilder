@@ -1,4 +1,4 @@
-export type GameId = 'pokemon' | 'onepiece' | 'riftbound'
+export type GameId = 'pokemon' | 'onepiece' | 'riftbound' | 'mtg'
 
 /** A card normalized into a common shape, regardless of source game/API. */
 export interface Card {
@@ -23,8 +23,15 @@ export interface Card {
   category: string
   /** Secondary tag, e.g. Riftbound "Champion" supertype, Pokemon subtypes joined. */
   subtypes: string[]
-  /** Color/domain identity used for deck color-lock rules. Empty for colorless/neutral cards. */
+  /** The card's own colors/domains. Empty for colorless/neutral cards. */
   colors: string[]
+  /**
+   * Color identity, for games where it differs from `colors` (Magic: a land's
+   * mana abilities, or a hybrid symbol in rules text, count toward identity but
+   * not toward the card's color). Deck color-locking and the browser's color
+   * filter use this when present, else `colors`.
+   */
+  colorIdentity?: string[]
   cost: string | null
   text: string | null
   legality: Record<string, CardLegalityStatus> | null
@@ -46,12 +53,19 @@ export interface DeckZoneRule {
   exactCount?: number
   minCount?: number
   maxCount?: number
-  /** If set, the zone's total count must equal one of these values (e.g. Riftbound sideboard: 0 or 8). */
+  /** If set, the zone's total count must equal one of these values (e.g. Riftbound sideboard: 0 or 10). */
   allowedCounts?: number[]
   /** Overrides the deck-wide max-copies-per-card rule for this zone. */
   maxCopiesPerCard?: number
   /** Cards in this zone must have unique names (e.g. Riftbound battlefields). */
   uniqueNames?: boolean
+  /**
+   * Cards are never put here by a plain click in the card browser (which uses the first
+   * matching zone that isn't manual) — only through a guided stage, an import header, or the
+   * deck panel's "move" buttons. For zones that overlap another one, like a sideboard or a
+   * Commander, where most cards that qualify belong in the main deck instead.
+   */
+  manualOnly?: boolean
   /** This zone is a free-text resource zone (e.g. Riftbound runes) keyed by a label, not real Card ids. */
   freeText?: { options: string[] }
 }
@@ -70,9 +84,11 @@ export interface DeckRules {
    * Defaults to 'name'.
    */
   copyLimitBy?: 'name' | 'sourceId'
-  /** If true, all non-basic cards must share a color/domain with the deck's designated identity card. */
+  /** If true, all non-basic cards must share a color/domain with the deck's designated identity card(s). */
   colorLocked: boolean
   identityZoneId?: string
+  /** If set, every (non-free-text) zone together must hold exactly this many cards, e.g. Commander's 100 including the commander. */
+  totalCount?: number
 }
 
 export interface DeckCardEntry {

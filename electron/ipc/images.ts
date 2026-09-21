@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { USER_AGENT } from '../../src/shared/games/fetchUtil'
 
 /**
  * Fetches an image server-side and returns it as a data: URI. Card images come from
@@ -7,7 +8,8 @@ import { ipcMain } from 'electron'
  */
 export function registerImagesIpc(): void {
   ipcMain.handle('images:fetchDataUri', async (_e, url: string): Promise<string> => {
-    const res = await fetch(url)
+    // Scryfall's image CDN answers Node's default user agent with a 400.
+    const res = await fetch(url, new URL(url).hostname.endsWith('scryfall.io') ? { headers: { 'User-Agent': USER_AGENT } } : undefined)
     if (!res.ok) throw new Error(`Image fetch failed (${res.status}): ${url}`)
     const contentType = res.headers.get('content-type') ?? 'image/png'
     const buffer = Buffer.from(await res.arrayBuffer())

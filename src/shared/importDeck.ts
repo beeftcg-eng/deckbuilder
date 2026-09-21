@@ -1,6 +1,7 @@
 import type { Card, DeckCardEntry, DeckFreeTextEntry, DeckZoneRule } from './types'
 import type { GameAdapter } from './games/types'
 import { normalizeName } from './collection'
+import { rulesForFormat } from './games/rules'
 
 export interface ParsedDeck {
   /** Deck name from the first line, when the text is in this app's own export format. */
@@ -38,6 +39,9 @@ function indexFor(cardsById: Map<string, Card>): CardIndex {
   for (const card of cardsById.values()) {
     push(index.bySource, card.sourceId.toLowerCase(), card)
     push(index.byName, normalizeName(card.name), card)
+    // "Delver of Secrets // Insectile Aberration": deck sites often list just the front face.
+    const frontFace = card.name.split(' // ')[0]
+    if (frontFace !== card.name) push(index.byName, normalizeName(frontFace), card)
     push(index.bySetNumber, `${normalizeName(card.setCode)} ${card.number.toLowerCase()}`, card)
   }
   indexCache.set(cardsById, index)
@@ -50,7 +54,34 @@ function preferBase(cards: Card[] | undefined): Card | undefined {
   return cards.find((c) => c.id === `${c.gameId}:${c.sourceId}`) ?? cards[0]
 }
 
-function resolveCard(text: string, index: CardIndex): Card | undefined {
+// What community lists append after a card name: a foil marker ("*F*"), a category tag
+// ("[Ramp]", "^Have^"), a printing ("(C21) 263", "(PLST) C21-263"). Peeled off repeatedly, last one first.
+const PRINTING_SUFFIXES = [/\s+\*[A-Za-z]+\*$/, /\s+\[[^\]]*\]$/, /\s+\^[^^]*\^$/, /\s+\([A-Za-z0-9]{2,6}\)(?:\s+\S+)?$/]
+
+function stripPrintingSuffixes(text: string): string {
+  let current = text.trim()
+  for (let changed = true; changed; ) {
+    changed = false
+    for (const suffix of PRINTING_SUFFIXES) {
+      const next = current.replace(suffix, '')
+      if (next !== current && next) {
+        current = next
+        changed = true
+      }
+    }
+  }
+  return current
+}
+
+function resolveCard(text: string, index: CardIndex, stripSuffix = false): Card | undefined {
+  const direct = resolveCardExact(text, index)
+  if (direct || !stripSuffix) return direct
+  // Only after the whole line failed to match, so a real name that ends in parentheses ("Boss's Orders (Cyrus)") is safe.
+  const stripped = stripPrintingSuffixes(text)
+  return stripped !== text ? resolveCardExact(stripped, index) : undefined
+}
+
+function resolveCardExact(text: string, index: CardIndex): Card | undefined {
   const tokens = text.split(/\s+/).filter(Boolean)
   if (tokens.length === 0) return undefined
 
@@ -67,9 +98,23 @@ function resolveCard(text: string, index: CardIndex): Card | undefined {
   return preferBase(index.byName.get(normalizeName(text))) ?? preferBase(index.byName.get(normalizeName(tokens.slice(1).join(' '))))
 }
 
+// Headings other sites use for the zones this app calls by other names.
+const HEADER_ALIASES: Record<string, string> = {
+  deck: 'main',
+  maindeck: 'main',
+  mainboard: 'main',
+  main: 'main',
+  sideboard: 'sideboard',
+  side: 'sideboard',
+  companion: 'sideboard',
+}
+
 function zoneForHeader(label: string, zones: DeckZoneRule[]): DeckZoneRule | null {
   const wanted = normalizeName(label)
   if (!wanted) return null
+  const aliased = HEADER_ALIASES[wanted.replace(/\s+/g, '')]
+  const byAlias = aliased ? zones.find((zone) => zone.id === aliased) : undefined
+  if (byAlias) return byAlias
   return (
     zones.find((zone) => {
       const zoneLabel = normalizeName(zone.label)
@@ -80,6 +125,10 @@ function zoneForHeader(label: string, zones: DeckZoneRule[]): DeckZoneRule | nul
 
 // "Main Deck (50/50):", "Pokémon: 12", "Total Cards: 60"
 const HEADER_LINE = /^([\p{L}][\p{L}\s!]*?)\s*(?:\([^)]*\))?\s*:\s*(\d+)?$/u
+// "Deck", "Sideboard", "Commander": a heading with no colon or count (Arena, MTGO, Moxfield).
+const BARE_HEADER_LINE = /^([\p{L}][\p{L} ]{0,24})$/u
+// "SB: 2 Negate": one sideboard card, tagged on its own line (MTGO, Moxfield).
+const SIDEBOARD_PREFIX = /^SB:\s*(\S.*)$/i
 // "Leader: OP01-001 Roronoa Zoro", "Legend: unl-229*-219 Vi ..." — a zone header with its single card inline.
 const INLINE_ZONE_LINE = /^(legend|leader)\s*:\s*(\S.*)$/iu
 // "4x OP01-006 Name", "4 Name SET 12", "4xOP01-006 Name". A bare "x" only counts as
@@ -87,16 +136,37 @@ const INLINE_ZONE_LINE = /^(legend|leader)\s*:\s*(\S.*)$/iu
 const CARD_LINE = /^(\d+)(?:[xX×]\s*|\s+[xX×]\s+|\s+)(\S.*)$/u
 
 /**
+ * A format whose deck has a zone the default one lacks, when the text has a heading for it: an Arena
+ * export with a "Commander" heading is a Commander deck. null when nothing points to one.
+ */
+export function detectFormatFromHeadings(text: string, adapter: GameAdapter): string | null {
+  const headings = new Set(
+    text
+      .split(/\r?\n/)
+      .map((line) => normalizeName(line.replace(/[:\s\d()/]+$/u, '')))
+      .filter(Boolean),
+  )
+  const defaultZoneIds = new Set(adapter.deckRules.zones.map((z) => z.id))
+  for (const [formatId, rules] of Object.entries(adapter.deckRulesByFormat ?? {})) {
+    if (rules.zones.some((z) => !defaultZoneIds.has(z.id) && headings.has(normalizeName(z.label)))) return formatId
+  }
+  return null
+}
+
+/**
  * Parses a plain-text decklist — this app's own export, or the common
  * community formats for these games — into deck zones. Cards are matched by
  * their id/number first and by name second; anything that looks like a card
  * line but can't be matched is reported in `unmatched` instead of dropped
  * silently. Zone headers ("Sideboard (10/10):") steer cards into that zone
- * when they fit it; otherwise each card goes to the first zone that accepts it.
+ * when they fit it; otherwise each card goes to the first zone that accepts it
+ * (never a `manualOnly` one, like a sideboard or Commander, which need a heading).
+ * `formatId` picks the zones to parse into for games whose deck shape depends on it.
  */
-export function parseDecklistText(text: string, adapter: GameAdapter, cardsById: Map<string, Card>): ParsedDeck {
+export function parseDecklistText(text: string, adapter: GameAdapter, cardsById: Map<string, Card>, formatId?: string): ParsedDeck {
   const index = indexFor(cardsById)
-  const zoneRules = adapter.deckRules.zones
+  const zoneRules = rulesForFormat(adapter, formatId).zones
+  const stripSuffix = adapter.importOptions?.stripPrintingSuffix ?? false
   const lines = text.split(/\r?\n/).map((line) => line.trim())
 
   const result: ParsedDeck = { name: null, formatLabel: null, zones: {}, freeTextZones: {}, unmatched: [], matchedCopies: 0 }
@@ -128,7 +198,7 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
   }
 
   function placeCard(card: Card, quantity: number, preferred: DeckZoneRule | null): boolean {
-    const zone = preferred && !preferred.freeText && preferred.match(card) ? preferred : zoneRules.find((z) => !z.freeText && z.match(card))
+    const zone = preferred && !preferred.freeText && preferred.match(card) ? preferred : zoneRules.find((z) => !z.freeText && !z.manualOnly && z.match(card))
     if (!zone) return false
     addCard(zone.id, card, quantity)
     return true
@@ -136,15 +206,34 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
 
   let currentZone: DeckZoneRule | null = null
 
-  for (const line of lines) {
-    if (!line || /^exported\b/i.test(line)) continue
+  // MTGO-style lists mark no sideboard at all: the blank line after the main deck starts it. Only
+  // trusted when the list has no headings or "SB:" tags of its own, which are then the better signal.
+  const headerZoneOf = (line: string): DeckZoneRule | null => {
+    const header = HEADER_LINE.exec(line) ?? BARE_HEADER_LINE.exec(line)
+    return header ? zoneForHeader(header[1], zoneRules) : null
+  }
+  const hasZoneHeaders = lines.some((line) => SIDEBOARD_PREFIX.test(line) || headerZoneOf(line) !== null)
+  const sideboardZone = zoneRules.find((z) => z.id === 'sideboard' && !z.freeText) ?? null
+  const blankLineStartsSideboard = (adapter.importOptions?.blankLineStartsSideboard ?? false) && !hasZoneHeaders && sideboardZone !== null
+  let cardsInBlock = 0
+
+  for (const rawLine of lines) {
+    if (!rawLine && blankLineStartsSideboard && cardsInBlock > 0) {
+      currentZone = sideboardZone
+      cardsInBlock = 0
+    }
+    if (!rawLine || /^exported\b/i.test(rawLine)) continue
+
+    const sideboardTag = SIDEBOARD_PREFIX.exec(rawLine)
+    const line = sideboardTag ? sideboardTag[1] : rawLine
+    const tagZone = sideboardTag ? sideboardZone : null
 
     const inline = INLINE_ZONE_LINE.exec(line)
     if (inline) {
       const zone = zoneRules.find((z) => z.id === inline[1].toLowerCase()) ?? null
       const card = resolveCard(inline[2], index)
       if (zone && card && placeCard(card, 1, zone)) currentZone = zone
-      else result.unmatched.push(line)
+      else result.unmatched.push(rawLine)
       continue
     }
 
@@ -153,7 +242,7 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
       const quantity = Number(cardLine[1])
       const rest = cardLine[2]
 
-      if (currentZone?.freeText) {
+      if (!tagZone && currentZone?.freeText) {
         const option = currentZone.freeText.options.find((o) => normalizeName(o) === normalizeName(rest))
         if (option) {
           addFreeText(currentZone.id, option, quantity)
@@ -161,19 +250,29 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
         }
       }
 
-      const card = resolveCard(rest, index)
-      if (card && placeCard(card, quantity, currentZone)) continue
+      const card = resolveCard(rest, index, stripSuffix)
+      if (card && placeCard(card, quantity, tagZone ?? currentZone)) {
+        cardsInBlock += 1
+        continue
+      }
 
       // Not a card — maybe a rune/resource line that arrived without its header.
       const freeZone = zoneRules.find((z) => z.freeText?.options.some((o) => normalizeName(o) === normalizeName(rest)))
       const option = freeZone?.freeText?.options.find((o) => normalizeName(o) === normalizeName(rest))
       if (freeZone && option) addFreeText(freeZone.id, option, quantity)
-      else result.unmatched.push(line)
+      else result.unmatched.push(rawLine)
       continue
     }
 
     const header = HEADER_LINE.exec(line)
-    if (header) currentZone = zoneForHeader(header[1], zoneRules)
+    if (header) {
+      currentZone = zoneForHeader(header[1], zoneRules)
+      continue
+    }
+    // A bare heading ("Sideboard") only ever switches zones; other loose text is ignored rather than ending the current zone.
+    const bare = BARE_HEADER_LINE.exec(line)
+    const bareZone = bare ? zoneForHeader(bare[1], zoneRules) : null
+    if (bareZone) currentZone = bareZone
   }
 
   return result

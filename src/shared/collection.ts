@@ -1,5 +1,5 @@
 import type { Card, Deck, GameId } from './types'
-import { getAdapter } from './games/registry'
+import { GAME_ADAPTERS, getAdapter } from './games/registry'
 
 export function normalizeName(value: string): string {
   return value
@@ -9,6 +9,7 @@ export function normalizeName(value: string): string {
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
+    .replace(/æ/g, 'ae') // Arena writes "Aether Vial" where other lists keep the ligature
 }
 
 /**
@@ -45,7 +46,7 @@ export function buildPoolIndex(items: QuantityItem[], lookup: (cardId: string) =
 
 export function gameIdOfCardId(cardId: string): GameId | null {
   const prefix = cardId.slice(0, cardId.indexOf(':'))
-  return prefix === 'pokemon' || prefix === 'onepiece' || prefix === 'riftbound' ? prefix : null
+  return Object.hasOwn(GAME_ADAPTERS, prefix) ? (prefix as GameId) : null
 }
 
 export interface DeckNeed {

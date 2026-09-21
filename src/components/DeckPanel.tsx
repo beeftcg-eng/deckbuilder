@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useAppStore, useCardsById, useOwnedIndex, wishlistIndexOf } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
+import { rulesForFormat } from '../shared/games/rules'
 import { checkDeckLegality } from '../shared/legality'
 import { computeDeckStats } from '../shared/deckStats'
 import { missingForDeck, neededByPool, poolKey, totalPrice } from '../shared/collection'
@@ -9,7 +10,17 @@ import { ExportModal } from './ExportModal'
 import { DeckStats } from './DeckStats'
 import { SampleHandModal } from './SampleHandModal'
 import { BanListEditor } from './BanListEditor'
-import type { Deck, Format } from '../shared/types'
+import type { Deck, DeckZoneRule, Format } from '../shared/types'
+
+/** What a zone's header says about its size, e.g. "/40", ", at least 60", ", up to 15". */
+function zoneCountHint(zone: DeckZoneRule): string {
+  if (zone.exactCount != null) return `/${zone.exactCount}`
+  if (zone.allowedCounts) return `, needs ${zone.allowedCounts.join(' or ')}`
+  if (zone.minCount != null && zone.maxCount != null) return `, ${zone.minCount}–${zone.maxCount}`
+  if (zone.minCount != null) return `, at least ${zone.minCount}`
+  if (zone.maxCount != null) return `, up to ${zone.maxCount}`
+  return ''
+}
 
 export function DeckPanel() {
   const currentDeckId = useAppStore((s) => s.currentDeckId)
@@ -31,6 +42,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const duplicateDeck = useAppStore((s) => s.duplicateDeck)
   const setCardQuantity = useAppStore((s) => s.setCardQuantity)
   const setFreeTextQuantity = useAppStore((s) => s.setFreeTextQuantity)
+  const moveCard = useAppStore((s) => s.moveCard)
   const addDeckToWishlist = useAppStore((s) => s.addDeckToWishlist)
   const wishlistMissing = useAppStore((s) => s.wishlistMissing)
   const markDeckOwned = useAppStore((s) => s.markDeckOwned)
@@ -50,6 +62,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const adapter = getAdapter(deck.gameId)
   const gameFormats: Format[] = formats ?? adapter.defaultFormats
   const format = gameFormats.find((f) => f.id === deck.formatId) ?? gameFormats[0]
+  const zones = useMemo(() => rulesForFormat(adapter, deck.formatId).zones, [adapter, deck.formatId])
 
   const result = useMemo(() => (format ? checkDeckLegality(deck, adapter, format, cardsById) : null), [deck, adapter, format, cardsById])
   const stats = useMemo(() => computeDeckStats(deck, cardsById), [deck, cardsById])
@@ -152,7 +165,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
       <DeckStats stats={stats} toBuy={tracking ? totalPrice(missing) : null} gameHasPrices={adapter.hasPrices} />
 
       <div className="deck-zones">
-        {adapter.deckRules.zones.map((zone) => {
+        {zones.map((zone) => {
           if (zone.freeText) {
             const entries = deck.freeTextZones[zone.id] ?? []
             const total = entries.reduce((sum, e) => sum + e.quantity, 0)
@@ -189,7 +202,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
             <div className="deck-zone" key={zone.id}>
               <div className="deck-zone-header">
                 {zone.label} ({total}
-                {zone.exactCount != null ? `/${zone.exactCount}` : zone.allowedCounts ? `, needs ${zone.allowedCounts.join(' or ')}` : ''})
+                {zoneCountHint(zone)})
               </div>
               {entries.length === 0 && <div className="text-dim deck-zone-empty">Empty</div>}
               <div className="deck-zone-entries">
@@ -199,6 +212,8 @@ function DeckEditor({ deck }: { deck: Deck }) {
                   const key = poolKey(card)
                   const needed = needs.get(key)?.needed ?? entry.quantity
                   const owned = ownedIndex.get(key) ?? 0
+                  // Other zones this card could go to (main deck ⇄ sideboard, main deck ⇄ commander).
+                  const moveTargets = zones.filter((z) => z.id !== zone.id && !z.freeText && z.match(card))
                   return (
                     <div className="deck-entry" key={entry.cardId}>
                       {card.imageUrlSmall && <img className="deck-entry-thumb" src={card.imageUrlSmall} alt="" loading="lazy" />}
@@ -208,6 +223,21 @@ function DeckEditor({ deck }: { deck: Deck }) {
                           own {owned}/{needed}
                         </span>
                       )}
+                      {moveTargets.map((target) => {
+                        const inTarget = deck.zones[target.id]?.find((e) => e.cardId === card.id)?.quantity ?? 0
+                        const full = target.maxCopiesPerCard != null && inTarget >= target.maxCopiesPerCard
+                        return (
+                          <button
+                            key={target.id}
+                            className="btn move-btn"
+                            disabled={full}
+                            title={full ? `${target.label} already has this card` : `Move one copy to ${target.label}`}
+                            onClick={() => moveCard(zone.id, target, card)}
+                          >
+                            → {target.label}
+                          </button>
+                        )
+                      })}
                       <div className="stepper">
                         <button className="btn stepper-btn" onClick={() => setCardQuantity(zone.id, card, entry.quantity - 1)}>
                           −

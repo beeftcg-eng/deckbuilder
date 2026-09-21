@@ -1,6 +1,8 @@
 import type { Collection, Deck, WishlistEntry } from '../../src/shared/types'
+import { GAME_LIST } from '../../src/shared/games/registry'
 
-const GAME_IDS = ['pokemon', 'onepiece', 'riftbound']
+// From the registry, so a newly added game's decks are never silently dropped from a backup or restore.
+const GAME_IDS: string[] = GAME_LIST.map((adapter) => adapter.id)
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 
 function looksLikeDeck(value: unknown): value is Deck {

@@ -158,4 +158,5 @@ export const pokemonAdapter: GameAdapter = {
   openingHandSize: 7,
   fetchAllCards,
   formatDecklistText,
+  copyLimitFor: (card) => (card.category === 'Energy' && card.subtypes.includes('Basic') ? Infinity : null),
 }
