@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { buildWishlistExportText, type ResolvedWishlistEntry } from '../shared/export'
 import { renderWishlistImage } from '../lib/wishlistImage'
+import { dataUrlBytes, imageExtension } from '../shared/exportImage'
 
 interface Props {
   entries: ResolvedWishlistEntry[]
@@ -55,7 +56,7 @@ export function WishlistExportModal({ entries, onClose }: Props) {
 
   async function handleSaveImage() {
     if (!imageDataUrl) return
-    await window.api.exportSavePng(imageDataUrl, 'wishlist.png')
+    await window.api.exportSaveImage(imageDataUrl, `wishlist.${imageExtension(imageDataUrl)}`)
   }
 
   return (
@@ -99,7 +100,7 @@ export function WishlistExportModal({ entries, onClose }: Props) {
           <div className="image-preview">
             <img src={imageDataUrl} alt="Wishlist image" />
             <button className="btn btn-primary" onClick={handleSaveImage}>
-              Save image as .png
+              Save image (.jpg, {(dataUrlBytes(imageDataUrl) / 1048576).toFixed(1)} MB)
             </button>
           </div>
         )}

@@ -36,11 +36,12 @@ export function registerExportIpc(): void {
     return true
   })
 
-  ipcMain.handle('export:savePng', async (e, dataUrl: string, suggestedName: string): Promise<boolean> => {
+  ipcMain.handle('export:saveImage', async (e, dataUrl: string, suggestedName: string): Promise<boolean> => {
     const win = BrowserWindow.fromWebContents(e.sender)
+    const isPng = dataUrl.startsWith('data:image/png')
     const options: Electron.SaveDialogOptions = {
       defaultPath: suggestedName,
-      filters: [{ name: 'PNG Image', extensions: ['png'] }],
+      filters: isPng ? [{ name: 'PNG Image', extensions: ['png'] }] : [{ name: 'JPEG Image', extensions: ['jpg', 'jpeg'] }],
     }
     const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return false

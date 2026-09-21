@@ -1,18 +1,8 @@
 import type { Card, Deck, DeckCardEntry, DeckFreeTextEntry } from '../shared/types'
 import type { GameAdapter } from '../shared/games/types'
 import { rulesForFormat } from '../shared/games/rules'
-
-// Card art/text needs to hold up to zooming in on the exported image, not
-// just be "readable at a glance" — so this targets close to the card's
-// own native resolution (source images run roughly 600-1000px wide
-// across these games) rather than a small thumbnail. Never upscaled
-// past a card's actual resolution (see Math.min below) since that would
-// make lower-res sources blurrier, not sharper.
-const TARGET_WIDTH = 600
-const GAP = 24
-const PADDING = 40
-const PER_ROW = 4
-const CANVAS_WIDTH = PER_ROW * TARGET_WIDTH + (PER_ROW - 1) * GAP + 2 * PADDING
+import { IMAGE_PADDING as PADDING, THUMB_GAP as GAP, THUMB_WIDTH as TARGET_WIDTH, columnsFor, imageWidthFor } from '../shared/exportImage'
+import { encodeUnderLimit } from './encodeImage'
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
   const dataUri = await window.api.images.fetchDataUri(url)
@@ -51,6 +41,11 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
     }),
   )
 
+  // How many cards go in a row depends on how many different cards there are, so the whole deck fits in one look.
+  const thumbCount = [...neededCards.keys()].filter((id) => imageCache.has(id)).length
+  const canvasWidth = imageWidthFor(columnsFor(thumbCount))
+  const totalCards = Object.values<DeckCardEntry[]>(deck.zones).reduce((sum, entries) => sum + entries.reduce((n, e) => n + e.quantity, 0), 0)
+
   // Runs the exact same draw sequence against whatever context it's given
   // and returns the final y (content height). Called once against a tiny
   // throwaway canvas just to measure — text metrics and image aspect
@@ -70,13 +65,14 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
       y += 44
       ctx.fillStyle = '#9a9db3'
       ctx.font = '400 16px sans-serif'
-      ctx.fillText(adapter.name, PADDING, y + 16)
+      ctx.fillText(`${adapter.name} · ${totalCards} cards`, PADDING, y + 16)
       y += 36
     }
 
     function drawSectionLabel(label: string) {
       ctx.fillStyle = '#9a9db3'
       ctx.font = '600 18px sans-serif'
+      ctx.textAlign = 'left'
       ctx.fillText(label.toUpperCase(), PADDING, y + 14)
       y += 28
     }
@@ -84,7 +80,7 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
     function drawThumbRow(entries: ThumbEntry[]) {
       let x = PADDING
       let rowHeight = 0
-      const maxX = CANVAS_WIDTH - PADDING
+      const maxX = canvasWidth - PADDING
 
       for (const { card, quantity } of entries) {
         const img = imageCache.get(card.id)
@@ -100,13 +96,13 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
 
         ctx.drawImage(img, x, y, w, h)
         if (quantity > 1) {
-          const r = Math.round(w * 0.065)
+          const r = Math.max(14, Math.round(w * 0.08))
           ctx.fillStyle = '#7c9eff'
           ctx.beginPath()
           ctx.arc(x + w - r - 4, y + r + 4, r, 0, Math.PI * 2)
           ctx.fill()
           ctx.fillStyle = '#10131f'
-          ctx.font = `700 ${Math.round(r * 1.1)}px sans-serif`
+          ctx.font = `700 ${Math.round(r * 1.15)}px sans-serif`
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           ctx.fillText(String(quantity), x + w - r - 4, y + r + 5)
@@ -118,7 +114,7 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
         x += w + GAP
       }
 
-      y += rowHeight + GAP + 14
+      y += rowHeight + GAP + 10
     }
 
     function drawTextChips(labels: { label: string; quantity: number }[]) {
@@ -127,7 +123,7 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
         const text = `${quantity}x ${label}`
         ctx.font = '600 12px sans-serif'
         const w = ctx.measureText(text).width + 20
-        if (x + w > CANVAS_WIDTH - PADDING) {
+        if (x + w > canvasWidth - PADDING) {
           x = PADDING
           y += 30
         }
@@ -161,7 +157,7 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
         if (card) thumbs.push({ card, quantity: entry.quantity })
       }
       if (thumbs.length === 0) continue
-      drawSectionLabel(zone.label)
+      drawSectionLabel(`${zone.label} (${thumbs.reduce((n, t) => n + t.quantity, 0)})`)
       drawThumbRow(thumbs)
     }
 
@@ -169,17 +165,17 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
   }
 
   const measureCanvas = document.createElement('canvas')
-  measureCanvas.width = CANVAS_WIDTH
+  measureCanvas.width = canvasWidth
   measureCanvas.height = 1
   const finalHeight = runLayout(measureCanvas.getContext('2d')!)
 
   const canvas = document.createElement('canvas')
-  canvas.width = CANVAS_WIDTH
+  canvas.width = canvasWidth
   canvas.height = finalHeight
   const ctx = canvas.getContext('2d')!
   ctx.fillStyle = '#14151a'
-  ctx.fillRect(0, 0, CANVAS_WIDTH, finalHeight)
+  ctx.fillRect(0, 0, canvasWidth, finalHeight)
   runLayout(ctx)
 
-  return canvas.toDataURL('image/png')
+  return encodeUnderLimit(canvas)
 }

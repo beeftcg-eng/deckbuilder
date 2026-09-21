@@ -47,7 +47,7 @@ export type ParsedBackup =
  */
 export function parseBackupBundle(bundle: unknown): ParsedBackup {
   if (!isRecord(bundle) || (!Array.isArray(bundle.decks) && !Array.isArray(bundle.wishlist))) {
-    return { ok: false, error: "That file isn't a Deckbuilder backup (no decks or wishlist in it)." }
+    return { ok: false, error: "That file isn't a Beef's Brewhouse backup (no decks or wishlist in it)." }
   }
 
   const rawDecks = Array.isArray(bundle.decks) ? bundle.decks : null

@@ -1,18 +1,8 @@
 import type { GameId } from '../shared/types'
 import { getAdapter } from '../shared/games/registry'
 import type { ResolvedWishlistEntry } from '../shared/export'
-
-// Card art/text needs to hold up to zooming in on the exported image, not
-// just be "readable at a glance" — so this targets close to the card's
-// own native resolution (source images run roughly 600-1000px wide
-// across these games) rather than a small thumbnail. Never upscaled
-// past a card's actual resolution (see Math.min below) since that would
-// make lower-res sources blurrier, not sharper.
-const TARGET_WIDTH = 600
-const GAP = 24
-const PADDING = 40
-const PER_ROW = 4
-const CANVAS_WIDTH = PER_ROW * TARGET_WIDTH + (PER_ROW - 1) * GAP + 2 * PADDING
+import { IMAGE_PADDING as PADDING, THUMB_GAP as GAP, THUMB_WIDTH as TARGET_WIDTH, columnsFor, imageWidthFor } from '../shared/exportImage'
+import { encodeUnderLimit } from './encodeImage'
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
   const dataUri = await window.api.images.fetchDataUri(url)
@@ -38,6 +28,8 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
       }),
   )
 
+  const canvasWidth = imageWidthFor(columnsFor(imageCache.size))
+
   const byGame = new Map<GameId, ResolvedWishlistEntry[]>()
   for (const entry of entries) {
     const list = byGame.get(entry.card.gameId) ?? []
@@ -56,7 +48,7 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
       y += 28 // section label
       let x = PADDING
       let rowHeight = 0
-      const maxX = CANVAS_WIDTH - PADDING
+      const maxX = canvasWidth - PADDING
       for (const { card } of list) {
         const img = imageCache.get(card.id)
         if (!img) continue
@@ -76,7 +68,7 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
   }
 
   const canvas = document.createElement('canvas')
-  canvas.width = CANVAS_WIDTH
+  canvas.width = canvasWidth
   canvas.height = layoutHeight()
   const ctx = canvas.getContext('2d')!
   ctx.imageSmoothingEnabled = true
@@ -104,7 +96,7 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
 
     let x = PADDING
     let rowHeight = 0
-    const maxX = CANVAS_WIDTH - PADDING
+    const maxX = canvasWidth - PADDING
 
     for (const { card, quantity } of list) {
       const img = imageCache.get(card.id)
@@ -120,13 +112,13 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
 
       ctx.drawImage(img, x, y, w, h)
       if (quantity > 1) {
-        const r = Math.round(w * 0.065)
+        const r = Math.max(14, Math.round(w * 0.08))
         ctx.fillStyle = '#7c9eff'
         ctx.beginPath()
         ctx.arc(x + w - r - 4, y + r + 4, r, 0, Math.PI * 2)
         ctx.fill()
         ctx.fillStyle = '#10131f'
-        ctx.font = `700 ${Math.round(r * 1.1)}px sans-serif`
+        ctx.font = `700 ${Math.round(r * 1.15)}px sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(String(quantity), x + w - r - 4, y + r + 5)
@@ -141,5 +133,5 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
     y += rowHeight + GAP + 14
   }
 
-  return canvas.toDataURL('image/png')
+  return encodeUnderLimit(canvas)
 }

@@ -1,19 +1,69 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="96" fill="#14151a"/>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#3a2415"/>
+      <stop offset="1" stop-color="#150d08"/>
+    </radialGradient>
+    <linearGradient id="beer" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffcf55"/>
+      <stop offset="0.55" stop-color="#f5a21a"/>
+      <stop offset="1" stop-color="#c96f08"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf0d6"/>
+      <stop offset="1" stop-color="#e9d5a6"/>
+    </linearGradient>
+    <clipPath id="glass">
+      <path d="M148 196 H332 L318 408 Q316 424 300 424 H180 Q164 424 162 408 Z"/>
+    </clipPath>
+  </defs>
 
-  <g transform="translate(148,120) rotate(-14 100 140)">
-    <rect x="0" y="0" width="180" height="252" rx="18" fill="#2b2e3d" stroke="#454962" stroke-width="4"/>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- two cards fanned out behind the mug -->
+  <g transform="translate(96,58) rotate(-17 80 115)">
+    <rect width="160" height="230" rx="16" fill="url(#card)" stroke="#8a4f12" stroke-width="6"/>
+    <rect x="16" y="16" width="128" height="198" rx="8" fill="none" stroke="#c98a2b" stroke-width="3" opacity="0.7"/>
+    <path d="M80 62 l10 24 26 3 -20 17 6 26 -22 -14 -22 14 6 -26 -20 -17 26 -3 z" fill="#c98a2b" opacity="0.85"/>
+  </g>
+  <g transform="translate(256,58) rotate(17 80 115)">
+    <rect width="160" height="230" rx="16" fill="url(#card)" stroke="#8a4f12" stroke-width="6"/>
+    <rect x="16" y="16" width="128" height="198" rx="8" fill="none" stroke="#c98a2b" stroke-width="3" opacity="0.7"/>
+    <path d="M80 62 l10 24 26 3 -20 17 6 26 -22 -14 -22 14 6 -26 -20 -17 26 -3 z" fill="#c98a2b" opacity="0.85"/>
   </g>
 
-  <g transform="translate(188,108) rotate(6 100 140)">
-    <rect x="0" y="0" width="180" height="252" rx="18" fill="#1c1e26" stroke="#4a5c8f" stroke-width="4"/>
-  </g>
+  <!-- handle -->
+  <path d="M326 238 H362 Q400 238 400 288 Q400 340 362 340 H318" fill="none" stroke="#fff2cf" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+  <path d="M326 238 H362 Q400 238 400 288 Q400 340 362 340 H318" fill="none" stroke="#e2a233" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <g transform="translate(166,150)">
-    <rect x="0" y="0" width="180" height="252" rx="18" fill="#7c9eff"/>
-    <circle cx="90" cy="126" r="46" fill="#14151a" opacity="0.16"/>
-    <circle cx="90" cy="126" r="26" fill="#eef2ff"/>
-    <rect x="26" y="26" width="36" height="36" rx="8" fill="#eef2ff" opacity="0.9"/>
-    <rect x="118" y="190" width="36" height="36" rx="8" fill="#eef2ff" opacity="0.9"/>
+  <!-- mug -->
+  <path d="M148 196 H332 L318 408 Q316 424 300 424 H180 Q164 424 162 408 Z" fill="#fff2cf" opacity="0.95"/>
+  <g clip-path="url(#glass)">
+    <rect x="140" y="196" width="200" height="240" fill="url(#beer)"/>
+    <rect x="178" y="216" width="20" height="190" rx="10" fill="#fff" opacity="0.28"/>
+    <rect x="214" y="216" width="9" height="150" rx="4.5" fill="#fff" opacity="0.18"/>
+    <circle cx="262" cy="380" r="7" fill="#fff" opacity="0.45"/>
+    <circle cx="288" cy="340" r="5" fill="#fff" opacity="0.4"/>
+    <circle cx="246" cy="318" r="4.5" fill="#fff" opacity="0.4"/>
+    <circle cx="280" cy="284" r="6" fill="#fff" opacity="0.4"/>
+    <circle cx="256" cy="246" r="4" fill="#fff" opacity="0.35"/>
+  </g>
+  <path d="M148 196 H332 L318 408 Q316 424 300 424 H180 Q164 424 162 408 Z" fill="none" stroke="#fff2cf" stroke-width="10" stroke-linejoin="round"/>
+
+  <!-- foam -->
+  <g fill="#fffaf0">
+    <circle cx="170" cy="186" r="34"/>
+    <circle cx="214" cy="164" r="42"/>
+    <circle cx="266" cy="160" r="44"/>
+    <circle cx="314" cy="180" r="36"/>
+    <circle cx="192" cy="212" r="22"/>
+    <circle cx="238" cy="216" r="26"/>
+    <circle cx="290" cy="214" r="24"/>
+    <circle cx="322" cy="208" r="16"/>
+  </g>
+  <g fill="#f0e2bd" opacity="0.9">
+    <circle cx="232" cy="226" r="13"/>
+    <circle cx="284" cy="228" r="11"/>
+    <circle cx="200" cy="228" r="9"/>
   </g>
 </svg>

@@ -1,4 +1,6 @@
-# Deckbuilder
+# Beef's Brewhouse
+
+(Formerly *Deckbuilder*. Downloads, the update feed and the app's data folder keep the old `Deckbuilder` name, so existing links, installs and saved decks are untouched.)
 
 A desktop deckbuilder for Riftbound, One Piece Card Game, Pokémon TCG, Magic: The Gathering, and Yu-Gi-Oh! — with card images, legality checking, and export.
 
@@ -21,7 +23,7 @@ A desktop deckbuilder for Riftbound, One Piece Card Game, Pokémon TCG, Magic: T
 - **Themes**: eight colour themes (Midnight, Graphite & Amber, Forest, Royal Purple, Crimson, Ocean, Light, Parchment) from the picker at the top of the sidebar. The choice is remembered, applied before the window paints (no flash of the default), and every palette is checked for readable contrast in the tests.
 - **Deck icons**: each deck in the sidebar (and its panel header) shows a thumbnail of a card so you can tell decks apart at a glance. It defaults to the deck's Leader / Legend / Commander, or else its first card that isn't a basic land or Energy, so decks you built earlier get one without any work. Click the **🖼** button on any card in the deck to pick a different one (click it again to go back to the automatic choice; Ctrl+Z undoes it).
 - **Collection view**: **▦ Collection** in the sidebar shows what you own for the game you're browsing (search, sort by name / set / copies / value, +/− to adjust) and a **Sets & expansions** tab with your progress in every set. **Add missing** tops you up to owning at least 1–4 of each card in a set (running it twice never overshoots) after a confirmation, and **☆ Wishlist** adds the set's cards you don't own to the wishlist. For Magic a set holds only the cards Scryfall currently shows from it (its data is one printing per card).
-- **Export**: decks and the wishlist can each be copied to the clipboard as plain text, saved as `.txt`, uploaded for a shareable paste link (via [dpaste.com](https://dpaste.com), no account needed), or rendered as a `.png` image with full-size, legible card thumbnails.
+- **Export**: decks and the wishlist can each be copied to the clipboard as plain text, saved as `.txt`, uploaded for a shareable paste link (via [dpaste.com](https://dpaste.com), no account needed), or rendered as one picture (a `.jpg`, always under 12 MB so it sends through WhatsApp's 16 MB limit). The picture puts as many cards in a row as it takes to show the whole deck in one look (about as wide as it is tall), with each zone's card count in its heading, ×N badges and the total in the header; the Save button shows the file's size.
 
 ## Running it
 

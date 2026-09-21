@@ -87,8 +87,8 @@ const api = {
   exportPaste: (content: string): Promise<string> => ipcRenderer.invoke('export:paste', content),
   exportSaveFile: (content: string, suggestedName: string): Promise<boolean> =>
     ipcRenderer.invoke('export:saveFile', content, suggestedName),
-  exportSavePng: (dataUrl: string, suggestedName: string): Promise<boolean> =>
-    ipcRenderer.invoke('export:savePng', dataUrl, suggestedName),
+  exportSaveImage: (dataUrl: string, suggestedName: string): Promise<boolean> =>
+    ipcRenderer.invoke('export:saveImage', dataUrl, suggestedName),
   images: {
     fetchDataUri: (url: string): Promise<string> => ipcRenderer.invoke('images:fetchDataUri', url),
   },

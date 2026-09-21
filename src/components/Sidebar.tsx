@@ -124,7 +124,7 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-title">Deckbuilder</div>
+      <div className="sidebar-title">Beef’s Brewhouse</div>
       <label className="theme-row" title="Change the app's colours">
         <span className="text-dim">Theme</span>
         <select value={themeId} onChange={(e) => setTheme(e.target.value)}>
@@ -369,7 +369,7 @@ export function Sidebar() {
       {updateStatus && (
         <div className="version-box">
           <div className="version-line">
-            <span className="text-dim">Deckbuilder v{updateStatus.version}</span>
+            <span className="text-dim">Beef’s Brewhouse v{updateStatus.version}</span>
             {canCheckForUpdates(updateStatus) && (
               <button className="link-btn" onClick={() => window.api.updater.check()}>
                 Check for updates

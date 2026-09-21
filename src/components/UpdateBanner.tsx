@@ -10,12 +10,12 @@ export function UpdateBanner() {
   return (
     <div className="update-banner" role="status">
       <span>
-        <b>Deckbuilder {status.newVersion}</b> is ready to install.
+        <b>Beef’s Brewhouse {status.newVersion}</b> is ready to install.
       </span>
       <button className="btn btn-primary" onClick={() => window.api.updater.install()}>
         Restart &amp; update
       </button>
-      <button className="btn" onClick={() => setDismissedFor(status.newVersion)} title="It will install the next time you close Deckbuilder">
+      <button className="btn" onClick={() => setDismissedFor(status.newVersion)} title="It will install the next time you close Beef’s Brewhouse">
         Later
       </button>
     </div>

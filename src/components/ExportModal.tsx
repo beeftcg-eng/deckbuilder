@@ -3,6 +3,7 @@ import type { Card, Deck, Format } from '../shared/types'
 import { getAdapter } from '../shared/games/registry'
 import { buildExportText } from '../shared/export'
 import { renderDeckImage } from '../lib/deckImage'
+import { dataUrlBytes, imageExtension } from '../shared/exportImage'
 
 interface Props {
   deck: Deck
@@ -60,7 +61,7 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
 
   async function handleSaveImage() {
     if (!imageDataUrl) return
-    await window.api.exportSavePng(imageDataUrl, `${deck.name.replace(/[^a-z0-9-_ ]/gi, '_')}.png`)
+    await window.api.exportSaveImage(imageDataUrl, `${deck.name.replace(/[^a-z0-9-_ ]/gi, '_')}.${imageExtension(imageDataUrl)}`)
   }
 
   return (
@@ -104,7 +105,7 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
           <div className="image-preview">
             <img src={imageDataUrl} alt={`${deck.name} deck image`} />
             <button className="btn btn-primary" onClick={handleSaveImage}>
-              Save image as .png
+              Save image (.jpg, {(dataUrlBytes(imageDataUrl) / 1048576).toFixed(1)} MB)
             </button>
           </div>
         )}

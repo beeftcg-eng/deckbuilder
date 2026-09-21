@@ -1,7 +1,7 @@
 {
   "name": "deckbuilder",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "A multi-game TCG deckbuilder with legality checking and export (Riftbound, One Piece, Pokemon, Magic: The Gathering)",
   "author": "beeftcg",
   "type": "module",
@@ -40,7 +40,8 @@
   },
   "build": {
     "appId": "com.beeftcg.deckbuilder",
-    "productName": "Deckbuilder",
+    "productName": "Beef's Brewhouse",
+    "executableName": "Deckbuilder",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
@@ -62,7 +63,8 @@
       ],
       "category": "Game",
       "icon": "build/icon.png",
-      "artifactName": "${productName}.${ext}"
+      "executableName": "deckbuilder",
+      "artifactName": "Deckbuilder.${ext}"
     },
     "mac": {
       "target": [
@@ -74,7 +76,10 @@
         "nsis"
       ],
       "icon": "build/icon.png",
-      "artifactName": "${productName}-Setup.${ext}"
+      "artifactName": "Deckbuilder-Setup.${ext}"
+    },
+    "nsis": {
+      "shortcutName": "Beef's Brewhouse"
     }
   }
 }
