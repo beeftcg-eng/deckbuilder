@@ -287,7 +287,7 @@ function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
 
 function getGuidedStage(deck: Deck): GuidedStage | null {
   if (deck.formatId !== 'commander' || (deck.zones.commander ?? []).length > 0) return null
-  return { label: 'Pick your Commander', filter: canBeCommander, targetZoneId: 'commander' }
+  return { label: 'Pick your Commander', filter: canBeCommander, filterLabel: 'Commanders only', targetZoneId: 'commander' }
 }
 
 export const mtgAdapter: GameAdapter = {
@@ -305,6 +305,7 @@ export const mtgAdapter: GameAdapter = {
   getGuidedStage,
   copyLimitFor,
   colorOrder: COLOR_ORDER,
+  setNote: "Magic's card data lists one printing of each card, so a set here holds only the cards Scryfall currently shows from it, not everything ever printed in it.",
   identityColorFilter: true,
   importOptions: { blankLineStartsSideboard: true, stripPrintingSuffix: true },
 }

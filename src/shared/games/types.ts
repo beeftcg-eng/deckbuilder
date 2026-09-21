@@ -10,6 +10,8 @@ export interface GuidedStage {
   label: string
   /** Only cards matching this are shown in the browser while this stage is active. Omit to allow any card. */
   filter?: (card: Card) => boolean
+  /** If set, the card browser offers a switch with this label to turn the stage's filter off and browse every card. */
+  filterLabel?: string
   /** Zone that a card click should add to while this stage is active, overriding the default first-match zone. */
   targetZoneId: string
 }
@@ -31,6 +33,8 @@ export interface GameAdapter {
   legalitySource: 'api' | 'local'
   /** Whether the source API gives card prices (Riftbound's doesn't), so the UI knows when to hint at re-syncing. */
   hasPrices: boolean
+  /** A sync that couldn't get a card's price keeps the one it had before (Pokémon's price source is unreliable). */
+  keepPricesWhenMissing?: boolean
   /** Cards drawn for an opening hand, used by the sample-hand simulator. */
   openingHandSize: number
   /** Fetches every card for this game from its source API. Network-only; must run in the main process. */
@@ -48,6 +52,8 @@ export interface GameAdapter {
    * hold any number of (basic Energy, basic lands), or a smaller number. null = no override.
    */
   copyLimitFor?: (card: Card) => number | null
+  /** Shown on the collection's Sets tab when a game's card data doesn't list every printing in every set. */
+  setNote?: string
   /** Order to show color filter chips in (default: alphabetical). */
   colorOrder?: string[]
   /**

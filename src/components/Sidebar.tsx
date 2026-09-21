@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useAppStore, GAME_LIST } from '../state/useAppStore'
+import { useAppStore, useCardsById, GAME_LIST } from '../state/useAppStore'
 import { ImportDeckModal } from './ImportDeckModal'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
+import { THEMES, getTheme } from '../shared/themes'
+import { resolveDeckIcon } from '../shared/deckIcon'
+import { getAdapter } from '../shared/games/registry'
+import { DeckIcon } from './DeckIcon'
 
 function formatRelativeTime(iso: string | null): string {
   if (!iso) return 'never synced'
@@ -37,10 +41,16 @@ export function Sidebar() {
   const loadCatalog = useAppStore((s) => s.loadCatalog)
   const showWishlist = useAppStore((s) => s.showWishlist)
   const setShowWishlist = useAppStore((s) => s.setShowWishlist)
+  const showCollection = useAppStore((s) => s.showCollection)
+  const setShowCollection = useAppStore((s) => s.setShowCollection)
+  const collectionCopies = useAppStore((s) => Object.values(s.collection).reduce((n, q) => n + q, 0))
   const wishlist = useAppStore((s) => s.wishlist)
   const exportBackup = useAppStore((s) => s.exportBackup)
   const importBackup = useAppStore((s) => s.importBackup)
   const updateStatus = useAppStore((s) => s.updateStatus)
+  const themeId = useAppStore((s) => getTheme(s.settings.theme).id)
+  const setTheme = useAppStore((s) => s.setTheme)
+  const cardsById = useCardsById(currentGameId)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [deckFilter, setDeckFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
@@ -99,9 +109,23 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-title">Deckbuilder</div>
+      <label className="theme-row" title="Change the app's colours">
+        <span className="text-dim">Theme</span>
+        <select value={themeId} onChange={(e) => setTheme(e.target.value)}>
+          {THEMES.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <button className={`wishlist-nav-btn ${showWishlist ? 'active' : ''}`} onClick={() => setShowWishlist(!showWishlist)}>
         ★ Wishlist{wishlist.length > 0 ? ` (${wishlist.reduce((n, e) => n + e.quantity, 0)})` : ''}
+      </button>
+
+      <button className={`wishlist-nav-btn ${showCollection ? 'active' : ''}`} onClick={() => setShowCollection(!showCollection)}>
+        ▦ Collection{collectionCopies > 0 ? ` (${collectionCopies})` : ''}
       </button>
 
       <nav className="game-tabs">
@@ -145,6 +169,7 @@ export function Sidebar() {
             className="btn"
             onClick={() => {
               setShowWishlist(false)
+              setShowCollection(false)
               createDeck(currentGameId)
             }}
           >
@@ -178,9 +203,11 @@ export function Sidebar() {
             className={`deck-row ${deck.id === currentDeckId ? 'active' : ''}`}
             onClick={() => {
               setShowWishlist(false)
+              setShowCollection(false)
               selectDeck(deck.id)
             }}
           >
+            <DeckIcon card={resolveDeckIcon(deck, getAdapter(currentGameId), cardsById)} name={deck.name} />
             <span className="deck-row-name">{deck.name}</span>
             <span className="deck-row-actions">
               <button

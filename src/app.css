@@ -137,7 +137,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 5px 10px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
@@ -152,6 +153,8 @@
 }
 
 .deck-row-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -312,7 +315,7 @@
   top: 6px;
   right: 6px;
   background: var(--accent);
-  color: #10131f;
+  color: var(--accent-text);
   font-weight: 700;
   font-size: 12px;
   border-radius: 50%;
@@ -1246,7 +1249,7 @@
   padding: 2px 9px;
   border-radius: 999px;
   background: var(--accent);
-  color: #10131f;
+  color: var(--accent-text);
   font-weight: 700;
   font-size: 13px;
   line-height: 1.4;
@@ -1380,4 +1383,155 @@
   color: var(--accent);
   font-size: 12px;
   text-decoration: underline;
+}
+
+/* Theme picker */
+.theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.theme-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Deck icons */
+.deck-icon {
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: cover;
+  object-position: 50% 22%; /* the top of a card, where the art is */
+  background: var(--bg-elevated-2);
+}
+
+.deck-icon-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-dim);
+  border: 1px dashed var(--border-strong);
+}
+
+.icon-btn {
+  padding: 2px 6px;
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+.icon-btn:hover,
+.icon-btn-active {
+  opacity: 1;
+}
+
+.icon-btn-active {
+  border-color: var(--accent);
+}
+
+/* Collection panel */
+.col-tabs {
+  flex-shrink: 0;
+}
+
+.col-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.col-controls .search-input {
+  flex: 1;
+}
+
+.col-copies {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.col-note {
+  font-size: 12px;
+}
+
+.col-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.col-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+
+.col-card-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.col-name {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-meta {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.col-price {
+  width: 56px;
+  text-align: right;
+  font-size: 12px;
+}
+
+.col-set-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.col-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-elevated-2);
+  overflow: hidden;
+}
+
+.col-progress-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.stage-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 14px;
+  font-weight: 400;
+  font-size: 12px;
+  cursor: pointer;
 }

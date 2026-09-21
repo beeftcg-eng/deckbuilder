@@ -8,6 +8,7 @@
   --text-dim: #9a9db3;
   --accent: #7c9eff;
   --accent-dim: #4a5c8f;
+  --accent-text: #10131f;
   --danger: #ff6b6b;
   --danger-dim: #4a2a2a;
   --success: #5fd68a;
@@ -82,7 +83,7 @@ textarea {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #10131f;
+  color: var(--accent-text);
   font-weight: 600;
 }
 .btn-primary:hover {

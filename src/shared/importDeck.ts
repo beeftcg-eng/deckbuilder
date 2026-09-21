@@ -2,6 +2,7 @@ import type { Card, DeckCardEntry, DeckFreeTextEntry, DeckZoneRule } from './typ
 import type { GameAdapter } from './games/types'
 import { normalizeName } from './collection'
 import { rulesForFormat } from './games/rules'
+import { choosePrinting, type PrintingPrefs } from './printings'
 
 export interface ParsedDeck {
   /** Deck name from the first line, when the text is in this app's own export format. */
@@ -48,12 +49,6 @@ function indexFor(cardsById: Map<string, Card>): CardIndex {
   return index
 }
 
-/** Among printings of one card, prefer the base one (id == "<game>:<sourceId>"), else the first. */
-function preferBase(cards: Card[] | undefined): Card | undefined {
-  if (!cards || cards.length === 0) return undefined
-  return cards.find((c) => c.id === `${c.gameId}:${c.sourceId}`) ?? cards[0]
-}
-
 // What community lists append after a card name: a foil marker ("*F*"), a category tag
 // ("[Ramp]", "^Have^"), a printing ("(C21) 263", "(PLST) C21-263"). Peeled off repeatedly, last one first.
 const PRINTING_SUFFIXES = [/\s+\*[A-Za-z]+\*$/, /\s+\[[^\]]*\]$/, /\s+\^[^^]*\^$/, /\s+\([A-Za-z0-9]{2,6}\)(?:\s+\S+)?$/]
@@ -73,29 +68,32 @@ function stripPrintingSuffixes(text: string): string {
   return current
 }
 
-function resolveCard(text: string, index: CardIndex, stripSuffix = false): Card | undefined {
-  const direct = resolveCardExact(text, index)
+function resolveCard(text: string, index: CardIndex, stripSuffix = false, prefs: PrintingPrefs = {}): Card | undefined {
+  const direct = resolveCardExact(text, index, prefs)
   if (direct || !stripSuffix) return direct
   // Only after the whole line failed to match, so a real name that ends in parentheses ("Boss's Orders (Cyrus)") is safe.
   const stripped = stripPrintingSuffixes(text)
-  return stripped !== text ? resolveCardExact(stripped, index) : undefined
+  return stripped !== text ? resolveCardExact(stripped, index, prefs) : undefined
 }
 
-function resolveCardExact(text: string, index: CardIndex): Card | undefined {
+function resolveCardExact(text: string, index: CardIndex, prefs: PrintingPrefs): Card | undefined {
   const tokens = text.split(/\s+/).filter(Boolean)
   if (tokens.length === 0) return undefined
 
   // "Professor's Research SVI 189": set code + collector number at the end.
   if (tokens.length >= 3) {
     const key = `${normalizeName(tokens[tokens.length - 2])} ${tokens[tokens.length - 1].toLowerCase()}`
-    const hit = preferBase(index.bySetNumber.get(key))
+    const hit = choosePrinting(index.bySetNumber.get(key), prefs)
     if (hit) return hit
   }
   // "OP01-006 Name" / "unl-229*-219 Name": the card's own id first...
-  const bySource = preferBase(index.bySource.get(tokens[0].toLowerCase()))
+  const bySource = choosePrinting(index.bySource.get(tokens[0].toLowerCase()), prefs)
   if (bySource) return bySource
   // ...then the bare name, or the name after an id that isn't in this catalog.
-  return preferBase(index.byName.get(normalizeName(text))) ?? preferBase(index.byName.get(normalizeName(tokens.slice(1).join(' '))))
+  return (
+    choosePrinting(index.byName.get(normalizeName(text)), prefs) ??
+    choosePrinting(index.byName.get(normalizeName(tokens.slice(1).join(' '))), prefs)
+  )
 }
 
 // Headings other sites use for the zones this app calls by other names.
@@ -161,9 +159,11 @@ export function detectFormatFromHeadings(text: string, adapter: GameAdapter): st
  * silently. Zone headers ("Sideboard (10/10):") steer cards into that zone
  * when they fit it; otherwise each card goes to the first zone that accepts it
  * (never a `manualOnly` one, like a sideboard or Commander, which need a heading).
- * `formatId` picks the zones to parse into for games whose deck shape depends on it.
+ * `formatId` picks the zones to parse into for games whose deck shape depends on it. `prefs` steers which
+ * printing a name-only line gets when a card has several (see choosePrinting): a printing you own, a legal
+ * one, a regular one over alternate art, the lowest rarity.
  */
-export function parseDecklistText(text: string, adapter: GameAdapter, cardsById: Map<string, Card>, formatId?: string): ParsedDeck {
+export function parseDecklistText(text: string, adapter: GameAdapter, cardsById: Map<string, Card>, formatId?: string, prefs: PrintingPrefs = {}): ParsedDeck {
   const index = indexFor(cardsById)
   const zoneRules = rulesForFormat(adapter, formatId).zones
   const stripSuffix = adapter.importOptions?.stripPrintingSuffix ?? false
@@ -231,7 +231,7 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
     const inline = INLINE_ZONE_LINE.exec(line)
     if (inline) {
       const zone = zoneRules.find((z) => z.id === inline[1].toLowerCase()) ?? null
-      const card = resolveCard(inline[2], index)
+      const card = resolveCard(inline[2], index, false, prefs)
       if (zone && card && placeCard(card, 1, zone)) currentZone = zone
       else result.unmatched.push(rawLine)
       continue
@@ -250,7 +250,7 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
         }
       }
 
-      const card = resolveCard(rest, index, stripSuffix)
+      const card = resolveCard(rest, index, stripSuffix, prefs)
       if (card && placeCard(card, quantity, tagZone ?? currentZone)) {
         cardsInBlock += 1
         continue

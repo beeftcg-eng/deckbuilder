@@ -11,6 +11,9 @@ import { DeckStats } from './DeckStats'
 import { SampleHandModal } from './SampleHandModal'
 import { BanListEditor } from './BanListEditor'
 import { DeckFullView } from './DeckFullView'
+import { DeckIcon } from './DeckIcon'
+import { currentDeckFor } from '../shared/decks'
+import { resolveDeckIcon } from '../shared/deckIcon'
 import type { Deck, DeckZoneRule, Format } from '../shared/types'
 
 /** What a zone's header says about its size, e.g. "/40", ", at least 60", ", up to 15". */
@@ -24,8 +27,7 @@ function zoneCountHint(zone: DeckZoneRule): string {
 }
 
 export function DeckPanel() {
-  const currentDeckId = useAppStore((s) => s.currentDeckId)
-  const deck = useAppStore((s) => s.decks.find((d) => d.id === currentDeckId))
+  const deck = useAppStore((s) => currentDeckFor(s.decks, s.currentDeckId, s.currentGameId))
 
   if (!deck) {
     return (
@@ -44,6 +46,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const setCardQuantity = useAppStore((s) => s.setCardQuantity)
   const setFreeTextQuantity = useAppStore((s) => s.setFreeTextQuantity)
   const moveCard = useAppStore((s) => s.moveCard)
+  const setDeckIcon = useAppStore((s) => s.setDeckIcon)
   const addDeckToWishlist = useAppStore((s) => s.addDeckToWishlist)
   const wishlistMissing = useAppStore((s) => s.wishlistMissing)
   const markDeckOwned = useAppStore((s) => s.markDeckOwned)
@@ -68,6 +71,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
 
   const result = useMemo(() => (format ? checkDeckLegality(deck, adapter, format, cardsById) : null), [deck, adapter, format, cardsById])
   const stats = useMemo(() => computeDeckStats(deck, cardsById), [deck, cardsById])
+  const iconCard = useMemo(() => resolveDeckIcon(deck, adapter, cardsById), [deck, adapter, cardsById])
   const needs = useMemo(() => neededByPool(deck, cardsById), [deck, cardsById])
   const missing = useMemo(() => missingForDeck(deck, cardsById, ownedIndex), [deck, cardsById, ownedIndex])
   const missingNotWishlisted = useMemo(
@@ -111,6 +115,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
   return (
     <div className="deck-panel">
       <div className="deck-panel-header">
+        <DeckIcon card={iconCard} name={deck.name} size={38} />
         <input
           className="deck-name-input"
           value={nameDraft ?? deck.name}
@@ -228,6 +233,13 @@ function DeckEditor({ deck }: { deck: Deck }) {
                           own {owned}/{needed}
                         </span>
                       )}
+                      <button
+                        className={`btn icon-btn ${iconCard?.id === card.id ? 'icon-btn-active' : ''}`}
+                        title={iconCard?.id === card.id && deck.iconCardId === card.id ? 'This is the deck icon (click to reset to the automatic one)' : 'Use this card as the deck icon'}
+                        onClick={() => setDeckIcon(deck.iconCardId === card.id ? null : card.id)}
+                      >
+                        🖼
+                      </button>
                       {moveTargets.map((target) => {
                         const inTarget = deck.zones[target.id]?.find((e) => e.cardId === card.id)?.quantity ?? 0
                         const full = target.maxCopiesPerCard != null && inTarget >= target.maxCopiesPerCard

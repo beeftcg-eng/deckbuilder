@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import type { Card, CardCacheMeta, GameId, SyncProgress } from '../../src/shared/types'
 import { getAdapter } from '../../src/shared/games/registry'
+import { uniquifyCardIds } from '../../src/shared/cardIds'
+import { carryOverPrices } from '../../src/shared/carryOverPrices'
 import { cardsCacheDir, ensureDataDirs } from '../lib/paths'
 
 interface CacheFile {
@@ -20,7 +22,9 @@ async function readCache(gameId: GameId): Promise<CacheFile | null> {
   if (!existsSync(path)) return null
   try {
     const raw = await readFile(path, 'utf-8')
-    return JSON.parse(raw) as CacheFile
+    const cache = JSON.parse(raw) as CacheFile
+    // A cache written before ids were made unique (see cardIds.ts) repairs itself as it's read, no re-sync needed.
+    return { ...cache, cards: uniquifyCardIds(cache.cards) }
   } catch {
     return null
   }
@@ -48,10 +52,12 @@ export function registerCardDataIpc(): void {
     const adapter = getAdapter(gameId)
 
     try {
-      const cards = await adapter.fetchAllCards((p) => {
+      const previous = adapter.keepPricesWhenMissing ? await readCache(gameId) : null
+      const fetched = uniquifyCardIds(await adapter.fetchAllCards((p) => {
         const progress: SyncProgress = { gameId, loaded: p.loaded, total: p.total, done: false }
         broadcast('cards:syncProgress', progress)
-      })
+      }))
+      const cards = previous ? carryOverPrices(fetched, previous.cards) : fetched
 
       const cache: CacheFile = { cards, lastSynced: new Date().toISOString() }
       await writeFile(cacheFilePath(gameId), JSON.stringify(cache), 'utf-8')

@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import type { AppSettings, GameId } from '../../src/shared/types'
 import { GAME_LIST } from '../../src/shared/games/registry'
 import { isDeckViewMode } from '../../src/shared/deckView'
+import { isThemeId } from '../../src/shared/themes'
 import { settingsFile } from '../lib/paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/jsonStore'
 
@@ -18,6 +19,7 @@ function sanitize(raw: unknown): AppSettings {
   if (typeof source.lastDeckId === 'string' || source.lastDeckId === null) settings.lastDeckId = source.lastDeckId
   if (source.deckSort === 'recent' || source.deckSort === 'name') settings.deckSort = source.deckSort
   if (isDeckViewMode(source.deckViewMode)) settings.deckViewMode = source.deckViewMode
+  if (isThemeId(source.theme)) settings.theme = source.theme
   return settings
 }
 

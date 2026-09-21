@@ -20,6 +20,8 @@ import { buildPoolIndex, gameIdOfCardId, missingForDeck } from '../shared/collec
 import type { ParsedDeck } from '../shared/importDeck'
 import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import type { UpdateStatus } from '../shared/updateStatus'
+import { currentDeckFor } from '../shared/decks'
+import { applyTheme } from '../lib/theme'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 
 interface Catalog {
@@ -85,6 +87,7 @@ interface AppState {
   decks: Deck[]
   currentDeckId: string | null
   showWishlist: boolean
+  showCollection: boolean
   settings: AppSettings
   undoStack: UndoEntry[]
   /** Self-update progress, pushed from the main process; null until it has reported. */
@@ -120,9 +123,13 @@ interface AppState {
   setDeckSort: (sort: 'recent' | 'name') => void
   setDeckViewMode: (mode: DeckViewMode) => void
   setUpdateStatus: (status: UpdateStatus) => void
+  setTheme: (id: string) => void
+  /** Picks (or, with null, clears) the open deck's icon card. */
+  setDeckIcon: (cardId: string | null) => Promise<void>
   applySyncProgress: (progress: SyncProgress) => void
 
   setShowWishlist: (show: boolean) => void
+  setShowCollection: (show: boolean) => void
   loadWishlist: () => Promise<void>
   addToWishlist: (card: Card, quantity?: number) => Promise<void>
   addDeckToWishlist: (deck: Deck) => Promise<number>
@@ -133,6 +140,10 @@ interface AppState {
   loadCollection: () => Promise<void>
   /** Adds (or, if negative, removes) copies of one printing. Relative, so quick repeat clicks can't overwrite each other. */
   changeOwned: (cardId: string, delta: number) => Promise<void>
+  /** Adds copies of several printings at once (relative, like changeOwned). Returns the copies added. */
+  addToCollection: (items: { cardId: string; quantity: number }[]) => Promise<number>
+  /** Wishlists one copy of each card; the ones already on the wishlist are the caller's to leave out. */
+  wishlistCards: (cards: Card[]) => Promise<number>
   markDeckOwned: (deck: Deck) => Promise<number>
   markGotIt: (entryId: string) => Promise<void>
 
@@ -181,7 +192,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
   async function addAndSelectDeck(deck: Deck, undoLabel: string): Promise<void> {
     const saved = await window.api.decks.save(deck)
-    set((s) => ({ decks: [...s.decks, saved], currentDeckId: saved.id, currentGameId: saved.gameId, showWishlist: false }))
+    set((s) => ({ decks: [...s.decks, saved], currentDeckId: saved.id, currentGameId: saved.gameId, showWishlist: false, showCollection: false }))
     pushUndo({ kind: 'create', label: undoLabel, deckId: saved.id })
     persistSettings({ lastDeckId: saved.id, lastGameId: saved.gameId })
   }
@@ -195,6 +206,7 @@ export const useAppStore = create<AppState>((set, get) => {
     decks: [],
     currentDeckId: null,
     showWishlist: false,
+    showCollection: false,
     settings: {},
     undoStack: [],
     error: null,
@@ -209,6 +221,7 @@ export const useAppStore = create<AppState>((set, get) => {
       try {
         const [decks, settings] = await Promise.all([window.api.decks.list(), window.api.settings.get()])
         set({ decks, settings })
+        applyTheme(settings.theme)
 
         // Reopen where you left off: the last deck (which also implies its game), else the last game.
         const lastDeck = decks.find((d) => d.id === settings.lastDeckId)
@@ -309,8 +322,8 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     updateDeck: async (updater, undoLabel = 'Edit deck') => {
-      const { currentDeckId, decks } = get()
-      const current = decks.find((d) => d.id === currentDeckId)
+      const { currentDeckId, currentGameId, decks } = get()
+      const current = currentDeckFor(decks, currentDeckId, currentGameId)
       if (!current) return
       const next = updater(current)
       if (next === current) return
@@ -322,7 +335,7 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     setCardQuantity: async (zoneId, card, quantity) => {
-      const deck = get().decks.find((d) => d.id === get().currentDeckId)
+      const deck = currentDeckFor(get().decks, get().currentDeckId, get().currentGameId)
       const previous = deck?.zones[zoneId]?.find((e) => e.cardId === card.id)?.quantity ?? 0
       await get().updateDeck(
         (d) => {
@@ -356,7 +369,7 @@ export const useAppStore = create<AppState>((set, get) => {
         set((s) => ({ decks: s.decks.map((d) => (d.id === entry.before.id ? entry.before : d)) }))
         await persistDeck(entry.before)
       } else if (entry.kind === 'delete') {
-        set((s) => ({ decks: [...s.decks, entry.deck], currentDeckId: entry.deck.id, currentGameId: entry.deck.gameId, showWishlist: false }))
+        set((s) => ({ decks: [...s.decks, entry.deck], currentDeckId: entry.deck.id, currentGameId: entry.deck.gameId, showWishlist: false, showCollection: false }))
         await persistDeck(entry.deck)
       } else {
         set((s) => ({
@@ -374,10 +387,22 @@ export const useAppStore = create<AppState>((set, get) => {
     setDeckSort: (sort) => persistSettings({ deckSort: sort }),
     setDeckViewMode: (mode) => persistSettings({ deckViewMode: mode }),
     setUpdateStatus: (status) => set({ updateStatus: status }),
+    setDeckIcon: async (cardId) => {
+      await get().updateDeck((d) => {
+        const { iconCardId: _previous, ...rest } = d
+        return cardId ? { ...rest, iconCardId: cardId } : rest
+      }, cardId ? 'Set deck icon' : 'Clear deck icon')
+    },
+
+    setTheme: (id) => {
+      applyTheme(id) // instant; the saved copy follows
+      persistSettings({ theme: id })
+    },
 
     applySyncProgress: (progress) => set((s) => ({ syncProgress: { ...s.syncProgress, [progress.gameId]: progress } })),
 
-    setShowWishlist: (show) => set({ showWishlist: show }),
+    setShowWishlist: (show) => set(show ? { showWishlist: true, showCollection: false } : { showWishlist: false }),
+    setShowCollection: (show) => set(show ? { showCollection: true, showWishlist: false } : { showCollection: false }),
 
     loadWishlist: async () => {
       const wishlist = await window.api.wishlist.list()
@@ -429,6 +454,20 @@ export const useAppStore = create<AppState>((set, get) => {
     changeOwned: async (cardId, delta) => {
       const collection = await window.api.collection.add([{ cardId, quantity: delta }])
       set({ collection })
+    },
+
+    addToCollection: async (items) => {
+      if (items.length === 0) return 0
+      const collection = await window.api.collection.add(items)
+      set({ collection })
+      return items.reduce((sum, item) => sum + item.quantity, 0)
+    },
+
+    wishlistCards: async (cards) => {
+      if (cards.length === 0) return 0
+      const wishlist = await window.api.wishlist.addMany(cards.map((card) => ({ gameId: card.gameId, cardId: card.id, quantity: 1 })))
+      set({ wishlist })
+      return cards.length
     },
 
     markDeckOwned: async (deck) => {

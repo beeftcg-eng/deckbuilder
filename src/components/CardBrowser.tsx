@@ -3,6 +3,7 @@ import { useAppStore, useCardsById, useOwnedIndex } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { isCardLegalInFormat } from '../shared/legality'
 import { poolKey } from '../shared/collection'
+import { currentDeckFor } from '../shared/decks'
 import { rulesForFormat } from '../shared/games/rules'
 import { identityColors } from '../shared/cardColors'
 import type { Card, DeckRules } from '../shared/types'
@@ -26,18 +27,22 @@ export function CardBrowser() {
   const collection = useAppStore((s) => s.collection)
   const changeOwned = useAppStore((s) => s.changeOwned)
   const ownedIndex = useOwnedIndex()
+  const cachedCount = useAppStore((s) => s.syncMeta[currentGameId]?.count ?? 0)
 
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<string>('all')
   const [setId, setSetId] = useState<string>('all')
   const [colors, setColors] = useState<Set<string>>(new Set())
   const [ownedOnly, setOwnedOnly] = useState(false)
+  const [showAllDuringStage, setShowAllDuringStage] = useState(false)
   const [detailCard, setDetailCard] = useState<Card | null>(null)
 
-  const deck = decks.find((d) => d.id === currentDeckId)
+  const deck = currentDeckFor(decks, currentDeckId, currentGameId)
   const adapter = getAdapter(currentGameId)
   const cardsById = useCardsById(currentGameId)
   const stage = deck ? (adapter.getGuidedStage?.(deck, cardsById) ?? null) : null
+  // A stage may let you switch its filter off (Magic's "Commanders only") to browse everything.
+  const stageFilter = stage?.filter && !(stage.filterLabel && showAllDuringStage) ? stage.filter : undefined
 
   const gameFormats = deck ? (formats[deck.gameId] ?? adapter.defaultFormats) : []
   const format = deck ? (gameFormats.find((f) => f.id === deck.formatId) ?? gameFormats[0]) : undefined
@@ -59,6 +64,20 @@ export function CardBrowser() {
   // during render (React's "adjust state when a prop changes" pattern) rather than in
   // an effect, so the filter is right on the same paint instead of one frame late.
   const [lastIdentityKey, setLastIdentityKey] = useState('')
+
+  // The filters belong to the game being browsed. This component stays mounted when you switch game tabs, and a
+  // Riftbound deck's colours left on the filter meant Magic showed only colourless cards and Pokémon nothing at all.
+  const [filterGameId, setFilterGameId] = useState(currentGameId)
+  if (filterGameId !== currentGameId) {
+    setFilterGameId(currentGameId)
+    setQuery('')
+    setCategory('all')
+    setSetId('all')
+    setOwnedOnly(false)
+    setShowAllDuringStage(false)
+    setColors(new Set())
+    setLastIdentityKey('')
+  }
   if (rules.colorLocked && identityKey !== lastIdentityKey) {
     setLastIdentityKey(identityKey)
     setColors(new Set(identityCards.flatMap(identityColors)))
@@ -92,8 +111,8 @@ export function CardBrowser() {
     const q = query.trim().toLowerCase()
     return catalog.cards.filter((c) => {
       if (format && !isCardLegalInFormat(c, format).legal) return false
-      if (stage?.filter && !stage.filter(c)) return false
-      if (!stage?.filter) {
+      if (stageFilter && !stageFilter(c)) return false
+      if (!stageFilter) {
         if (category !== 'all') {
           if (c.category !== category) return false
         } else if (adapter.mainDeckExcludedCategories?.includes(c.category)) {
@@ -122,10 +141,10 @@ export function CardBrowser() {
         return false
       return true
     })
-  }, [catalog, query, category, setId, colors, stage, adapter, rules, format, ownedOnly, ownedIndex])
+  }, [catalog, query, category, setId, colors, stageFilter, adapter, rules, format, ownedOnly, ownedIndex])
 
   // "Show more" only applies to the filters it was clicked under; any filter change starts back at one page.
-  const filterKey = [query, category, setId, [...colors].sort().join(','), ownedOnly, currentGameId, stage?.label ?? ''].join('|')
+  const filterKey = [query, category, setId, [...colors].sort().join(','), ownedOnly, currentGameId, stage?.label ?? '', stageFilter ? 1 : 0].join('|')
   const [page, setPage] = useState({ key: filterKey, count: PAGE_SIZE })
   const visibleCount = page.key === filterKey ? page.count : PAGE_SIZE
 
@@ -136,6 +155,15 @@ export function CardBrowser() {
       else next.add(color)
       return next
     })
+  }
+
+  if (!catalog && cachedCount > 0) {
+    // The card data is on disk and on its way (a big game like Magic takes a moment) — it isn't missing.
+    return (
+      <div className="card-browser empty-state">
+        <p>Loading {adapter.shortName} card data…</p>
+      </div>
+    )
   }
 
   if (!catalog || catalog.cards.length === 0) {
@@ -158,7 +186,7 @@ export function CardBrowser() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        {!stage?.filter && (
+        {!stageFilter && (
           <select value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="all">All types</option>
             {categories.map((c) => (
@@ -182,7 +210,17 @@ export function CardBrowser() {
         </select>
       </div>
 
-      {stage && <div className="stage-banner">{stage.label}</div>}
+      {stage && (
+        <div className="stage-banner">
+          <span>{stage.label}</span>
+          {stage.filterLabel && (
+            <label className="stage-toggle">
+              <input type="checkbox" checked={!showAllDuringStage} onChange={(e) => setShowAllDuringStage(!e.target.checked)} />
+              {stage.filterLabel}
+            </label>
+          )}
+        </div>
+      )}
 
       {allColors.length > 0 && (
         <div className="color-filter-row">

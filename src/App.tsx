@@ -4,9 +4,11 @@ import { Sidebar } from './components/Sidebar'
 import { CardBrowser } from './components/CardBrowser'
 import { DeckPanel } from './components/DeckPanel'
 import { WishlistPanel } from './components/WishlistPanel'
+import { CollectionPanel } from './components/CollectionPanel'
 import { useAppStore } from './state/useAppStore'
 import { useSyncProgressListener } from './state/syncProgress'
 import { useUpdaterListener } from './state/updater'
+import { currentDeckFor } from './shared/decks'
 import { UpdateBanner } from './components/UpdateBanner'
 
 export default function App() {
@@ -15,8 +17,9 @@ export default function App() {
   const error = useAppStore((s) => s.error)
   const setError = useAppStore((s) => s.setError)
   const currentGameId = useAppStore((s) => s.currentGameId)
-  const currentDeckId = useAppStore((s) => s.currentDeckId)
+  const hasCurrentDeck = useAppStore((s) => currentDeckFor(s.decks, s.currentDeckId, s.currentGameId) !== undefined)
   const showWishlist = useAppStore((s) => s.showWishlist)
+  const showCollection = useAppStore((s) => s.showCollection)
   const catalogs = useAppStore((s) => s.catalogs)
   const syncMeta = useAppStore((s) => s.syncMeta)
 
@@ -62,9 +65,11 @@ export default function App() {
       <Sidebar />
       <main className="app-main">
         <CardBrowser />
-        {showWishlist ? (
+        {showCollection ? (
+          <CollectionPanel />
+        ) : showWishlist ? (
           <WishlistPanel />
-        ) : currentDeckId ? (
+        ) : hasCurrentDeck ? (
           <DeckPanel />
         ) : (
           <div className="welcome-screen">

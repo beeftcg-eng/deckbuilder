@@ -106,6 +106,8 @@ export interface Deck {
   gameId: GameId
   name: string
   formatId: string
+  /** The card picked to stand for this deck in the deck list; when unset (or no longer in the deck) a default is chosen — see deckIcon.ts. */
+  iconCardId?: string
   /** zoneId -> entries. Most zones use DeckCardEntry[]; freeText zones use DeckFreeTextEntry[]. */
   zones: Record<string, DeckCardEntry[]>
   freeTextZones: Record<string, DeckFreeTextEntry[]>
@@ -176,6 +178,8 @@ export interface AppSettings {
   lastDeckId?: string | null
   deckSort?: 'recent' | 'name'
   deckViewMode?: DeckViewMode
+  /** Colour theme id (see shared/themes.ts). */
+  theme?: string
 }
 
 export interface PawmodoroConfig {
