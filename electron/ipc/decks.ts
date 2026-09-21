@@ -9,7 +9,7 @@ export function registerDecksIpc(): void {
   // Every save carries the whole deck, and the renderer applies edits
   // optimistically, so saves must be applied one at a time in the order they
   // arrive (withDataLock) or a slow earlier write could land after a later one.
-  ipcMain.handle('decks:save', (_e, deck: Deck): Promise<Deck> =>
+  ipcMain.handle('decks:save', (_e, deck: Deck, options?: { keepUpdatedAt?: boolean }): Promise<Deck> =>
     withDataLock(async () => {
       const decks = await readDecks()
       const now = new Date().toISOString()
@@ -23,7 +23,8 @@ export function registerDecksIpc(): void {
         return created
       }
 
-      const updated: Deck = { ...deck, createdAt: decks[index].createdAt, updatedAt: now }
+      // Locking a deck isn't editing it, so it keeps its "last changed" time (and its place in the Recent sort).
+      const updated: Deck = { ...deck, createdAt: decks[index].createdAt, updatedAt: options?.keepUpdatedAt ? decks[index].updatedAt : now }
       decks[index] = updated
       await writeDecks(decks)
       return updated

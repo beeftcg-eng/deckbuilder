@@ -190,9 +190,9 @@ export const useAppStore = create<AppState>((set, get) => {
    * copied back — replacing the whole deck here could clobber a newer edit
    * that was applied while this save was in flight.
    */
-  async function persistDeck(deck: Deck): Promise<void> {
+  async function persistDeck(deck: Deck, options?: { keepUpdatedAt?: boolean }): Promise<void> {
     try {
-      const saved = await window.api.decks.save(deck)
+      const saved = await window.api.decks.save(deck, options)
       set((s) => ({
         decks: s.decks.map((d) => (d.id === saved.id ? { ...d, createdAt: saved.createdAt, updatedAt: saved.updatedAt } : d)),
       }))
@@ -429,7 +429,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const { locked: _previous, ...rest } = deck
       const next: Deck = locked ? { ...rest, locked: true } : rest
       set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? next : d)) }))
-      await persistDeck(next)
+      await persistDeck(next, { keepUpdatedAt: true })
     },
     setGameOrder: (order) => {
       set((s) => ({ settings: { ...s.settings, gameOrder: order } }))

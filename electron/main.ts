@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { join, dirname } from 'node:path'
 import { registerCardDataIpc } from './ipc/cardData'
@@ -17,6 +17,7 @@ import { registerSettingsIpc } from './ipc/settings'
 import { registerUpdaterIpc, startUpdateChecks } from './ipc/updater'
 import { snapshot } from './lib/backups'
 import { withDataLock } from './lib/dataFiles'
+import { isWebUrl } from './lib/urls'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -40,6 +41,17 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  })
+
+  // The app is one page: a link in card text must open in the user's browser, never replace the app or open a new window.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isWebUrl(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url === win?.webContents.getURL() || (VITE_DEV_SERVER_URL && url.startsWith(VITE_DEV_SERVER_URL))) return // a reload
+    event.preventDefault()
+    if (isWebUrl(url)) void shell.openExternal(url)
   })
 
   if (VITE_DEV_SERVER_URL) {

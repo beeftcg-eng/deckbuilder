@@ -1,4 +1,5 @@
 import { ipcMain, shell, dialog, BrowserWindow } from 'electron'
+import { isWebUrl } from '../lib/urls'
 import { writeFile } from 'node:fs/promises'
 
 const DPASTE_URL = 'https://dpaste.com/api/v2/'
@@ -17,6 +18,7 @@ export function registerExportIpc(): void {
   })
 
   ipcMain.handle('system:openExternal', async (_e, url: string): Promise<void> => {
+    if (!isWebUrl(url)) throw new Error('Only web links can be opened')
     await shell.openExternal(url)
   })
 

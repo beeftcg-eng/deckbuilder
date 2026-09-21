@@ -68,6 +68,11 @@ describe('locking a deck', () => {
     expect(saved.get('a')?.locked).toBeUndefined()
   })
 
+  it('saves the lock without counting it as an edit (the deck keeps its "last changed" time)', async () => {
+    await store().setDeckLocked('a', true)
+    expect(api.decks.save).toHaveBeenCalledWith(expect.objectContaining({ id: 'a', locked: true }), { keepUpdatedAt: true })
+  })
+
   it('leaves other decks alone and does not save when nothing changes', async () => {
     await store().setDeckLocked('a', false)
     expect(api.decks.save).not.toHaveBeenCalled()

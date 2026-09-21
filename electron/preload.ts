@@ -29,7 +29,7 @@ const api = {
   },
   decks: {
     list: (): Promise<Deck[]> => ipcRenderer.invoke('decks:list'),
-    save: (deck: Deck): Promise<Deck> => ipcRenderer.invoke('decks:save', deck),
+    save: (deck: Deck, options?: { keepUpdatedAt?: boolean }): Promise<Deck> => ipcRenderer.invoke('decks:save', deck, options),
     delete: (deckId: string): Promise<void> => ipcRenderer.invoke('decks:delete', deckId),
   },
   formats: {
