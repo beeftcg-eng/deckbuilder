@@ -34,7 +34,7 @@ describe('parseImageUrl', () => {
     const ref = parseImageUrl('dbimg://ygo/small/89631139.jpg')!
     expect(sourceUrl(ref)).toBe('https://images.ygoprodeck.com/images/cards_small/89631139.jpg')
     expect(sourceUrl({ ...ref, size: 'full' })).toBe('https://images.ygoprodeck.com/images/cards/89631139.jpg')
-    expect(cacheFile('/cache', ref)).toBe('/cache/ygo/small/89631139.jpg')
+    expect(cacheFile('/cache', ref)).toBe(join('/cache', 'ygo', 'small', '89631139.jpg')) // backslashes on Windows
   })
 
   it('matches every image address the Yu-Gi-Oh! adapter produces', () => {
