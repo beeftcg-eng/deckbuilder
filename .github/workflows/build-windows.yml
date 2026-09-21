@@ -4,6 +4,8 @@ name: Build Windows installer
 # it's built on a real Windows runner. Run it from the Actions tab (or push a
 # v* tag); the installer is attached to the run as the "Deckbuilder-Setup"
 # artifact. Unsigned, so Windows SmartScreen will warn on first launch.
+# To ship it (installer + Linux AppImage + update manifests) to the public
+# downloads repo, run scripts/publish-release.sh once this has succeeded.
 
 on:
   workflow_dispatch: {}
@@ -24,8 +26,13 @@ jobs:
       - run: npx vitest run
       - run: npx vite build
       - run: npx electron-builder --win --publish never
+      # latest.yml is the update manifest the installed app reads (version, file hash); the
+      # blockmap lets it download only what changed. Both must be published with the installer.
       - uses: actions/upload-artifact@v4
         with:
           name: Deckbuilder-Setup
-          path: release/Deckbuilder-Setup.exe
+          path: |
+            release/Deckbuilder-Setup.exe
+            release/Deckbuilder-Setup.exe.blockmap
+            release/latest.yml
           if-no-files-found: error

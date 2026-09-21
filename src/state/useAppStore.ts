@@ -19,6 +19,7 @@ import { GAME_LIST, getAdapter } from '../shared/games/registry'
 import { buildPoolIndex, gameIdOfCardId, missingForDeck } from '../shared/collection'
 import type { ParsedDeck } from '../shared/importDeck'
 import { moveOneCopy, withQuantity } from '../shared/deckEdits'
+import type { UpdateStatus } from '../shared/updateStatus'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 
 interface Catalog {
@@ -86,6 +87,8 @@ interface AppState {
   showWishlist: boolean
   settings: AppSettings
   undoStack: UndoEntry[]
+  /** Self-update progress, pushed from the main process; null until it has reported. */
+  updateStatus: UpdateStatus | null
   /** Last failure worth telling the user about (e.g. a save that didn't go through). */
   error: string | null
 
@@ -116,6 +119,7 @@ interface AppState {
   undo: () => Promise<void>
   setDeckSort: (sort: 'recent' | 'name') => void
   setDeckViewMode: (mode: DeckViewMode) => void
+  setUpdateStatus: (status: UpdateStatus) => void
   applySyncProgress: (progress: SyncProgress) => void
 
   setShowWishlist: (show: boolean) => void
@@ -194,6 +198,7 @@ export const useAppStore = create<AppState>((set, get) => {
     settings: {},
     undoStack: [],
     error: null,
+    updateStatus: null,
 
     wishlist: [],
     collection: {},
@@ -368,6 +373,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
     setDeckSort: (sort) => persistSettings({ deckSort: sort }),
     setDeckViewMode: (mode) => persistSettings({ deckViewMode: mode }),
+    setUpdateStatus: (status) => set({ updateStatus: status }),
 
     applySyncProgress: (progress) => set((s) => ({ syncProgress: { ...s.syncProgress, [progress.gameId]: progress } })),
 

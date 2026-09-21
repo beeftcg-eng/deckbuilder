@@ -28,6 +28,22 @@ This starts the Vite dev server and launches the Electron window.
 
 Other scripts: `npm test` (unit tests for the importer, legality/collection math, atomic saves and backups), `npm run typecheck`, `npm run lint`.
 
+## Installing and updating
+
+Installers live in the public downloads repo, **[beeftcg-eng/deckbuilder-releases](https://github.com/beeftcg-eng/deckbuilder-releases/releases/latest)** (this source repo is private):
+
+- **Windows:** `Deckbuilder-Setup.exe` — always at <https://github.com/beeftcg-eng/deckbuilder-releases/releases/latest/download/Deckbuilder-Setup.exe>. From PowerShell:
+  ```powershell
+  $f = Join-Path $env:TEMP 'Deckbuilder-Setup.exe'; $ProgressPreference = 'SilentlyContinue'
+  Invoke-WebRequest 'https://github.com/beeftcg-eng/deckbuilder-releases/releases/latest/download/Deckbuilder-Setup.exe' -OutFile $f
+  Start-Process $f -Wait
+  ```
+- **Linux:** `Deckbuilder.AppImage` from the same release (`chmod +x` it and run).
+
+**The app updates itself.** A few seconds after launch (and every 6 hours while it stays open) the installed app checks that repo's latest release; a newer version downloads in the background and a banner offers **Restart & update** (or **Later** — it installs when you next close the app). The sidebar shows the version and a **Check for updates** link. Updates only apply to the installed app: not `npm run dev`, and on Linux only the AppImage. Set `DECKBUILDER_DISABLE_UPDATES=1` to turn it off. Installs of 0.6.0 or older have no updater and need this one manual install.
+
+**Publishing a release** (maintainers): bump the version in `package.json`, commit and push, push a `v*` tag (or run the *Build Windows installer* workflow) and wait for it to succeed, then run `scripts/publish-release.sh [notes-file]`. It fetches the Windows build, builds the AppImage, checks both update manifests match the version, and creates the release in the downloads repo. The manifests (`latest.yml`, `latest-linux.yml`) are what installed copies read, so a release without them can't update anyone.
+
 ## Building an installer
 
 ```bash

@@ -6,6 +6,8 @@ import { DeckPanel } from './components/DeckPanel'
 import { WishlistPanel } from './components/WishlistPanel'
 import { useAppStore } from './state/useAppStore'
 import { useSyncProgressListener } from './state/syncProgress'
+import { useUpdaterListener } from './state/updater'
+import { UpdateBanner } from './components/UpdateBanner'
 
 export default function App() {
   const initialize = useAppStore((s) => s.initialize)
@@ -19,6 +21,7 @@ export default function App() {
   const syncMeta = useAppStore((s) => s.syncMeta)
 
   useSyncProgressListener()
+  useUpdaterListener()
 
   useEffect(() => {
     initialize()
@@ -55,6 +58,7 @@ export default function App() {
           </button>
         </div>
       )}
+      <UpdateBanner />
       <Sidebar />
       <main className="app-main">
         <CardBrowser />

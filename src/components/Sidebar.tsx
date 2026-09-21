@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppStore, GAME_LIST } from '../state/useAppStore'
 import { ImportDeckModal } from './ImportDeckModal'
+import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
 
 function formatRelativeTime(iso: string | null): string {
   if (!iso) return 'never synced'
@@ -39,6 +40,7 @@ export function Sidebar() {
   const wishlist = useAppStore((s) => s.wishlist)
   const exportBackup = useAppStore((s) => s.exportBackup)
   const importBackup = useAppStore((s) => s.importBackup)
+  const updateStatus = useAppStore((s) => s.updateStatus)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [deckFilter, setDeckFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
@@ -221,6 +223,20 @@ export function Sidebar() {
         </button>
         {backupStatus && <div className="text-dim">{backupStatus}</div>}
       </div>
+
+      {updateStatus && (
+        <div className="version-box">
+          <div className="version-line">
+            <span className="text-dim">Deckbuilder v{updateStatus.version}</span>
+            {canCheckForUpdates(updateStatus) && (
+              <button className="link-btn" onClick={() => window.api.updater.check()}>
+                Check for updates
+              </button>
+            )}
+          </div>
+          {describeUpdate(updateStatus) && <div className={updateStatus.state === 'error' ? 'sync-error' : 'text-dim'}>{describeUpdate(updateStatus)}</div>}
+        </div>
+      )}
 
       {showImport && <ImportDeckModal gameId={currentGameId} onClose={() => setShowImport(false)} />}
     </aside>

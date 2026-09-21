@@ -11,6 +11,7 @@ import type {
   SyncProgress,
   WishlistEntry,
 } from '../src/shared/types'
+import type { UpdateStatus } from '../src/shared/updateStatus'
 import type { ImportResult } from './ipc/backup'
 
 const api = {
@@ -70,6 +71,18 @@ const api = {
     export: (): Promise<boolean> => ipcRenderer.invoke('backup:export'),
     import: (): Promise<ImportResult> => ipcRenderer.invoke('backup:import'),
     openFolder: (): Promise<void> => ipcRenderer.invoke('backup:openFolder'),
+  },
+  updater: {
+    status: (): Promise<UpdateStatus> => ipcRenderer.invoke('updater:status'),
+    check: (): Promise<void> => ipcRenderer.invoke('updater:check'),
+    install: (): Promise<void> => ipcRenderer.invoke('updater:install'),
+    onStatus: (callback: (status: UpdateStatus) => void): (() => void) => {
+      const listener = (_e: unknown, status: UpdateStatus) => callback(status)
+      ipcRenderer.on('updater:status', listener)
+      return () => {
+        ipcRenderer.removeListener('updater:status', listener)
+      }
+    },
   },
   exportPaste: (content: string): Promise<string> => ipcRenderer.invoke('export:paste', content),
   exportSaveFile: (content: string, suggestedName: string): Promise<boolean> =>
