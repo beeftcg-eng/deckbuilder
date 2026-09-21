@@ -98,8 +98,10 @@ export class ImageFetcher {
   private async slot(): Promise<() => void> {
     while (this.running >= this.maxConcurrent) await new Promise<void>((resolve) => this.waiting.push(resolve))
     this.running++
-    const wait = this.lastStart + this.minGapMs - Date.now()
-    this.lastStart = Math.max(Date.now(), this.lastStart + this.minGapMs)
+    // performance.now(), not Date.now(): on Windows the wall clock ticks about every 15 ms, which let starts land early.
+    const now = performance.now()
+    const wait = this.lastStart + this.minGapMs - now
+    this.lastStart = Math.max(now, this.lastStart + this.minGapMs)
     if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
     return () => {
       this.running--

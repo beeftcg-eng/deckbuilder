@@ -83,7 +83,7 @@ describe('ImageFetcher', () => {
     let peak = 0
     const starts: number[] = []
     const fetchMock = vi.fn(async () => {
-      starts.push(Date.now())
+      starts.push(performance.now())
       running++
       peak = Math.max(peak, running)
       await new Promise((r) => setTimeout(r, 15))
