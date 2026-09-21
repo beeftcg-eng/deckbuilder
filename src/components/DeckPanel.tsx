@@ -10,7 +10,7 @@ import { ExportModal } from './ExportModal'
 import { DeckStats } from './DeckStats'
 import { SampleHandModal } from './SampleHandModal'
 import { BanListEditor } from './BanListEditor'
-import { DeckFullView } from './DeckFullView'
+import { DeckLockButton } from './DeckLockButton'
 import { DeckIcon } from './DeckIcon'
 import { currentDeckFor } from '../shared/decks'
 import { resolveDeckIcon } from '../shared/deckIcon'
@@ -47,6 +47,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const setFreeTextQuantity = useAppStore((s) => s.setFreeTextQuantity)
   const moveCard = useAppStore((s) => s.moveCard)
   const setDeckIcon = useAppStore((s) => s.setDeckIcon)
+  const setDeckViewing = useAppStore((s) => s.setDeckViewing)
   const addDeckToWishlist = useAppStore((s) => s.addDeckToWishlist)
   const wishlistMissing = useAppStore((s) => s.wishlistMissing)
   const markDeckOwned = useAppStore((s) => s.markDeckOwned)
@@ -60,10 +61,10 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const [showExport, setShowExport] = useState(false)
   const [showSampleHand, setShowSampleHand] = useState(false)
   const [showBanList, setShowBanList] = useState(false)
-  const [showFullView, setShowFullView] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
+  const locked = Boolean(deck.locked)
   const adapter = getAdapter(deck.gameId)
   const gameFormats: Format[] = formats ?? adapter.defaultFormats
   const format = gameFormats.find((f) => f.id === deck.formatId) ?? gameFormats[0]
@@ -118,26 +119,30 @@ function DeckEditor({ deck }: { deck: Deck }) {
         <DeckIcon card={iconCard} name={deck.name} size={38} />
         <input
           className="deck-name-input"
+          disabled={locked}
           value={nameDraft ?? deck.name}
           onChange={(e) => setNameDraft(e.target.value)}
           onBlur={commitName}
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         />
-        <select value={deck.formatId} onChange={(e) => updateDeck((d) => ({ ...d, formatId: e.target.value }), 'Change format')}>
+        <select value={deck.formatId} disabled={locked} onChange={(e) => updateDeck((d) => ({ ...d, formatId: e.target.value }), 'Change format')}>
           {gameFormats.map((f) => (
             <option key={f.id} value={f.id} title={f.description}>
               {f.label}
             </option>
           ))}
         </select>
+        <DeckLockButton deck={deck} />
         <button className="btn btn-primary" onClick={() => setShowExport(true)}>
           Export
         </button>
       </div>
 
+      {locked && <div className="lock-banner">🔒 This deck is locked, so it can’t be changed. Press “Locked” above to unlock it.</div>}
+
       <div className="deck-actions">
-        <button className="btn" onClick={() => setShowFullView(true)} title="See the whole deck full screen: card images, a list, or plain text">
-          ⛶ Full view
+        <button className="btn" onClick={() => setDeckViewing(true)} title="See the finished deck: card images, a list, or plain text">
+          ⛶ View deck
         </button>
         <button className="btn" onClick={handleWishlistDeck} title="Add every card in this deck to your wishlist">
           ☆ Wishlist deck
@@ -191,11 +196,11 @@ function DeckEditor({ deck }: { deck: Deck }) {
                     return (
                       <div key={option} className="rune-chip">
                         <span>{option}</span>
-                        <button className="btn stepper-btn" disabled={qty <= 0} onClick={() => setFreeTextQuantity(zone.id, option, qty - 1)}>
+                        <button className="btn stepper-btn" disabled={locked || qty <= 0} onClick={() => setFreeTextQuantity(zone.id, option, qty - 1)}>
                           −
                         </button>
                         <span className="stepper-value">{qty}</span>
-                        <button className="btn stepper-btn" onClick={() => setFreeTextQuantity(zone.id, option, qty + 1)}>
+                        <button className="btn stepper-btn" disabled={locked} onClick={() => setFreeTextQuantity(zone.id, option, qty + 1)}>
                           +
                         </button>
                       </div>
@@ -235,6 +240,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
                       )}
                       <button
                         className={`btn icon-btn ${iconCard?.id === card.id ? 'icon-btn-active' : ''}`}
+                        disabled={locked}
                         title={iconCard?.id === card.id && deck.iconCardId === card.id ? 'This is the deck icon (click to reset to the automatic one)' : 'Use this card as the deck icon'}
                         onClick={() => setDeckIcon(deck.iconCardId === card.id ? null : card.id)}
                       >
@@ -247,7 +253,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
                           <button
                             key={target.id}
                             className="btn move-btn"
-                            disabled={full}
+                            disabled={locked || full}
                             title={full ? `${target.label} already has this card` : `Move one copy to ${target.label}`}
                             onClick={() => moveCard(zone.id, target, card)}
                           >
@@ -256,11 +262,11 @@ function DeckEditor({ deck }: { deck: Deck }) {
                         )
                       })}
                       <div className="stepper">
-                        <button className="btn stepper-btn" onClick={() => setCardQuantity(zone.id, card, entry.quantity - 1)}>
+                        <button className="btn stepper-btn" disabled={locked} onClick={() => setCardQuantity(zone.id, card, entry.quantity - 1)}>
                           −
                         </button>
                         <span className="stepper-value">{entry.quantity}</span>
-                        <button className="btn stepper-btn" onClick={() => setCardQuantity(zone.id, card, entry.quantity + 1)}>
+                        <button className="btn stepper-btn" disabled={locked} onClick={() => setCardQuantity(zone.id, card, entry.quantity + 1)}>
                           +
                         </button>
                       </div>
@@ -273,7 +279,6 @@ function DeckEditor({ deck }: { deck: Deck }) {
         })}
       </div>
 
-      {showFullView && <DeckFullView deck={deck} format={format} cardsById={cardsById} onClose={() => setShowFullView(false)} />}
       {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}
       {showSampleHand && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowSampleHand(false)} />}
       {showBanList && <BanListEditor gameId={deck.gameId} initialFormatId={deck.formatId} onClose={() => setShowBanList(false)} />}

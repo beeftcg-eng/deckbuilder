@@ -38,7 +38,7 @@ export function isCardLegalInFormat(card: Card, format: Format): { legal: boolea
   // Games whose source data carries per-format legality (Pokémon, Magic) use it as-is; the rest use the local ban list below.
   if (card.legality) {
     const status = card.legality[format.id]
-    if (status === 'legal' || status === 'restricted') return { legal: true }
+    if (status === 'legal' || status === 'restricted' || status === 'semi-restricted') return { legal: true }
     return { legal: false, reason: status === 'banned' ? `is banned in ${format.label}` : `is not legal in ${format.label}` }
   }
   if (format.legalSetIds && !format.legalSetIds.includes(card.setId)) {
@@ -134,9 +134,13 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
     if (count > limit) {
       issues.push({ severity: 'error', message: `${card.name}: ${count} copies exceeds the ${limit}-copy limit.` })
     }
-    // Vintage's restricted list: legal, but a single copy across main deck and sideboard.
+    // Vintage's restricted list / Yu-Gi-Oh!'s Limited: legal, but a single copy across every zone.
     if (card.legality?.[format.id] === 'restricted' && count > 1) {
       issues.push({ severity: 'error', message: `${card.name} is restricted to 1 copy in ${format.label}.` })
+    }
+    // Yu-Gi-Oh!'s Semi-Limited: two copies.
+    if (card.legality?.[format.id] === 'semi-restricted' && count > 2) {
+      issues.push({ severity: 'error', message: `${card.name} is limited to 2 copies in ${format.label}.` })
     }
   }
 

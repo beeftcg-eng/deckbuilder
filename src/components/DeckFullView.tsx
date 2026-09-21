@@ -8,19 +8,21 @@ import { formatPrice } from '../shared/collection'
 import { DECK_VIEW_MODES, DECK_VIEW_MODE_LABELS, buildDeckView, textBlocks, type DeckViewEntry } from '../shared/deckView'
 import type { Card, Deck, Format } from '../shared/types'
 import { CardDetailModal } from './CardDetailModal'
+import { DeckLockButton } from './DeckLockButton'
 
 interface Props {
   deck: Deck
   format: Format | undefined
   cardsById: Map<string, Card>
-  onClose: () => void
+  /** Go to the deck editor. */
+  onEdit: () => void
 }
 
 /**
- * The finished deck, filling the whole window: card images (Grid), compact rows (List) or the
+ * The finished deck, filling the deck area (the whole window while it's showing): card images (Grid), compact rows (List) or the
  * plain-text decklist (Text). A button hands the window over to the OS's real full screen too.
  */
-export function DeckFullView({ deck, format, cardsById, onClose }: Props) {
+export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
   const adapter = getAdapter(deck.gameId)
   const mode = useAppStore((s) => s.settings.deckViewMode ?? 'grid')
   const setMode = useAppStore((s) => s.setDeckViewMode)
@@ -37,16 +39,15 @@ export function DeckFullView({ deck, format, cardsById, onClose }: Props) {
   const text = useMemo(() => adapter.formatDecklistText(deck, cardsById), [adapter, deck, cardsById])
   const blocks = useMemo(() => textBlocks(text), [text])
 
-  // Esc closes the card in front first, then the view. (In the OS's full screen, Esc leaves that first and never reaches us.)
+  // Esc closes the card in front. (In the OS's full screen, Esc leaves that first and never reaches us.)
   useEffect(() => {
+    if (!detail) return
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Escape' || document.fullscreenElement) return
-      if (detail) setDetail(null)
-      else onClose()
+      if (e.key === 'Escape' && !document.fullscreenElement) setDetail(null)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [detail, onClose])
+  }, [detail])
 
   useEffect(() => {
     const onChange = () => setOsFullscreen(document.fullscreenElement != null)
@@ -103,10 +104,13 @@ export function DeckFullView({ deck, format, cardsById, onClose }: Props) {
   }
 
   return (
-    <div className="deck-view" role="dialog" aria-label={`${deck.name} — full view`}>
+    <div className="deck-view" role="dialog" aria-label={`${deck.name} — deck view`}>
       <div className="fv-header">
         <div className="fv-title">
-          <strong>{deck.name}</strong>
+          <strong>
+            {deck.locked ? '🔒 ' : ''}
+            {deck.name}
+          </strong>
           <span className="text-dim">
             {adapter.shortName}
             {format ? ` · ${format.label}` : ''}
@@ -147,8 +151,9 @@ export function DeckFullView({ deck, format, cardsById, onClose }: Props) {
           <button className="btn" onClick={toggleOsFullscreen} title="Hide the window frame and fill the screen (Esc to leave)">
             {osFullscreen ? 'Exit full screen' : '⛶ Full screen'}
           </button>
-          <button className="btn" onClick={onClose} title="Esc">
-            Close
+          <DeckLockButton deck={deck} />
+          <button className="btn btn-primary" onClick={onEdit} title={deck.locked ? 'Open the editor (the deck is locked, so it will be read-only until you unlock it)' : 'Go back to the deck editor'}>
+            ✎ Edit deck
           </button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-export type GameId = 'pokemon' | 'onepiece' | 'riftbound' | 'mtg'
+export type GameId = 'pokemon' | 'onepiece' | 'riftbound' | 'mtg' | 'yugioh'
 
 /** A card normalized into a common shape, regardless of source game/API. */
 export interface Card {
@@ -43,7 +43,8 @@ export interface Card {
   price?: number | null
 }
 
-export type CardLegalityStatus = 'legal' | 'banned' | 'restricted'
+/** 'restricted' = one copy (Vintage's restricted list, Yu-Gi-Oh!'s Limited); 'semi-restricted' = two copies (Yu-Gi-Oh!'s Semi-Limited). */
+export type CardLegalityStatus = 'legal' | 'banned' | 'restricted' | 'semi-restricted'
 
 export interface DeckZoneRule {
   id: string
@@ -108,6 +109,8 @@ export interface Deck {
   formatId: string
   /** The card picked to stand for this deck in the deck list; when unset (or no longer in the deck) a default is chosen — see deckIcon.ts. */
   iconCardId?: string
+  /** A locked deck can't be changed (cards, name, format, icon) or deleted until it's unlocked. */
+  locked?: boolean
   /** zoneId -> entries. Most zones use DeckCardEntry[]; freeText zones use DeckFreeTextEntry[]. */
   zones: Record<string, DeckCardEntry[]>
   freeTextZones: Record<string, DeckFreeTextEntry[]>
@@ -176,7 +179,11 @@ export type DeckViewMode = 'grid' | 'list' | 'text'
 export interface AppSettings {
   lastGameId?: GameId
   lastDeckId?: string | null
-  deckSort?: 'recent' | 'name'
+  deckSort?: 'recent' | 'name' | 'custom'
+  /** Deck ids in the order chosen by dragging them in the sidebar (used by the 'custom' sort). */
+  deckOrder?: string[]
+  /** Game ids in the order arranged in the sidebar. */
+  gameOrder?: GameId[]
   deckViewMode?: DeckViewMode
   /** Colour theme id (see shared/themes.ts). */
   theme?: string

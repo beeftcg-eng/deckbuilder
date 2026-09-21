@@ -6,6 +6,9 @@ import { registerDecksIpc } from './ipc/decks'
 import { registerFormatsIpc } from './ipc/formats'
 import { registerExportIpc } from './ipc/exportPaste'
 import { registerImagesIpc } from './ipc/images'
+import { registerImageProtocol, registerImageSchemePrivileges } from './ipc/imageProtocol'
+import { ImageFetcher } from './lib/imageCache'
+import { userDataDir } from './lib/paths'
 import { registerWishlistIpc } from './ipc/wishlist'
 import { registerPawmodoroIpc } from './ipc/pawmodoro'
 import { registerBackupIpc } from './ipc/backup'
@@ -51,7 +54,9 @@ registerCardDataIpc()
 registerDecksIpc()
 registerFormatsIpc()
 registerExportIpc()
-registerImagesIpc()
+registerImageSchemePrivileges()
+const imageFetcher = new ImageFetcher({ cacheDir: join(userDataDir(), 'image-cache') })
+registerImagesIpc(imageFetcher)
 registerWishlistIpc()
 registerPawmodoroIpc()
 registerBackupIpc()
@@ -71,6 +76,7 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
+  registerImageProtocol(imageFetcher)
   // A fresh snapshot of decks/wishlist/collection on every launch (skipped if
   // nothing changed since the last one), taken before the renderer can touch anything.
   withDataLock(() => snapshot('auto'))

@@ -5,6 +5,8 @@ import { CardBrowser } from './components/CardBrowser'
 import { DeckPanel } from './components/DeckPanel'
 import { WishlistPanel } from './components/WishlistPanel'
 import { CollectionPanel } from './components/CollectionPanel'
+import { MyDecksPanel } from './components/MyDecksPanel'
+import { DeckViewPage } from './components/DeckViewPage'
 import { useAppStore } from './state/useAppStore'
 import { useSyncProgressListener } from './state/syncProgress'
 import { useUpdaterListener } from './state/updater'
@@ -20,8 +22,12 @@ export default function App() {
   const hasCurrentDeck = useAppStore((s) => currentDeckFor(s.decks, s.currentDeckId, s.currentGameId) !== undefined)
   const showWishlist = useAppStore((s) => s.showWishlist)
   const showCollection = useAppStore((s) => s.showCollection)
+  const showMyDecks = useAppStore((s) => s.showMyDecks)
+  const deckViewing = useAppStore((s) => s.deckViewing)
   const catalogs = useAppStore((s) => s.catalogs)
   const syncMeta = useAppStore((s) => s.syncMeta)
+
+  const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist
 
   useSyncProgressListener()
   useUpdaterListener()
@@ -63,14 +69,16 @@ export default function App() {
       )}
       <UpdateBanner />
       <Sidebar />
-      <main className="app-main">
+      <main className={`app-main ${viewingDeck ? 'app-main-viewing' : ''}`}>
         <CardBrowser />
-        {showCollection ? (
+        {showMyDecks ? (
+          <MyDecksPanel />
+        ) : showCollection ? (
           <CollectionPanel />
         ) : showWishlist ? (
           <WishlistPanel />
         ) : hasCurrentDeck ? (
-          <DeckPanel />
+          deckViewing ? <DeckViewPage /> : <DeckPanel />
         ) : (
           <div className="welcome-screen">
             <p className="text-dim">

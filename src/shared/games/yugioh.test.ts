@@ -1,0 +1,164 @@
+import { describe, expect, it } from 'vitest'
+import { normalizeCard, isExtraDeckType, yugiohAdapter } from './yugioh'
+import { RAW } from './yugiohFixtures'
+import { checkDeckLegality } from '../legality'
+import { parseDecklistText } from '../importDeck'
+import { buildExportText } from '../export'
+import { catalogOf, makeCard, makeDeck } from '../testFixtures'
+import type { Card, Format } from '../types'
+
+const card = (key: string): Card => {
+  const result = normalizeCard(RAW[key])
+  if (!result) throw new Error(`${key} was not kept`)
+  return result
+}
+
+describe('normalizeCard', () => {
+  it('maps a monster: category, type tags, attribute, level and price data', () => {
+    const c = card('normal')
+    expect(c).toMatchObject({ id: 'yugioh:89631139', gameId: 'yugioh', sourceId: '89631139', name: 'Blue-Eyes White Dragon', category: 'Monster', colors: ['Light'], cost: '8', orientation: 'portrait' })
+    expect(c.subtypes).toEqual(['Dragon', 'Normal'])
+    expect(c.text).toContain('Normal Monster · Dragon · Light · Level 8 · ATK 3000 / DEF 2500')
+  })
+
+  it('points images at the app’s own cache, never straight at the image host', () => {
+    const c = card('normal')
+    expect(c.imageUrl).toBe('dbimg://ygo/full/89631139.jpg')
+    expect(c.imageUrlSmall).toBe('dbimg://ygo/small/89631139.jpg')
+    expect(JSON.stringify(c)).not.toContain('images.ygoprodeck.com')
+  })
+
+  it('classifies spells and traps, which have no attribute or level', () => {
+    expect(card('quickplay')).toMatchObject({ category: 'Spell', colors: [], cost: null })
+    expect(card('trap')).toMatchObject({ category: 'Trap', colors: [], cost: null })
+    expect(card('quickplay').text?.split('\n')[0]).toBe('Quick-Play Spell')
+  })
+
+  it('puts Fusion, Synchro, XYZ, Link and Pendulum-variant monsters in the Extra Deck, and nothing else', () => {
+    for (const key of ['fusion', 'synchro', 'xyz', 'link']) expect(card(key).subtypes, key).toContain('Extra Deck')
+    for (const key of ['normal', 'pendulum', 'quickplay', 'trap', 'limited']) expect(card(key).subtypes, key).not.toContain('Extra Deck')
+    expect(['Pendulum Effect Fusion Monster', 'XYZ Pendulum Effect Monster', 'Synchro Pendulum Effect Monster', 'Link Monster'].every(isExtraDeckType)).toBe(true)
+    expect(['Pendulum Effect Monster', 'Normal Tuner Monster', 'Spell Card', 'Trap Card'].some(isExtraDeckType)).toBe(false)
+  })
+
+  it('describes ranks, link ratings and pendulum scales', () => {
+    expect(card('xyz').text).toContain('Rank ')
+    expect(card('link').text).toContain('Link-')
+    expect(card('pendulum').text).toContain('Scale ')
+  })
+
+  it('reads each format’s legality and the three ban-list levels', () => {
+    expect(card('normal').legality).toEqual({ tcg: 'legal', ocg: 'legal', goat: 'legal' })
+    expect(card('spell_forbidden_tcg').legality).toEqual({ tcg: 'banned', ocg: 'banned', goat: 'restricted' })
+    expect(card('trap').legality).toMatchObject({ tcg: 'restricted', ocg: 'restricted', goat: 'legal' })
+    expect(card('semi').legality).toMatchObject({ tcg: 'semi-restricted', ocg: 'legal' })
+  })
+
+  it('leaves out formats a card was never printed in, and lists an unsetted OCG card only for the OCG', () => {
+    expect(card('fusion').legality).toEqual({ tcg: 'legal', ocg: 'legal' }) // not in the GOAT era
+    expect(card('ocg_only').legality).toEqual({ ocg: 'legal' })
+    expect(card('ocg_only')).toMatchObject({ setId: 'none', setName: 'No set listed', rarity: null })
+  })
+
+  it('files a card under the first set it lists', () => {
+    expect(card('normal')).toMatchObject({ setId: 'CT13', setName: '2016 Mega-Tins', setCode: 'CT13', number: 'EN008', rarity: 'Ultra Rare' })
+  })
+
+  it('skips Tokens and Skill Cards, which are not deck cards', () => {
+    expect(normalizeCard(RAW.token)).toBeNull()
+    expect(normalizeCard(RAW.skill)).toBeNull()
+  })
+})
+
+describe('Yu-Gi-Oh! deck rules', () => {
+  const fmt = (id: string): Format => yugiohAdapter.defaultFormats.find((f) => f.id === id)!
+  const spell = (name: string, over: Partial<Card> = {}) => makeCard('yugioh', { name, category: 'Spell', legality: { tcg: 'legal', ocg: 'legal', goat: 'legal' }, ...over })
+  const extra = (name: string) => spell(name, { category: 'Monster', subtypes: ['Dragon', 'Extra Deck'] })
+  const errors = (deck: ReturnType<typeof makeDeck>, cards: Card[], formatId = 'tcg') => checkDeckLegality({ ...deck, formatId }, yugiohAdapter, fmt(formatId), catalogOf(cards)).issues.map((i) => i.message)
+  const fillers = Array.from({ length: 14 }, (_, i) => spell(`Filler ${i}`))
+  const forty = (): [Card, number][] => [...fillers.slice(0, 13).map((c): [Card, number] => [c, 3]), [fillers[13], 1]] // 40 cards
+
+  it('accepts a legal 40-card deck with an Extra and Side Deck', () => {
+    const e = extra('Fusion A')
+    const deck = makeDeck('yugioh', { main: forty(), extra: [[e, 3]], sideboard: [[fillers[0], 0]] })
+    expect(errors(deck, [...fillers, e])).toEqual([])
+  })
+
+  it('needs 40–60 main cards, and at most 15 in each of the Extra and Side Decks', () => {
+    expect(errors(makeDeck('yugioh', { main: [[fillers[0], 3]] }), fillers).join()).toContain('Main Deck must have at least 40 cards (currently 3)')
+    const sixtyOne = makeDeck('yugioh', { main: [...fillers.slice(0, 13).map((c): [Card, number] => [c, 3]), [fillers[13], 3]] }) // 42
+    expect(errors(sixtyOne, fillers)).toEqual([])
+    const manyExtras = Array.from({ length: 16 }, (_, i) => extra(`E${i}`))
+    const deck = makeDeck('yugioh', { main: forty(), extra: manyExtras.map((c): [Card, number] => [c, 1]) })
+    expect(errors(deck, [...fillers, ...manyExtras])).toContain('Extra Deck must have at most 15 cards (currently 16).')
+  })
+
+  it('keeps Extra Deck monsters out of the Main Deck', () => {
+    const e = extra('Fusion A')
+    const deck = makeDeck('yugioh', { main: [...forty(), [e, 1]] })
+    expect(errors(deck, [...fillers, e])).toContain('Fusion A does not belong in Main Deck.')
+  })
+
+  it('allows 3 copies by name across all three decks together', () => {
+    const c = spell('Ash Blossom')
+    const deck = makeDeck('yugioh', { main: [...forty().slice(0, 12), [c, 3]], sideboard: [[c, 1]] })
+    expect(errors(deck, [...fillers, c])).toContain('Ash Blossom: 4 copies exceeds the 3-copy limit.')
+  })
+
+  it('applies the banlist of the deck’s format: Forbidden, Limited (1) and Semi-Limited (2)', () => {
+    const pot = spell('Pot of Greed', { legality: { tcg: 'banned', ocg: 'banned', goat: 'restricted' } })
+    const solemn = spell('Solemn Judgment', { legality: { tcg: 'restricted', ocg: 'restricted', goat: 'legal' } })
+    const arthalion = spell('Dracotail Arthalion', { legality: { tcg: 'semi-restricted', ocg: 'legal' } })
+    const deck = makeDeck('yugioh', { main: [...forty().slice(0, 10), [pot, 1], [solemn, 2], [arthalion, 3]] })
+    const tcg = errors(deck, [...fillers, pot, solemn, arthalion], 'tcg')
+    expect(tcg).toContain('Pot of Greed is banned in TCG.')
+    expect(tcg).toContain('Solemn Judgment is restricted to 1 copy in TCG.')
+    expect(tcg).toContain('Dracotail Arthalion is limited to 2 copies in TCG.')
+    const ocg = errors(deck, [...fillers, pot, solemn, arthalion], 'ocg')
+    expect(ocg).toContain('Pot of Greed is banned in OCG.')
+    expect(ocg.some((m) => m.startsWith('Dracotail'))).toBe(false) // the OCG list differs
+    expect(errors(makeDeck('yugioh', { main: [...forty().slice(0, 12), [arthalion, 2]] }), [...fillers, arthalion], 'tcg').some((m) => m.startsWith('Dracotail'))).toBe(false)
+  })
+
+  it('rejects a card that was never printed in the format', () => {
+    const modern = spell('Modern Card', { legality: { tcg: 'legal', ocg: 'legal' } }) // no goat entry
+    expect(errors(makeDeck('yugioh', { main: [...forty().slice(0, 12), [modern, 1]] }), [...fillers, modern], 'goat')).toContain('Modern Card is not legal in GOAT (2005).')
+  })
+
+  it('opens with five cards and lists Main / Extra / Side Deck', () => {
+    expect(yugiohAdapter.openingHandSize).toBe(5)
+    expect(yugiohAdapter.deckRules.zones.map((z) => z.label)).toEqual(['Main Deck', 'Extra Deck', 'Side Deck'])
+  })
+})
+
+describe('Yu-Gi-Oh! decklists', () => {
+  const be = card('normal')
+  const ultimate = card('fusion')
+  const pot = card('spell_forbidden_tcg')
+  const catalog = catalogOf([be, ultimate, pot])
+  const q = (c: Card, quantity: number) => ({ cardId: c.id, quantity })
+
+  it('exports Main Deck / Extra Deck / Side Deck sections', () => {
+    const deck = { ...makeDeck('yugioh', { main: [[be, 3]], extra: [[ultimate, 1]], sideboard: [[pot, 2]] }), formatId: 'tcg' }
+    expect(yugiohAdapter.formatDecklistText(deck, catalog)).toBe('Main Deck\n3 Blue-Eyes White Dragon\n\nExtra Deck\n1 Blue-Eyes Ultimate Dragon\n\nSide Deck\n2 Pot of Greed')
+  })
+
+  it('round-trips its own export', () => {
+    const deck = { ...makeDeck('yugioh', { main: [[be, 3]], extra: [[ultimate, 1]], sideboard: [[pot, 2]] }), formatId: 'tcg' }
+    const parsed = parseDecklistText(buildExportText(deck, yugiohAdapter, 'TCG', catalog), yugiohAdapter, catalog, 'tcg')
+    expect(parsed.zones).toEqual({ main: [q(be, 3)], extra: [q(ultimate, 1)], sideboard: [q(pot, 2)] })
+    expect(parsed.name).toBe('Test Deck')
+  })
+
+  it('reads a .ydk file: one passcode per line, under #main / #extra / !side', () => {
+    const ydk = ['#created by Someone', '#main', be.sourceId, be.sourceId, be.sourceId, '#extra', ultimate.sourceId, '!side', pot.sourceId, pot.sourceId, '9999999999'].join('\n')
+    const parsed = parseDecklistText(ydk, yugiohAdapter, catalog, 'tcg')
+    expect(parsed.zones).toEqual({ main: [q(be, 3)], extra: [q(ultimate, 1)], sideboard: [q(pot, 2)] })
+    expect(parsed.unmatched).toEqual(['9999999999'])
+  })
+
+  it('puts an Extra Deck monster in the Extra Deck even when a list files it under Main', () => {
+    const parsed = parseDecklistText('Main Deck\n3 Blue-Eyes White Dragon\n1 Blue-Eyes Ultimate Dragon', yugiohAdapter, catalog, 'tcg')
+    expect(parsed.zones).toEqual({ main: [q(be, 3)], extra: [q(ultimate, 1)] })
+  })
+})

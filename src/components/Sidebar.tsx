@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useAppStore, useCardsById, GAME_LIST } from '../state/useAppStore'
+import { useAppStore, useCardsById, useOrderedGames } from '../state/useAppStore'
 import { ImportDeckModal } from './ImportDeckModal'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
 import { THEMES, getTheme } from '../shared/themes'
 import { resolveDeckIcon } from '../shared/deckIcon'
+import { moveBy, reorderByDrop, sortDecks, type DeckSortMode } from '../shared/deckOrder'
 import { getAdapter } from '../shared/games/registry'
+import type { GameId } from '../shared/types'
 import { DeckIcon } from './DeckIcon'
 
 function formatRelativeTime(iso: string | null): string {
@@ -37,6 +39,16 @@ export function Sidebar() {
   const undoLabel = useAppStore((s) => s.undoStack.at(-1)?.label ?? null)
   const deckSort = useAppStore((s) => s.settings.deckSort ?? 'recent')
   const setDeckSort = useAppStore((s) => s.setDeckSort)
+  const deckOrder = useAppStore((s) => s.settings.deckOrder)
+  const reorderDecks = useAppStore((s) => s.reorderDecks)
+  const showMyDecks = useAppStore((s) => s.showMyDecks)
+  const setShowMyDecks = useAppStore((s) => s.setShowMyDecks)
+  const orderedGames = useOrderedGames()
+  const setGameOrder = useAppStore((s) => s.setGameOrder)
+  const [dragGameId, setDragGameId] = useState<GameId | null>(null)
+  const [gameDrop, setGameDrop] = useState<{ id: GameId; position: 'before' | 'after' } | null>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ id: string; position: 'before' | 'after' } | null>(null)
   const loadMeta = useAppStore((s) => s.loadMeta)
   const loadCatalog = useAppStore((s) => s.loadCatalog)
   const showWishlist = useAppStore((s) => s.showWishlist)
@@ -71,8 +83,12 @@ export function Sidebar() {
   const visibleDecks = useMemo(() => {
     const needle = deckFilter.trim().toLowerCase()
     const matching = needle ? gameDecks.filter((d) => d.name.toLowerCase().includes(needle)) : gameDecks
-    return [...matching].sort((a, b) => (deckSort === 'name' ? a.name.localeCompare(b.name) : b.updatedAt.localeCompare(a.updatedAt)))
-  }, [gameDecks, deckFilter, deckSort])
+    return sortDecks(matching, deckSort, deckOrder)
+  }, [gameDecks, deckFilter, deckSort, deckOrder])
+  // The whole list in its current order: what a drag or a ▲▼ click re-arranges (only offered while nothing is filtered out).
+  const orderedIds = useMemo(() => sortDecks(gameDecks, deckSort, deckOrder).map((d) => d.id), [gameDecks, deckSort, deckOrder])
+  const canReorder = deckFilter.trim() === ''
+  const gameIds = useMemo(() => orderedGames.map((g) => g.id), [orderedGames])
 
   async function handleBackupExport() {
     setBackupStatus(null)
@@ -124,16 +140,54 @@ export function Sidebar() {
         ★ Wishlist{wishlist.length > 0 ? ` (${wishlist.reduce((n, e) => n + e.quantity, 0)})` : ''}
       </button>
 
+      <button className={`wishlist-nav-btn ${showMyDecks ? 'active' : ''}`} onClick={() => setShowMyDecks(!showMyDecks)}>
+        🗂 My Decks{decks.length > 0 ? ` (${decks.length})` : ''}
+      </button>
+
       <button className={`wishlist-nav-btn ${showCollection ? 'active' : ''}`} onClick={() => setShowCollection(!showCollection)}>
         ▦ Collection{collectionCopies > 0 ? ` (${collectionCopies})` : ''}
       </button>
 
       <nav className="game-tabs">
-        {GAME_LIST.map((adapter) => (
+        {orderedGames.map((adapter) => (
           <button
             key={adapter.id}
-            className={`game-tab ${adapter.id === currentGameId ? 'active' : ''}`}
+            className={`game-tab ${adapter.id === currentGameId ? 'active' : ''} ${dragGameId === adapter.id ? 'dragging' : ''} ${gameDrop?.id === adapter.id ? `drop-${gameDrop.position}` : ''}`}
+            draggable
+            title="Drag to re-order the games (or Alt+↑ / Alt+↓)"
             onClick={() => setGame(adapter.id)}
+            onKeyDown={(e) => {
+              if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
+              e.preventDefault()
+              setGameOrder(moveBy(gameIds, adapter.id, e.key === 'ArrowUp' ? -1 : 1))
+            }}
+            onDragStart={(e) => {
+              setDragGameId(adapter.id)
+              if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', adapter.id)
+              }
+            }}
+            onDragOver={(e) => {
+              if (!dragGameId || dragGameId === adapter.id) return
+              e.preventDefault()
+              const rect = e.currentTarget.getBoundingClientRect()
+              const position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+              if (gameDrop?.id !== adapter.id || gameDrop.position !== position) setGameDrop({ id: adapter.id, position })
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              if (dragGameId && dragGameId !== adapter.id) {
+                const rect = e.currentTarget.getBoundingClientRect()
+                setGameOrder(reorderByDrop(gameIds, dragGameId, adapter.id, e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'))
+              }
+              setDragGameId(null)
+              setGameDrop(null)
+            }}
+            onDragEnd={() => {
+              setDragGameId(null)
+              setGameDrop(null)
+            }}
           >
             {adapter.shortName}
           </button>
@@ -184,12 +238,13 @@ export function Sidebar() {
         </button>
       )}
 
-      {gameDecks.length >= SEARCH_THRESHOLD && (
+      {gameDecks.length >= 2 && (
         <div className="deck-list-tools">
-          <input placeholder="Filter decks…" value={deckFilter} onChange={(e) => setDeckFilter(e.target.value)} />
-          <select value={deckSort} onChange={(e) => setDeckSort(e.target.value as 'recent' | 'name')} title="Sort decks">
+          {gameDecks.length >= SEARCH_THRESHOLD && <input placeholder="Filter decks…" value={deckFilter} onChange={(e) => setDeckFilter(e.target.value)} />}
+          <select value={deckSort} onChange={(e) => setDeckSort(e.target.value as DeckSortMode)} title="Sort decks — or just drag a deck to put it where you want it">
             <option value="recent">Recent</option>
             <option value="name">A–Z</option>
+            <option value="custom">My order</option>
           </select>
         </div>
       )}
@@ -200,15 +255,74 @@ export function Sidebar() {
         {visibleDecks.map((deck) => (
           <div
             key={deck.id}
-            className={`deck-row ${deck.id === currentDeckId ? 'active' : ''}`}
+            className={`deck-row ${deck.id === currentDeckId ? 'active' : ''} ${dragId === deck.id ? 'dragging' : ''} ${dropTarget?.id === deck.id ? `drop-${dropTarget.position}` : ''}`}
+            draggable={canReorder}
+            title={canReorder ? 'Drag to re-order' : undefined}
+            onDragStart={(e) => {
+              setDragId(deck.id)
+              if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', deck.id) // some platforms only start a drag if it carries data
+              }
+            }}
+            onDragOver={(e) => {
+              if (!dragId || dragId === deck.id) return
+              e.preventDefault()
+              const rect = e.currentTarget.getBoundingClientRect()
+              const position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+              if (dropTarget?.id !== deck.id || dropTarget.position !== position) setDropTarget({ id: deck.id, position })
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              if (dragId && dragId !== deck.id) {
+                const rect = e.currentTarget.getBoundingClientRect()
+                reorderDecks(reorderByDrop(orderedIds, dragId, deck.id, e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'))
+              }
+              setDragId(null)
+              setDropTarget(null)
+            }}
+            onDragEnd={() => {
+              setDragId(null)
+              setDropTarget(null)
+            }}
             onClick={() => {
               setShowWishlist(false)
               setShowCollection(false)
+              setShowMyDecks(false)
               selectDeck(deck.id)
             }}
           >
             <DeckIcon card={resolveDeckIcon(deck, getAdapter(currentGameId), cardsById)} name={deck.name} />
-            <span className="deck-row-name">{deck.name}</span>
+            <span className="deck-row-name">
+              {deck.locked ? '🔒 ' : ''}
+              {deck.name}
+            </span>
+            {canReorder && gameDecks.length > 1 && (
+              <span className="deck-row-reorder">
+                <button
+                  className="deck-row-delete"
+                  title="Move up"
+                  disabled={orderedIds[0] === deck.id}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    reorderDecks(moveBy(orderedIds, deck.id, -1))
+                  }}
+                >
+                  ▲
+                </button>
+                <button
+                  className="deck-row-delete"
+                  title="Move down"
+                  disabled={orderedIds[orderedIds.length - 1] === deck.id}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    reorderDecks(moveBy(orderedIds, deck.id, 1))
+                  }}
+                >
+                  ▼
+                </button>
+              </span>
+            )}
             <span className="deck-row-actions">
               <button
                 className="deck-row-delete"
@@ -222,7 +336,8 @@ export function Sidebar() {
               </button>
               <button
                 className="deck-row-delete"
-                title="Delete deck (Ctrl+Z undoes it)"
+                disabled={deck.locked}
+                title={deck.locked ? 'Unlock this deck to delete it' : 'Delete deck (Ctrl+Z undoes it)'}
                 onClick={(e) => {
                   e.stopPropagation()
                   if (confirm(`Delete "${deck.name}"?`)) deleteDeck(deck.id)

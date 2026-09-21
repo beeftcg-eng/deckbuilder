@@ -210,7 +210,11 @@ export function CardBrowser() {
         </select>
       </div>
 
-      {stage && (
+      {deck?.locked && (
+        <div className="lock-banner">🔒 “{deck.name}” is locked, so cards can’t be added. Unlock it from the deck panel to keep building.</div>
+      )}
+
+      {stage && !deck?.locked && (
         <div className="stage-banner">
           <span>{stage.label}</span>
           {stage.filterLabel && (
@@ -266,7 +270,7 @@ export function CardBrowser() {
               owned={collection[card.id] ?? 0}
               ownedTotal={ownedIndex.get(poolKey(card)) ?? 0}
               onOwnedChange={(delta) => changeOwned(card.id, delta)}
-              disabled={!deck || !zone}
+              disabled={!deck || !zone || deck.locked}
               onChange={(q) => zone && setCardQuantity(zone.id, card, q)}
               onOpenDetail={() => setDetailCard(card)}
             />

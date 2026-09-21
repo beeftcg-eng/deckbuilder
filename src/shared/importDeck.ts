@@ -104,7 +104,10 @@ const HEADER_ALIASES: Record<string, string> = {
   main: 'main',
   sideboard: 'sideboard',
   side: 'sideboard',
+  sidedeck: 'sideboard',
   companion: 'sideboard',
+  extra: 'extra',
+  extradeck: 'extra',
 }
 
 function zoneForHeader(label: string, zones: DeckZoneRule[]): DeckZoneRule | null {
@@ -123,6 +126,8 @@ function zoneForHeader(label: string, zones: DeckZoneRule[]): DeckZoneRule | nul
 
 // "Main Deck (50/50):", "Pokémon: 12", "Total Cards: 60"
 const HEADER_LINE = /^([\p{L}][\p{L}\s!]*?)\s*(?:\([^)]*\))?\s*:\s*(\d+)?$/u
+// "#main", "#extra", "!side": the headings of a .ydk file.
+const YDK_HEADING = /^[#!](main|extra|side)$/i
 // "Deck", "Sideboard", "Commander": a heading with no colon or count (Arena, MTGO, Moxfield).
 const BARE_HEADER_LINE = /^([\p{L}][\p{L} ]{0,24})$/u
 // "SB: 2 Negate": one sideboard card, tagged on its own line (MTGO, Moxfield).
@@ -216,6 +221,7 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
   const sideboardZone = zoneRules.find((z) => z.id === 'sideboard' && !z.freeText) ?? null
   const blankLineStartsSideboard = (adapter.importOptions?.blankLineStartsSideboard ?? false) && !hasZoneHeaders && sideboardZone !== null
   let cardsInBlock = 0
+  const isYdk = lines.some((line) => /^#main$/i.test(line))
 
   for (const rawLine of lines) {
     if (!rawLine && blankLineStartsSideboard && cardsInBlock > 0) {
@@ -227,6 +233,21 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
     const sideboardTag = SIDEBOARD_PREFIX.exec(rawLine)
     const line = sideboardTag ? sideboardTag[1] : rawLine
     const tagZone = sideboardTag ? sideboardZone : null
+
+    // .ydk files (Yu-Gi-Oh!): "#main" / "#extra" / "!side" headings, then one card passcode per line, one copy each.
+    if (isYdk) {
+      const ydkHeading = YDK_HEADING.exec(line)
+      if (ydkHeading) {
+        currentZone = zoneForHeader(ydkHeading[1], zoneRules)
+        continue
+      }
+      if (/^\d{3,10}$/.test(line)) {
+        const card = choosePrinting(index.bySource.get(line), prefs)
+        if (card && placeCard(card, 1, currentZone)) continue
+        result.unmatched.push(rawLine)
+        continue
+      }
+    }
 
     const inline = INLINE_ZONE_LINE.exec(line)
     if (inline) {

@@ -3,6 +3,7 @@ import type { AppSettings, GameId } from '../../src/shared/types'
 import { GAME_LIST } from '../../src/shared/games/registry'
 import { isDeckViewMode } from '../../src/shared/deckView'
 import { isThemeId } from '../../src/shared/themes'
+import { isDeckSortMode } from '../../src/shared/deckOrder'
 import { settingsFile } from '../lib/paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/jsonStore'
 
@@ -17,7 +18,9 @@ function sanitize(raw: unknown): AppSettings {
     settings.lastGameId = source.lastGameId as GameId
   }
   if (typeof source.lastDeckId === 'string' || source.lastDeckId === null) settings.lastDeckId = source.lastDeckId
-  if (source.deckSort === 'recent' || source.deckSort === 'name') settings.deckSort = source.deckSort
+  if (isDeckSortMode(source.deckSort)) settings.deckSort = source.deckSort
+  if (Array.isArray(source.gameOrder)) settings.gameOrder = [...new Set(source.gameOrder)].filter((id): id is GameId => GAME_IDS.includes(id as GameId))
+  if (Array.isArray(source.deckOrder)) settings.deckOrder = [...new Set(source.deckOrder.filter((id): id is string => typeof id === 'string'))].slice(0, 5000)
   if (isDeckViewMode(source.deckViewMode)) settings.deckViewMode = source.deckViewMode
   if (isThemeId(source.theme)) settings.theme = source.theme
   return settings

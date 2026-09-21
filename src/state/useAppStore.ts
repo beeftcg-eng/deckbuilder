@@ -21,6 +21,8 @@ import type { ParsedDeck } from '../shared/importDeck'
 import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import type { UpdateStatus } from '../shared/updateStatus'
 import { currentDeckFor } from '../shared/decks'
+import { applyVisibleOrder, type DeckSortMode } from '../shared/deckOrder'
+import { orderGames } from '../shared/gameOrder'
 import { applyTheme } from '../lib/theme'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 
@@ -120,7 +122,20 @@ interface AppState {
   /** Moves one copy of a card between two zones of the open deck (e.g. main deck → sideboard), as one undoable edit. */
   moveCard: (fromZoneId: string, toZone: { id: string; label: string }, card: Card) => Promise<void>
   undo: () => Promise<void>
-  setDeckSort: (sort: 'recent' | 'name') => void
+  setDeckSort: (sort: DeckSortMode) => void
+  /** Saves a new order for the decks on screen (one game's list) and switches the list to that custom order. */
+  reorderDecks: (visibleIds: string[]) => void
+  showMyDecks: boolean
+  setShowMyDecks: (show: boolean) => void
+  /** Whether the open deck is shown as the read-only full view (the default when a deck is selected) rather than in the editor. */
+  deckViewing: boolean
+  setDeckViewing: (viewing: boolean) => void
+  /** Locks a deck so it can't be changed or deleted, or unlocks it. Not an edit itself, so it isn't undoable. */
+  setDeckLocked: (deckId: string, locked: boolean) => Promise<void>
+  /** Saves the order of the game tabs in the sidebar. */
+  setGameOrder: (order: GameId[]) => void
+  /** Opens a deck from anywhere (the My Decks page): switches to its game, selects it, and shows the deck panel. */
+  openDeck: (deckId: string) => void
   setDeckViewMode: (mode: DeckViewMode) => void
   setUpdateStatus: (status: UpdateStatus) => void
   setTheme: (id: string) => void
@@ -190,9 +205,9 @@ export const useAppStore = create<AppState>((set, get) => {
     return get().catalogs[gameId]?.byId ?? new Map()
   }
 
-  async function addAndSelectDeck(deck: Deck, undoLabel: string): Promise<void> {
+  async function addAndSelectDeck(deck: Deck, undoLabel: string, viewing = false): Promise<void> {
     const saved = await window.api.decks.save(deck)
-    set((s) => ({ decks: [...s.decks, saved], currentDeckId: saved.id, currentGameId: saved.gameId, showWishlist: false, showCollection: false }))
+    set((s) => ({ decks: [...s.decks, saved], currentDeckId: saved.id, currentGameId: saved.gameId, showWishlist: false, showCollection: false, showMyDecks: false, deckViewing: viewing }))
     pushUndo({ kind: 'create', label: undoLabel, deckId: saved.id })
     persistSettings({ lastDeckId: saved.id, lastGameId: saved.gameId })
   }
@@ -207,6 +222,8 @@ export const useAppStore = create<AppState>((set, get) => {
     currentDeckId: null,
     showWishlist: false,
     showCollection: false,
+    showMyDecks: false,
+    deckViewing: false,
     settings: {},
     undoStack: [],
     error: null,
@@ -225,7 +242,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
         // Reopen where you left off: the last deck (which also implies its game), else the last game.
         const lastDeck = decks.find((d) => d.id === settings.lastDeckId)
-        if (lastDeck) set({ currentDeckId: lastDeck.id, currentGameId: lastDeck.gameId })
+        if (lastDeck) set({ currentDeckId: lastDeck.id, currentGameId: lastDeck.gameId, deckViewing: true })
         else if (settings.lastGameId) set({ currentGameId: settings.lastGameId })
 
         await Promise.all([
@@ -292,23 +309,28 @@ export const useAppStore = create<AppState>((set, get) => {
       const source = get().decks.find((d) => d.id === deckId)
       if (!source) return
       const now = new Date().toISOString()
-      const copy: Deck = { ...structuredClone(source), id: crypto.randomUUID(), name: `${source.name} (copy)`, createdAt: now, updatedAt: now }
+      const { locked: _wasLocked, ...unlocked } = structuredClone(source) // a copy is for editing, so it starts unlocked
+      const copy: Deck = { ...unlocked, id: crypto.randomUUID(), name: `${source.name} (copy)`, createdAt: now, updatedAt: now }
       await addAndSelectDeck(copy, `Duplicate "${source.name}"`)
     },
 
     importDeck: async (gameId, parsed, name, formatId) => {
       const deck: Deck = { ...emptyDeck(gameId, formatId), name, zones: parsed.zones, freeTextZones: parsed.freeTextZones }
-      await addAndSelectDeck(deck, `Import "${name}"`)
+      await addAndSelectDeck(deck, `Import "${name}"`, true)
     },
 
     selectDeck: (deckId) => {
-      set({ currentDeckId: deckId })
+      set({ currentDeckId: deckId, deckViewing: true })
       persistSettings({ lastDeckId: deckId })
     },
 
     deleteDeck: async (deckId) => {
       const deck = get().decks.find((d) => d.id === deckId)
       if (!deck) return
+      if (deck.locked) {
+        set({ error: `"${deck.name}" is locked. Unlock it to delete it.` })
+        return
+      }
       set((s) => ({
         decks: s.decks.filter((d) => d.id !== deckId),
         currentDeckId: s.currentDeckId === deckId ? null : s.currentDeckId,
@@ -325,6 +347,10 @@ export const useAppStore = create<AppState>((set, get) => {
       const { currentDeckId, currentGameId, decks } = get()
       const current = currentDeckFor(decks, currentDeckId, currentGameId)
       if (!current) return
+      if (current.locked) {
+        set({ error: `"${current.name}" is locked. Unlock it to make changes.` })
+        return
+      }
       const next = updater(current)
       if (next === current) return
       // Applied to the store immediately, so a second click a few ms later builds on
@@ -363,13 +389,19 @@ export const useAppStore = create<AppState>((set, get) => {
     undo: async () => {
       const entry = get().undoStack.at(-1)
       if (!entry) return
+      const lockedNow = entry.kind === 'edit' ? get().decks.find((d) => d.id === entry.before.id)?.locked : entry.kind === 'create' ? get().decks.find((d) => d.id === entry.deckId)?.locked : false
+      if (lockedNow) {
+        // Leave the entry on the stack: unlocking the deck makes it undoable again.
+        set({ error: 'That deck is locked, so the change was left alone. Unlock it first.' })
+        return
+      }
       set((s) => ({ undoStack: s.undoStack.slice(0, -1) }))
 
       if (entry.kind === 'edit') {
-        set((s) => ({ decks: s.decks.map((d) => (d.id === entry.before.id ? entry.before : d)) }))
+        set((s) => ({ decks: s.decks.map((d) => (d.id === entry.before.id ? { ...entry.before } : d)) }))
         await persistDeck(entry.before)
       } else if (entry.kind === 'delete') {
-        set((s) => ({ decks: [...s.decks, entry.deck], currentDeckId: entry.deck.id, currentGameId: entry.deck.gameId, showWishlist: false, showCollection: false }))
+        set((s) => ({ decks: [...s.decks, entry.deck], currentDeckId: entry.deck.id, currentGameId: entry.deck.gameId, showWishlist: false, showCollection: false, showMyDecks: false }))
         await persistDeck(entry.deck)
       } else {
         set((s) => ({
@@ -385,6 +417,31 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     setDeckSort: (sort) => persistSettings({ deckSort: sort }),
+    reorderDecks: (visibleIds) => {
+      const patch: AppSettings = { deckSort: 'custom', deckOrder: applyVisibleOrder(get().settings.deckOrder ?? [], visibleIds) }
+      set((s) => ({ settings: { ...s.settings, ...patch } })) // the list follows the drop at once; the save follows
+      persistSettings(patch)
+    },
+    setDeckViewing: (viewing) => set({ deckViewing: viewing }),
+    setDeckLocked: async (deckId, locked) => {
+      const deck = get().decks.find((d) => d.id === deckId)
+      if (!deck || Boolean(deck.locked) === locked) return
+      const { locked: _previous, ...rest } = deck
+      const next: Deck = locked ? { ...rest, locked: true } : rest
+      set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? next : d)) }))
+      await persistDeck(next)
+    },
+    setGameOrder: (order) => {
+      set((s) => ({ settings: { ...s.settings, gameOrder: order } }))
+      persistSettings({ gameOrder: order })
+    },
+    setShowMyDecks: (show) => set(show ? { showMyDecks: true, showWishlist: false, showCollection: false } : { showMyDecks: false }),
+    openDeck: (deckId) => {
+      const deck = get().decks.find((d) => d.id === deckId)
+      if (!deck) return
+      set({ currentGameId: deck.gameId, currentDeckId: deckId, showMyDecks: false, showWishlist: false, showCollection: false, deckViewing: true })
+      persistSettings({ lastGameId: deck.gameId, lastDeckId: deckId })
+    },
     setDeckViewMode: (mode) => persistSettings({ deckViewMode: mode }),
     setUpdateStatus: (status) => set({ updateStatus: status }),
     setDeckIcon: async (cardId) => {
@@ -401,8 +458,8 @@ export const useAppStore = create<AppState>((set, get) => {
 
     applySyncProgress: (progress) => set((s) => ({ syncProgress: { ...s.syncProgress, [progress.gameId]: progress } })),
 
-    setShowWishlist: (show) => set(show ? { showWishlist: true, showCollection: false } : { showWishlist: false }),
-    setShowCollection: (show) => set(show ? { showCollection: true, showWishlist: false } : { showCollection: false }),
+    setShowWishlist: (show) => set(show ? { showWishlist: true, showCollection: false, showMyDecks: false } : { showWishlist: false }),
+    setShowCollection: (show) => set(show ? { showCollection: true, showWishlist: false, showMyDecks: false } : { showCollection: false }),
 
     loadWishlist: async () => {
       const wishlist = await window.api.wishlist.list()
@@ -547,3 +604,9 @@ export function useOwnedIndex(): Map<string, number> {
 const EMPTY_MAP = new Map<string, Card>()
 
 export { GAME_LIST }
+
+/** The game tabs in the order you arranged them (the default order until you do). */
+export function useOrderedGames() {
+  const order = useAppStore((s) => s.settings.gameOrder)
+  return useMemo(() => orderGames(GAME_LIST, order), [order])
+}

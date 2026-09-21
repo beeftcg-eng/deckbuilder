@@ -1106,14 +1106,46 @@
   align-items: center;
 }
 
-/* Full-screen deck view */
+/* The deck view: what selecting a deck shows. It takes over the whole deck area (the card browser is hidden meanwhile). */
 .deck-view {
-  position: fixed;
-  inset: 0;
-  z-index: 9; /* above the app, below the card-detail modal it opens (z-index 10) */
+  flex: 1;
+  min-width: 0;
   background: var(--bg);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.app-main-viewing > .card-browser {
+  display: none;
+}
+
+.lock-on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.lock-banner {
+  padding: 6px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.game-tab {
+  cursor: grab;
+}
+
+.game-tab.dragging {
+  opacity: 0.4;
+}
+
+.game-tab.drop-before {
+  box-shadow: 0 -2px 0 var(--accent);
+}
+
+.game-tab.drop-after {
+  box-shadow: 0 2px 0 var(--accent);
 }
 
 .fv-header {
@@ -1534,4 +1566,112 @@
   font-weight: 400;
   font-size: 12px;
   cursor: pointer;
+}
+
+/* Re-ordering decks */
+.deck-row.dragging {
+  opacity: 0.4;
+}
+
+.deck-row.drop-before {
+  box-shadow: 0 -2px 0 var(--accent);
+}
+
+.deck-row.drop-after {
+  box-shadow: 0 2px 0 var(--accent);
+}
+
+.deck-row-reorder {
+  display: none;
+  flex-direction: column;
+  line-height: 0.7;
+}
+
+.deck-row:hover .deck-row-reorder,
+.deck-row:focus-within .deck-row-reorder {
+  display: flex;
+}
+
+.deck-row-reorder .deck-row-delete {
+  font-size: 8px;
+  padding: 1px 4px;
+}
+
+.deck-row-reorder .deck-row-delete:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.deck-row-reorder .deck-row-delete:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* My Decks page */
+.md-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.md-card {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+}
+
+.md-card:hover,
+.md-card:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.md-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.md-card-name {
+  font-weight: 700;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.md-card-meta {
+  font-size: 12px;
+}
+
+.md-card-counts {
+  font-size: 12px;
+}
+
+.md-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.md-card-actions {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: none;
+  gap: 2px;
+}
+
+.md-card:hover .md-card-actions,
+.md-card:focus-within .md-card-actions {
+  display: flex;
 }
