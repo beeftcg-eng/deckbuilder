@@ -10,6 +10,7 @@ import { ExportModal } from './ExportModal'
 import { DeckStats } from './DeckStats'
 import { SampleHandModal } from './SampleHandModal'
 import { BanListEditor } from './BanListEditor'
+import { DeckFullView } from './DeckFullView'
 import type { Deck, DeckZoneRule, Format } from '../shared/types'
 
 /** What a zone's header says about its size, e.g. "/40", ", at least 60", ", up to 15". */
@@ -56,6 +57,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const [showExport, setShowExport] = useState(false)
   const [showSampleHand, setShowSampleHand] = useState(false)
   const [showBanList, setShowBanList] = useState(false)
+  const [showFullView, setShowFullView] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -129,6 +131,9 @@ function DeckEditor({ deck }: { deck: Deck }) {
       </div>
 
       <div className="deck-actions">
+        <button className="btn" onClick={() => setShowFullView(true)} title="See the whole deck full screen: card images, a list, or plain text">
+          ⛶ Full view
+        </button>
         <button className="btn" onClick={handleWishlistDeck} title="Add every card in this deck to your wishlist">
           ☆ Wishlist deck
         </button>
@@ -256,6 +261,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
         })}
       </div>
 
+      {showFullView && <DeckFullView deck={deck} format={format} cardsById={cardsById} onClose={() => setShowFullView(false)} />}
       {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}
       {showSampleHand && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowSampleHand(false)} />}
       {showBanList && <BanListEditor gameId={deck.gameId} initialFormatId={deck.formatId} onClose={() => setShowBanList(false)} />}

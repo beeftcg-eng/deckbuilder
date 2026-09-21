@@ -168,10 +168,14 @@ export interface WishlistEntry {
 /** Cards you own, keyed by Card.id (one entry per printing) -> copies owned. */
 export type Collection = Record<string, number>
 
+/** How the full-screen deck view shows the deck: card images, a compact list, or the plain-text decklist. */
+export type DeckViewMode = 'grid' | 'list' | 'text'
+
 export interface AppSettings {
   lastGameId?: GameId
   lastDeckId?: string | null
   deckSort?: 'recent' | 'name'
+  deckViewMode?: DeckViewMode
 }
 
 export interface PawmodoroConfig {

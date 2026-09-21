@@ -1,0 +1,215 @@
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useAppStore } from '../state/useAppStore'
+import { getAdapter } from '../shared/games/registry'
+import { rulesForFormat } from '../shared/games/rules'
+import { checkDeckLegality } from '../shared/legality'
+import { computeDeckStats } from '../shared/deckStats'
+import { formatPrice } from '../shared/collection'
+import { DECK_VIEW_MODES, DECK_VIEW_MODE_LABELS, buildDeckView, textBlocks, type DeckViewEntry } from '../shared/deckView'
+import type { Card, Deck, Format } from '../shared/types'
+import { CardDetailModal } from './CardDetailModal'
+
+interface Props {
+  deck: Deck
+  format: Format | undefined
+  cardsById: Map<string, Card>
+  onClose: () => void
+}
+
+/**
+ * The finished deck, filling the whole window: card images (Grid), compact rows (List) or the
+ * plain-text decklist (Text). A button hands the window over to the OS's real full screen too.
+ */
+export function DeckFullView({ deck, format, cardsById, onClose }: Props) {
+  const adapter = getAdapter(deck.gameId)
+  const mode = useAppStore((s) => s.settings.deckViewMode ?? 'grid')
+  const setMode = useAppStore((s) => s.setDeckViewMode)
+
+  const [cardWidth, setCardWidth] = useState(200)
+  const [detail, setDetail] = useState<Card | null>(null)
+  const [osFullscreen, setOsFullscreen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const zones = useMemo(() => rulesForFormat(adapter, deck.formatId), [adapter, deck.formatId])
+  const sections = useMemo(() => buildDeckView(deck, zones, cardsById), [deck, zones, cardsById])
+  const stats = useMemo(() => computeDeckStats(deck, cardsById), [deck, cardsById])
+  const legality = useMemo(() => (format ? checkDeckLegality(deck, adapter, format, cardsById) : null), [deck, adapter, format, cardsById])
+  const text = useMemo(() => adapter.formatDecklistText(deck, cardsById), [adapter, deck, cardsById])
+  const blocks = useMemo(() => textBlocks(text), [text])
+
+  // Esc closes the card in front first, then the view. (In the OS's full screen, Esc leaves that first and never reaches us.)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape' || document.fullscreenElement) return
+      if (detail) setDetail(null)
+      else onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [detail, onClose])
+
+  useEffect(() => {
+    const onChange = () => setOsFullscreen(document.fullscreenElement != null)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange)
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+    }
+  }, [])
+
+  function toggleOsFullscreen() {
+    try {
+      const request = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()
+      void request.catch(() => undefined)
+    } catch {
+      // No Fullscreen API here; the full-window view still works.
+    }
+  }
+
+  function handleCopy() {
+    window.api.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  const priced = stats.totalCards > stats.price.unpricedCopies
+
+  function renderCard({ card, quantity }: DeckViewEntry) {
+    return (
+      <button key={card.id} className="fv-card" onClick={() => setDetail(card)} title={`${card.name} — click for details`}>
+        {card.imageUrl ? (
+          <img src={card.imageUrl} alt={card.name} loading="lazy" style={{ aspectRatio: card.orientation === 'landscape' ? '7 / 5' : '5 / 7' }} />
+        ) : (
+          <div className="fv-card-placeholder" style={{ aspectRatio: card.orientation === 'landscape' ? '7 / 5' : '5 / 7' }}>
+            {card.name}
+          </div>
+        )}
+        <span className="fv-qty">×{quantity}</span>
+      </button>
+    )
+  }
+
+  function renderRow({ card, quantity }: DeckViewEntry) {
+    return (
+      <button key={card.id} className="fv-row" onClick={() => setDetail(card)}>
+        <span className="fv-row-qty">{quantity}×</span>
+        {card.imageUrlSmall ? <img className="fv-row-thumb" src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="fv-row-thumb" />}
+        <span className="fv-row-name">{card.name}</span>
+        <span className="fv-row-detail text-dim">{card.subtypes.join(' ')}</span>
+        <span className="fv-row-cost text-dim">{card.cost ?? ''}</span>
+        <span className="fv-row-price text-dim">{card.price != null ? formatPrice(card.price * quantity) : ''}</span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="deck-view" role="dialog" aria-label={`${deck.name} — full view`}>
+      <div className="fv-header">
+        <div className="fv-title">
+          <strong>{deck.name}</strong>
+          <span className="text-dim">
+            {adapter.shortName}
+            {format ? ` · ${format.label}` : ''}
+          </span>
+        </div>
+        <div className="fv-summary">
+          <span>{stats.totalCards} cards</span>
+          {priced && <span className="text-dim">≈ {formatPrice(stats.price.total)}</span>}
+          {legality && (
+            <span
+              className={legality.legal ? 'fv-legal' : 'fv-illegal'}
+              title={legality.issues.map((i) => i.message).join('\n') || undefined}
+            >
+              {legality.legal ? '✓ Legal' : `✗ ${legality.issues.length} issue${legality.issues.length === 1 ? '' : 's'}`}
+            </span>
+          )}
+        </div>
+
+        <div className="fv-modes" role="group" aria-label="View">
+          {DECK_VIEW_MODES.map((m) => (
+            <button key={m} className={m === mode ? 'btn btn-primary' : 'btn'} aria-pressed={m === mode} onClick={() => setMode(m)}>
+              {DECK_VIEW_MODE_LABELS[m]}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'grid' && (
+          <label className="fv-size" title="Card size">
+            <span className="text-dim">Size</span>
+            <input type="range" min={120} max={380} step={10} value={cardWidth} onChange={(e) => setCardWidth(Number(e.target.value))} />
+          </label>
+        )}
+
+        <div className="fv-actions">
+          <button className="btn" onClick={handleCopy}>
+            {copied ? 'Copied!' : 'Copy list'}
+          </button>
+          <button className="btn" onClick={toggleOsFullscreen} title="Hide the window frame and fill the screen (Esc to leave)">
+            {osFullscreen ? 'Exit full screen' : '⛶ Full screen'}
+          </button>
+          <button className="btn" onClick={onClose} title="Esc">
+            Close
+          </button>
+        </div>
+      </div>
+
+      <div className="fv-body">
+        {sections.length === 0 ? (
+          <div className="text-dim fv-empty">This deck has no cards yet.</div>
+        ) : mode === 'text' ? (
+          <div className="fv-text">
+            {blocks.map((block, i) => (
+              <pre key={i}>{block}</pre>
+            ))}
+          </div>
+        ) : (
+          sections.map((section) => (
+            <section key={section.zoneId} className="fv-section">
+              <h2 className="fv-section-title">
+                {section.label} <span className="text-dim">({section.count})</span>
+              </h2>
+              {section.chips.length > 0 && (
+                <div className="fv-chips">
+                  {section.chips.map((chip) => (
+                    <span key={chip.label} className="stat-chip">
+                      {chip.label} <b>{chip.quantity}</b>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {mode === 'grid'
+                ? section.groups.map((group) => (
+                    <div key={group.category} className="fv-group">
+                      {section.groups.length > 1 && (
+                        <h3 className="fv-group-title">
+                          {group.category} <span className="text-dim">({group.count})</span>
+                        </h3>
+                      )}
+                      <div className="fv-grid" style={{ '--fv-card-w': `${cardWidth}px` } as CSSProperties}>
+                        {group.entries.map(renderCard)}
+                      </div>
+                    </div>
+                  ))
+                : (
+                  <div className="fv-list">
+                    {section.groups.map((group) => (
+                      <div key={group.category} className="fv-group">
+                        {section.groups.length > 1 && (
+                          <h3 className="fv-group-title">
+                            {group.category} <span className="text-dim">({group.count})</span>
+                          </h3>
+                        )}
+                        {group.entries.map(renderRow)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </section>
+          ))
+        )}
+      </div>
+
+      {detail && <CardDetailModal card={detail} onClose={() => setDetail(null)} />}
+    </div>
+  )
+}

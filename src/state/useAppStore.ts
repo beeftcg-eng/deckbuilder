@@ -8,6 +8,7 @@ import type {
   Deck,
   DeckCardEntry,
   DeckFreeTextEntry,
+  DeckViewMode,
   Format,
   GameId,
   PawmodoroConfig,
@@ -114,6 +115,7 @@ interface AppState {
   moveCard: (fromZoneId: string, toZone: { id: string; label: string }, card: Card) => Promise<void>
   undo: () => Promise<void>
   setDeckSort: (sort: 'recent' | 'name') => void
+  setDeckViewMode: (mode: DeckViewMode) => void
   applySyncProgress: (progress: SyncProgress) => void
 
   setShowWishlist: (show: boolean) => void
@@ -365,6 +367,7 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     setDeckSort: (sort) => persistSettings({ deckSort: sort }),
+    setDeckViewMode: (mode) => persistSettings({ deckViewMode: mode }),
 
     applySyncProgress: (progress) => set((s) => ({ syncProgress: { ...s.syncProgress, [progress.gameId]: progress } })),
 
