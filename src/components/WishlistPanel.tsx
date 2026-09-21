@@ -5,6 +5,7 @@ import { formatPrice, totalPrice } from '../shared/collection'
 import type { ResolvedWishlistEntry } from '../shared/export'
 import { WishlistExportModal } from './WishlistExportModal'
 import type { GameId, WishlistEntry } from '../shared/types'
+import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 
 export function WishlistPanel() {
   const wishlist = useAppStore((s) => s.wishlist)
@@ -45,6 +46,8 @@ export function WishlistPanel() {
   const [pushResult, setPushResult] = useState<string | null>(null)
   const [pushError, setPushError] = useState<string | null>(null)
   const [showExport, setShowExport] = useState(false)
+  // Only show the project fields expanded if this install already points somewhere other than the shared project.
+  const customProject = pawmodoroConfig.url !== DEFAULT_PAWMODORO_URL || pawmodoroConfig.anonKey !== DEFAULT_PAWMODORO_ANON_KEY
 
   useEffect(() => {
     setUrl(pawmodoroConfig.url)
@@ -52,11 +55,11 @@ export function WishlistPanel() {
     setEmail(pawmodoroConfig.email)
   }, [pawmodoroConfig.url, pawmodoroConfig.anonKey, pawmodoroConfig.email])
 
-  async function handleConnect() {
+  async function handleConnect(signUp: boolean) {
     setConnecting(true)
     setConnectError(null)
     try {
-      await connectPawmodoro(url.trim(), anonKey.trim(), email.trim(), password)
+      await connectPawmodoro(url.trim(), anonKey.trim(), email.trim(), password, signUp)
       setPassword('')
     } catch (err) {
       setConnectError(err instanceof Error ? err.message : String(err))
@@ -150,15 +153,26 @@ export function WishlistPanel() {
           </>
         ) : (
           <>
+            <div className="text-dim">
+              New here? Enter an email and password and press Create account. Already have a Pawmodoro login (phone or desktop)? Use the same one and press Connect.
+            </div>
             <div className="pawmodoro-form">
-              <input placeholder="Project URL (https://xxxx.supabase.co)" value={url} onChange={(e) => setUrl(e.target.value)} />
-              <input placeholder="anon public key" value={anonKey} onChange={(e) => setAnonKey(e.target.value)} />
               <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
               <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-              <button className="btn btn-primary" onClick={handleConnect} disabled={connecting}>
+              <button className="btn btn-primary" onClick={() => handleConnect(false)} disabled={connecting || !email.trim() || !password}>
                 {connecting ? 'Connecting…' : 'Connect'}
               </button>
+              <button className="btn" onClick={() => handleConnect(true)} disabled={connecting || !email.trim() || !password}>
+                Create account
+              </button>
             </div>
+            <details className="pawmodoro-advanced" open={customProject}>
+              <summary>Use a different project</summary>
+              <div className="pawmodoro-form">
+                <input placeholder="Project URL (https://xxxx.supabase.co)" value={url} onChange={(e) => setUrl(e.target.value)} />
+                <input placeholder="anon public key" value={anonKey} onChange={(e) => setAnonKey(e.target.value)} />
+              </div>
+            </details>
             {connectError && <div className="sync-error">Couldn't connect: {connectError}</div>}
           </>
         )}

@@ -3,6 +3,7 @@ import { readFile, writeFile, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import type { PawmodoroConfig } from '../../src/shared/types'
 import { pawmodoroConfigFile } from '../lib/paths'
+import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../../src/shared/pawmodoroDefaults'
 
 interface StoredConfig {
   url: string
@@ -27,7 +28,13 @@ async function writeConfig(config: StoredConfig): Promise<void> {
 }
 
 function toPublicConfig(config: StoredConfig | null): PawmodoroConfig {
-  return { url: config?.url ?? '', anonKey: config?.anonKey ?? '', email: config?.email ?? '', connected: !!config?.refreshToken }
+  // Unless the person opted into their own project, the shared one is the default.
+  return {
+    url: config?.url || DEFAULT_PAWMODORO_URL,
+    anonKey: config?.anonKey || DEFAULT_PAWMODORO_ANON_KEY,
+    email: config?.email ?? '',
+    connected: !!config?.refreshToken,
+  }
 }
 
 class PawmodoroError extends Error {}
@@ -56,12 +63,22 @@ export function registerPawmodoroIpc(): void {
 
   ipcMain.handle(
     'pawmodoro:connect',
-    async (_e, url: string, anonKey: string, email: string, password: string): Promise<PawmodoroConfig> => {
-      const cleanUrl = url.trim().replace(/\/$/, '')
-      const result = (await request(cleanUrl, anonKey, '/auth/v1/token?grant_type=password', { email, password })) as {
-        refresh_token: string
+    async (_e, url: string, anonKey: string, email: string, password: string, signUp = false): Promise<PawmodoroConfig> => {
+      const cleanUrl = (url.trim() || DEFAULT_PAWMODORO_URL).replace(/\/$/, '')
+      const key = anonKey.trim() || DEFAULT_PAWMODORO_ANON_KEY
+      const credentials = { email, password }
+      let result: { refresh_token?: string }
+      if (signUp) {
+        // Same endpoint Pawmodoro's own "Create account" uses. With email
+        // confirmation on, Supabase answers with a user but no session.
+        result = (await request(cleanUrl, key, '/auth/v1/signup', credentials)) as { refresh_token?: string }
+        if (!result?.refresh_token) {
+          throw new PawmodoroError('Account created — check your email to confirm it, then press Log in.')
+        }
+      } else {
+        result = (await request(cleanUrl, key, '/auth/v1/token?grant_type=password', credentials)) as { refresh_token?: string }
       }
-      const config: StoredConfig = { url: cleanUrl, anonKey, email, refreshToken: result.refresh_token }
+      const config: StoredConfig = { url: cleanUrl, anonKey: key, email, refreshToken: result.refresh_token as string }
       await writeConfig(config)
       return toPublicConfig(config)
     },

@@ -58,8 +58,8 @@ const api = {
   },
   pawmodoro: {
     getConfig: (): Promise<PawmodoroConfig> => ipcRenderer.invoke('pawmodoro:getConfig'),
-    connect: (url: string, anonKey: string, email: string, password: string): Promise<PawmodoroConfig> =>
-      ipcRenderer.invoke('pawmodoro:connect', url, anonKey, email, password),
+    connect: (url: string, anonKey: string, email: string, password: string, signUp = false): Promise<PawmodoroConfig> =>
+      ipcRenderer.invoke('pawmodoro:connect', url, anonKey, email, password, signUp),
     disconnect: (): Promise<PawmodoroConfig> => ipcRenderer.invoke('pawmodoro:disconnect'),
     pushWishlist: (
       items: { entryId: string; text: string }[],

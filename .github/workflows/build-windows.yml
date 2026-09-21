@@ -1,0 +1,31 @@
+name: Build Windows installer
+
+# electron-builder can't make the NSIS installer from Linux without Wine, so
+# it's built on a real Windows runner. Run it from the Actions tab (or push a
+# v* tag); the installer is attached to the run as the "Deckbuilder-Setup"
+# artifact. Unsigned, so Windows SmartScreen will warn on first launch.
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags: ["v*"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npx vitest run
+      - run: npx vite build
+      - run: npx electron-builder --win --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Deckbuilder-Setup
+          path: release/Deckbuilder-Setup.exe
+          if-no-files-found: error

@@ -18,6 +18,7 @@ import { GAME_LIST, getAdapter } from '../shared/games/registry'
 import { buildPoolIndex, gameIdOfCardId, missingForDeck } from '../shared/collection'
 import type { ParsedDeck } from '../shared/importDeck'
 import { withQuantity } from '../shared/deckEdits'
+import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 
 interface Catalog {
   cards: Card[]
@@ -128,7 +129,7 @@ interface AppState {
   markGotIt: (entryId: string) => Promise<void>
 
   loadPawmodoroConfig: () => Promise<void>
-  connectPawmodoro: (url: string, anonKey: string, email: string, password: string) => Promise<void>
+  connectPawmodoro: (url: string, anonKey: string, email: string, password: string, signUp?: boolean) => Promise<void>
   disconnectPawmodoro: () => Promise<void>
   pushWishlistToPawmodoro: (items: { entryId: string; text: string }[]) => Promise<{ pushedCount: number; failedCount: number }>
 
@@ -192,7 +193,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
     wishlist: [],
     collection: {},
-    pawmodoroConfig: { url: '', anonKey: '', email: '', connected: false },
+    pawmodoroConfig: { url: DEFAULT_PAWMODORO_URL, anonKey: DEFAULT_PAWMODORO_ANON_KEY, email: '', connected: false },
     pushingWishlist: false,
 
     initialize: async () => {
@@ -439,8 +440,8 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ pawmodoroConfig })
     },
 
-    connectPawmodoro: async (url, anonKey, email, password) => {
-      const pawmodoroConfig = await window.api.pawmodoro.connect(url, anonKey, email, password)
+    connectPawmodoro: async (url, anonKey, email, password, signUp = false) => {
+      const pawmodoroConfig = await window.api.pawmodoro.connect(url, anonKey, email, password, signUp)
       set({ pawmodoroConfig })
     },
 

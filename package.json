@@ -1,7 +1,7 @@
 {
   "name": "deckbuilder",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A multi-game TCG deckbuilder with legality checking and export (Riftbound, One Piece, Pokemon)",
   "author": "beeftcg",
   "type": "module",
@@ -64,7 +64,9 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "${productName}-Setup.${ext}"
     }
   }
 }
