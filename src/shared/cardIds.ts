@@ -1,4 +1,5 @@
 import type { Card } from './types'
+import { isAlternateArt, rarityRank } from './printings'
 
 /** The file name of a card's image without folders, query or extension: ".../Card_Images/OP01-006_p5.jpg?v=2" -> "OP01-006_p5". */
 function imageStem(card: Card): string {
@@ -18,17 +19,29 @@ function hasPrintingQualifier(card: Card): boolean {
   return /\([^)]+\)/.test(withoutNumbers)
 }
 
-/** Lower is more "regular": the plain "<id>.jpg" image, then any image not marked as a parallel/reprint, then a name with no qualifier. */
+/**
+ * Lower is more "regular": the plain "<id>.jpg" image, then any image not marked as a parallel/reprint, then a
+ * name with no qualifier, then (One Piece's signals having found nothing) the same alternate-art/rarity ranking
+ * `printings.ts` uses for import — the only signal that discriminates Magic's unique-artwork printings, whose
+ * image files are just Scryfall's own per-printing UUID and never carry a One-Piece-style parallel/reprint tag.
+ */
 function regularness(card: Card, plain: string): number[] {
   const stem = imageStem(card)
-  return [stem === plain ? 0 : 1, ALTERNATE_IMAGE.test(stem) ? 1 : 0, hasPrintingQualifier(card) ? 1 : 0]
+  return [
+    stem === plain ? 0 : 1,
+    ALTERNATE_IMAGE.test(stem) ? 1 : 0,
+    hasPrintingQualifier(card) ? 1 : 0,
+    isAlternateArt(card) ? 1 : 0,
+    rarityRank(card.rarity),
+  ]
 }
 
 /**
  * Makes every card id unique. A deck, the collection and the wishlist store only a card's id and find the card
  * again by looking it up, so two printings sharing an id are indistinguishable: adding the regular card puts
  * whichever duplicate the lookup keeps — usually an alternate art — into the deck. One Piece's data does this
- * (a card, its reprints, foils and alternate arts can all come back with one id).
+ * (a card, its reprints, foils and alternate arts can all come back with one id); Magic's normalizeCard does it
+ * on purpose, keying every printing by its oracle id, specifically so this function is what splits them apart.
  *
  * Ids that are already unique are never touched, so everything saved against them still resolves. Within a group
  * of duplicates the most regular printing keeps the id (see regularness; ties go to the first listed); the others

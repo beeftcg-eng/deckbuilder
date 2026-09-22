@@ -5,6 +5,11 @@ import { catalogOf, makeCard } from './testFixtures'
 const op = (id: string, name: string, file: string, setId = 'OP-01') =>
   makeCard('onepiece', { name, id: `onepiece:${id}`, sourceId: id.split('_')[0], setId, imageUrl: `https://www.optcgapi.com/media/static/Card_Images/${file}` })
 
+// Magic's Unique Artwork data gives every printing (regular or alternate-art) a plain Scryfall-UUID image and no
+// parenthetical name qualifier, so none of One Piece's signals above tell them apart — only rarity/isAlternateArt do.
+const mtg = (oracleId: string, printingId: string, rarity: string, setId = 'set') =>
+  makeCard('mtg', { name: 'Cyclonic Rift', id: `mtg:${oracleId}`, sourceId: oracleId, rarity, setId, imageUrl: `https://cards.scryfall.io/normal/front/${printingId}.jpg` })
+
 describe('uniquifyCardIds', () => {
   it('returns the very same array when every id is already unique', () => {
     const cards = [op('OP01-006', 'Otama', 'OP01-006.jpg'), op('OP01-007', 'Other', 'OP01-007.jpg')]
@@ -65,6 +70,14 @@ describe('uniquifyCardIds', () => {
     const first = uniquifyCardIds([a, b, taken])
     expect(new Set(first.map((c) => c.id)).size).toBe(3)
     expect(uniquifyCardIds([a, b, taken]).map((c) => c.id)).toEqual(first.map((c) => c.id))
+  })
+
+  it('picks the plain printing over a showcase/promo one for Magic, where no image or name signal tells them apart', () => {
+    const showcase = mtg('cyclonic-rift', 'aaaa1111', 'showcase', 'special-set')
+    const regular = mtg('cyclonic-rift', 'bbbb2222', 'rare', 'ced')
+    const fixed = uniquifyCardIds([showcase, regular])
+    expect(catalogOf(fixed).get('mtg:cyclonic-rift')?.setId).toBe('ced')
+    expect(fixed.map((c) => c.id)).toEqual(['mtg:aaaa1111', 'mtg:cyclonic-rift'])
   })
 
   it('does not mutate its input', () => {

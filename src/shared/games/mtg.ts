@@ -2,11 +2,14 @@ import type { Card, CardLegalityStatus, Deck, DeckRules, Format } from '../types
 import type { FetchProgress, GameAdapter, GuidedStage } from './types'
 import { SCRYFALL_HEADERS, fetchJson, fetchJsonWithRetry, sleep } from './fetchUtil'
 
-// Scryfall's "Oracle Cards" bulk file: one entry per unique card (~35k), each shown as its most
-// recognizable printing. That matches how Magic decks are built and limited — by card name, not
-// printing — and is a 25 MB gzipped download instead of the 800+ MB of every printing. Bulk files
-// are refreshed daily and are Scryfall's recommended way to fetch the whole catalog.
-const BULK_INFO_URL = 'https://api.scryfall.com/bulk-data/oracle_cards'
+// Scryfall's "Unique Artwork" bulk file: one entry per unique illustration (~45k), so an alternate-art,
+// showcase or Secret-Lair-style reprint of a card is its own browsable/collectible entry instead of being
+// invisible until you knew its exact name. A near match on "Oracle Cards" (one row per card, ~25 MB) in
+// download size (~38 MB) since it still collapses plain reprints that reuse an earlier printing's art —
+// nowhere near "Default Cards" (~80 MB, every single printing, including identical-art reprints and
+// foil/nonfoil duplicates). Bulk files are refreshed daily and are Scryfall's recommended way to fetch
+// the whole catalog.
+const BULK_INFO_URL = 'https://api.scryfall.com/bulk-data/unique_artwork'
 
 /** Scryfall's format keys — also this game's Format ids, so `card.legality[format.id]` just works. */
 export const MTG_FORMAT_IDS = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'commander', 'pauper'] as const
@@ -108,9 +111,13 @@ function priceOf(raw: ScryfallCard): number | null {
  * that no supported format can ever play (Un-sets, digital-only Alchemy…) are left out too, except
  * ones legal in the upcoming Standard, so a card can be browsed as soon as it's spoiled.
  *
- * The id is the card's `oracle_id`, not the printing's: Scryfall may show a different printing of
- * a card after any update, and saved decks, collection and wishlist entries must keep pointing at
- * the same card when it does.
+ * The id is the card's `oracle_id`, so every printing sharing one oracle_id starts out sharing one
+ * id too — uniquifyCardIds() (shared/cardIds.ts, run over the whole catalog after fetch, same as
+ * One Piece) then splits that group apart: the most "regular" printing keeps this oracle_id-based
+ * id, and every alternate-art printing gets its own id from its Scryfall printing id instead. That
+ * keeps existing saved decks, collection and wishlist entries (which only ever saw the "regular"
+ * printing's id) resolving correctly after this file switched from one row per card to one row per
+ * unique artwork.
  */
 export function normalizeCard(raw: ScryfallCard): Card | null {
   if (SKIPPED_LAYOUTS.has(raw.layout)) return null
@@ -152,11 +159,14 @@ export function normalizeCard(raw: ScryfallCard): Card | null {
 }
 
 /**
- * Reads a gzipped JSON Lines bulk file (one card per line) as it downloads, so the ~200 MB it
+ * Reads a gzipped JSON Lines bulk file (one card per line) as it downloads, so the tens of MB it
  * unpacks to is never held as one string. Progress is an estimate of the total from how far
- * through the compressed download we are, since the card count isn't known up front.
+ * through the compressed download we are, since the card count isn't known up front. `flavorNames`
+ * (keyed by Scryfall's own per-printing id, still in scope here but not on the Card it produces —
+ * see fetchFlavorNames) tags the one specific printing that actually carries a flavor name, not
+ * every printing sharing its oracle id.
  */
-export async function readBulkCards(res: Response, onProgress: (p: FetchProgress) => void): Promise<Card[]> {
+export async function readBulkCards(res: Response, onProgress: (p: FetchProgress) => void, flavorNames?: Map<string, string>): Promise<Card[]> {
   if (!res.body) throw new Error('Scryfall sent an empty response')
   const totalBytes = Number(res.headers.get('content-length')) || 0
   let readBytes = 0
@@ -183,7 +193,9 @@ export async function readBulkCards(res: Response, onProgress: (p: FetchProgress
       return // a damaged line shouldn't sink the whole sync; an empty result is caught below
     }
     const card = normalizeCard(raw)
-    if (card) cards.push(card)
+    if (!card) return
+    const flavorName = flavorNames?.get(raw.id)
+    cards.push(flavorName ? { ...card, flavorNames: [flavorName] } : card)
   }
 
   while (true) {
@@ -203,7 +215,7 @@ export async function readBulkCards(res: Response, onProgress: (p: FetchProgress
 }
 
 interface ScryfallSearchResponse {
-  data: { oracle_id?: string; flavor_name?: string }[]
+  data: { id: string; flavor_name?: string }[]
   has_more: boolean
   next_page?: string
 }
@@ -211,44 +223,39 @@ interface ScryfallSearchResponse {
 const FLAVOR_NAME_SEARCH_URL = 'https://api.scryfall.com/cards/search?q=has%3Aflavorname&unique=prints&order=name'
 
 /**
- * Cards that have been printed under an alternate "flavor" name — Secret Lair drops and Universes
- * Beyond crossovers (Godzilla, Final Fantasy, ...) often reprint an existing card renamed to fit the
- * theme, e.g. Dovin's Veto as "Shadowbringers". Oracle Cards (the bulk file above) shows only one
- * printing per card and it's rarely the renamed one, so these come from a separate, much smaller,
- * paginated search instead of downloading every printing just to catch a few hundred flavor names.
- * Best-effort: a Scryfall hiccup here shouldn't fail the whole sync over a nice-to-have.
+ * The one specific printing (keyed by Scryfall's own per-print id, not oracle id — a card can have a
+ * regular printing and a separately flavor-named one, and only the latter should say "aka …") that's
+ * been printed under an alternate "flavor" name — Secret Lair drops and Universes Beyond crossovers
+ * (Godzilla, Final Fantasy, ...) often reprint an existing card renamed to fit the theme, e.g. Dovin's
+ * Veto as "Shadowbringers". Most of these already get their own row in the Unique Artwork bulk file
+ * above (their art differs too), but this cheap, separate, paginated search is what actually supplies
+ * the name — Scryfall's bulk files don't include `flavor_name`. Best-effort: a hiccup here shouldn't
+ * fail the whole sync over a nice-to-have.
  */
-async function fetchFlavorNames(): Promise<Map<string, Set<string>>> {
-  const byOracleId = new Map<string, Set<string>>()
+async function fetchFlavorNames(): Promise<Map<string, string>> {
+  const byPrintingId = new Map<string, string>()
   let url: string | undefined = FLAVOR_NAME_SEARCH_URL
   while (url) {
     const page: ScryfallSearchResponse = await fetchJsonWithRetry<ScryfallSearchResponse>(url, { headers: SCRYFALL_HEADERS })
     for (const card of page.data) {
-      if (!card.oracle_id || !card.flavor_name) continue
-      const names = byOracleId.get(card.oracle_id) ?? new Set<string>()
-      names.add(card.flavor_name)
-      byOracleId.set(card.oracle_id, names)
+      if (card.flavor_name) byPrintingId.set(card.id, card.flavor_name)
     }
     url = page.has_more ? page.next_page : undefined
     if (url) await sleep(100) // courtesy delay between search pages, per Scryfall's rate-limit guidance
   }
-  return byOracleId
+  return byPrintingId
 }
 
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   onProgress({ loaded: 0, total: 0 })
-  const info = await fetchJson<{ jsonl_download_uri?: string }>(BULK_INFO_URL, 1, SCRYFALL_HEADERS)
+  const [info, flavorNames] = await Promise.all([
+    fetchJson<{ jsonl_download_uri?: string }>(BULK_INFO_URL, 1, SCRYFALL_HEADERS),
+    fetchFlavorNames().catch(() => new Map<string, string>()),
+  ])
   if (!info.jsonl_download_uri) throw new Error("Scryfall didn't say where its card data file is")
   const res = await fetch(info.jsonl_download_uri, { headers: SCRYFALL_HEADERS })
   if (!res.ok) throw new Error(`Request failed (${res.status}): ${info.jsonl_download_uri}`)
-  const cards = await readBulkCards(res, onProgress)
-
-  const flavorNames = await fetchFlavorNames().catch(() => new Map<string, Set<string>>())
-  if (flavorNames.size === 0) return cards
-  return cards.map((card) => {
-    const names = flavorNames.get(card.sourceId)
-    return names ? { ...card, flavorNames: [...names] } : card
-  })
+  return readBulkCards(res, onProgress, flavorNames)
 }
 
 /** Legendary creatures, and cards that say they can be your commander. (Legendary Vehicles/Spacecraft and Backgrounds aren't recognised.) */
@@ -345,7 +352,7 @@ export const mtgAdapter: GameAdapter = {
   getGuidedStage,
   copyLimitFor,
   colorOrder: COLOR_ORDER,
-  setNote: "Magic's card data lists one printing of each card, so a set here holds only the cards Scryfall currently shows from it, not everything ever printed in it.",
+  setNote: "Magic's card data lists one printing per unique artwork, so a set here won't include a plain reprint that reuses an earlier printing's art (only a set's own alternate-art/showcase treatments show up as their own entries).",
   identityColorFilter: true,
   importOptions: { blankLineStartsSideboard: true, stripPrintingSuffix: true },
 }

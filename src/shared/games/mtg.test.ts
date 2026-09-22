@@ -178,4 +178,11 @@ describe('readBulkCards', () => {
   it('fails loudly instead of caching an empty catalog', async () => {
     await expect(readBulkCards(bulkResponse([lines[1], 'garbage'].join('\n')), () => {})).rejects.toThrow(/no cards/)
   })
+
+  it('tags only the specific printing a flavor name was found for, by its Scryfall printing id', async () => {
+    const flavorNames = new Map([[RAW['Sol Ring'].id, 'Not A Real Flavor Name']])
+    const cards = await readBulkCards(bulkResponse(lines.join('\n')), () => {}, flavorNames)
+    expect(cards.find((c) => c.name === 'Sol Ring')?.flavorNames).toEqual(['Not A Real Flavor Name'])
+    expect(cards.find((c) => c.name === 'Llanowar Elves')?.flavorNames).toBeUndefined()
+  })
 })

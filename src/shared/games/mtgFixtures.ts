@@ -1,6 +1,7 @@
 import type { ScryfallCard } from './mtg'
 
-// Trimmed copies of real Scryfall bulk-data (oracle_cards) entries, to pin the shapes normalizeCard has to handle.
+// Trimmed copies of real Scryfall card objects (the same shape across every bulk-data file, including
+// unique_artwork), to pin the shapes normalizeCard has to handle.
 export const RAW = {
   "Llanowar Elves": {
     "id": "6a0b230b-d391-4998-a3f7-7b158a0ec2cd",
