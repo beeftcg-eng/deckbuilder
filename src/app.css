@@ -1763,6 +1763,23 @@
 }
 
 @media (max-width: 860px) {
+  /* index.css pins html/body/#root to a fixed 100% height with body { overflow: hidden } - the
+     desktop layout scrolls internally instead (.card-grid etc each own their own overflow-y).
+     .app-shell below is let to grow past 100vh here, but without this override its ancestors
+     still clip it at the viewport height and forbid scrolling entirely - the page (and therefore
+     the cards) becomes completely unscrollable rather than just visually cramped. */
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+  }
+
+  body {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
   .mobile-menu-btn {
     display: flex;
     align-items: center;

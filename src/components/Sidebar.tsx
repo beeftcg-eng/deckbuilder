@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAppStore, useCardsById, useOrderedGames, useVisibleGames } from '../state/useAppStore'
 import { ImportDeckModal } from './ImportDeckModal'
 import { PatchNotesModal } from './PatchNotesModal'
+import { PawmodoroAccountModal } from './PawmodoroAccountModal'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
 import { THEMES, getTheme } from '../shared/themes'
 import { resolveDeckIcon } from '../shared/deckIcon'
@@ -74,6 +75,14 @@ export function Sidebar() {
   const [deckFilter, setDeckFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [showPatchNotes, setShowPatchNotes] = useState(false)
+  const [showAccount, setShowAccount] = useState(false)
+  const pawmodoroConfig = useAppStore((s) => s.pawmodoroConfig)
+  const loadPawmodoroConfig = useAppStore((s) => s.loadPawmodoroConfig)
+
+  useEffect(() => {
+    loadPawmodoroConfig()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const meta = syncMeta[currentGameId]
   const progress = syncProgress[currentGameId]
@@ -143,6 +152,14 @@ export function Sidebar() {
           ))}
         </select>
       </label>
+
+      <button
+        className="wishlist-nav-btn"
+        onClick={() => setShowAccount(true)}
+        title={pawmodoroConfig.connected ? 'Manage your Pawmodoro account' : 'Log in to sync decks, collection and wishlist to your phone'}
+      >
+        {pawmodoroConfig.connected ? `👤 ${pawmodoroConfig.email}` : '👤 Log in'}
+      </button>
 
       <button className={`wishlist-nav-btn ${showWishlist ? 'active' : ''}`} onClick={() => setShowWishlist(!showWishlist)}>
         ★ Wishlist{wishlist.length > 0 ? ` (${wishlist.reduce((n, e) => n + e.quantity, 0)})` : ''}
@@ -430,6 +447,7 @@ export function Sidebar() {
 
       {showImport && <ImportDeckModal gameId={currentGameId} onClose={() => setShowImport(false)} />}
       {showPatchNotes && <PatchNotesModal onClose={() => setShowPatchNotes(false)} />}
+      {showAccount && <PawmodoroAccountModal onClose={() => setShowAccount(false)} />}
     </aside>
   )
 }

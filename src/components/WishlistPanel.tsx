@@ -5,7 +5,6 @@ import { formatPrice, totalPrice } from '../shared/collection'
 import type { ResolvedWishlistEntry } from '../shared/export'
 import { WishlistExportModal } from './WishlistExportModal'
 import type { GameId, WishlistEntry } from '../shared/types'
-import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 
 export function WishlistPanel() {
   const wishlist = useAppStore((s) => s.wishlist)
@@ -17,8 +16,6 @@ export function WishlistPanel() {
   const markGotIt = useAppStore((s) => s.markGotIt)
   const pawmodoroConfig = useAppStore((s) => s.pawmodoroConfig)
   const loadPawmodoroConfig = useAppStore((s) => s.loadPawmodoroConfig)
-  const connectPawmodoro = useAppStore((s) => s.connectPawmodoro)
-  const disconnectPawmodoro = useAppStore((s) => s.disconnectPawmodoro)
   const pushWishlistToPawmodoro = useAppStore((s) => s.pushWishlistToPawmodoro)
   const pushingWishlist = useAppStore((s) => s.pushingWishlist)
 
@@ -37,36 +34,9 @@ export function WishlistPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wishlist, syncMeta])
 
-  const [url, setUrl] = useState(pawmodoroConfig.url)
-  const [anonKey, setAnonKey] = useState(pawmodoroConfig.anonKey)
-  const [email, setEmail] = useState(pawmodoroConfig.email)
-  const [password, setPassword] = useState('')
-  const [connecting, setConnecting] = useState(false)
-  const [connectError, setConnectError] = useState<string | null>(null)
   const [pushResult, setPushResult] = useState<string | null>(null)
   const [pushError, setPushError] = useState<string | null>(null)
   const [showExport, setShowExport] = useState(false)
-  // Only show the project fields expanded if this install already points somewhere other than the shared project.
-  const customProject = pawmodoroConfig.url !== DEFAULT_PAWMODORO_URL || pawmodoroConfig.anonKey !== DEFAULT_PAWMODORO_ANON_KEY
-
-  useEffect(() => {
-    setUrl(pawmodoroConfig.url)
-    setAnonKey(pawmodoroConfig.anonKey)
-    setEmail(pawmodoroConfig.email)
-  }, [pawmodoroConfig.url, pawmodoroConfig.anonKey, pawmodoroConfig.email])
-
-  async function handleConnect(signUp: boolean) {
-    setConnecting(true)
-    setConnectError(null)
-    try {
-      await connectPawmodoro(url.trim(), anonKey.trim(), email.trim(), password, signUp)
-      setPassword('')
-    } catch (err) {
-      setConnectError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setConnecting(false)
-    }
-  }
 
   const grouped = useMemo(() => {
     const byGame = new Map<GameId, WishlistEntry[]>()
@@ -144,37 +114,12 @@ export function WishlistPanel() {
               <button className="btn btn-primary" onClick={handlePush} disabled={pushingWishlist || unpushed.length === 0}>
                 {pushingWishlist ? 'Pushing…' : `Push ${unpushed.length} new card${unpushed.length === 1 ? '' : 's'} to checklist`}
               </button>
-              <button className="btn" onClick={disconnectPawmodoro}>
-                Disconnect
-              </button>
             </div>
             {pushResult && <div className="text-dim">{pushResult}</div>}
             {pushError && <div className="sync-error">Couldn't push to Pawmodoro: {pushError}</div>}
           </>
         ) : (
-          <>
-            <div className="text-dim">
-              New here? Enter an email and password and press Create account. Already have a Pawmodoro login (phone or desktop)? Use the same one and press Connect.
-            </div>
-            <div className="pawmodoro-form">
-              <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-              <button className="btn btn-primary" onClick={() => handleConnect(false)} disabled={connecting || !email.trim() || !password}>
-                {connecting ? 'Connecting…' : 'Connect'}
-              </button>
-              <button className="btn" onClick={() => handleConnect(true)} disabled={connecting || !email.trim() || !password}>
-                Create account
-              </button>
-            </div>
-            <details className="pawmodoro-advanced" open={customProject}>
-              <summary>Use a different project</summary>
-              <div className="pawmodoro-form">
-                <input placeholder="Project URL (https://xxxx.supabase.co)" value={url} onChange={(e) => setUrl(e.target.value)} />
-                <input placeholder="anon public key" value={anonKey} onChange={(e) => setAnonKey(e.target.value)} />
-              </div>
-            </details>
-            {connectError && <div className="sync-error">Couldn't connect: {connectError}</div>}
-          </>
+          <div className="text-dim">Log in to your Pawmodoro account (👤 button in the sidebar) to push wishlist cards to your checklist.</div>
         )}
       </div>
 
