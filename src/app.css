@@ -1828,11 +1828,22 @@
   .app-shell {
     height: auto;
     min-height: 100vh;
+    /* Backstop, not the fix: something overflowing the viewport width (the search/filter row
+       below is one real example that did) would otherwise drag the *entire page* into
+       horizontal scroll - images, sidebar drawer, everything - since nothing above .app-shell
+       clips it. Each actual overflow source still needs its own real fix (wrapping, min-width:0,
+       etc.); this just stops a bug like that from taking the whole app down with it. */
+    overflow-x: hidden;
   }
 
   .app-main {
     flex-direction: column;
     overflow: visible;
+    /* .app-main is itself a flex item in .app-shell's row - the exact same default-min-width
+       problem fixed below for ITS children applies to .app-main too, one level up: without this,
+       it refuses to shrink below its now-column-stacked content's widest demand (539px, measured,
+       matching the oversized panel it contains) instead of the 390px .app-shell actually gives it. */
+    min-width: 0;
   }
 
   .card-browser {
@@ -1843,8 +1854,31 @@
     padding: 12px 12px 12px 56px; /* left space for the fixed menu button */
   }
 
+  /* A search box + two <select>s + a checkbox in one non-wrapping row is wider than a phone
+     screen - exactly the kind of overflow the .app-shell backstop above exists for, but the
+     real fix belongs here: let the row wrap, and let the search input actually shrink (inputs
+     don't shrink below their default intrinsic min-width otherwise, wrap or not). */
+  .card-browser-controls {
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
   .card-grid {
     overflow-y: visible;
+  }
+
+  /* min-width: 0 matters as much as min-height here: .app-main's column direction makes width the
+     cross axis, and the default `align-items: stretch` only sets a box's width to *at least* the
+     container's - if a descendant demands more (e.g. the Pawmodoro sync form's two 200px-basis
+     inputs, wrapped or not), the box grows to fit it instead of clipping/wrapping inside the
+     viewport, which is how a whole panel (.wishlist-panel measured 527px wide, on a 390px screen)
+     ended up wider than the phone itself. */
+  .app-main > * {
+    min-width: 0;
   }
 
   .app-main > *:not(.card-browser) {
@@ -1852,12 +1886,21 @@
     min-height: 0;
   }
 
-  /* When viewing a deck full-screen, .card-browser is hidden (see app-main-viewing rule above)
-     and this pane is the only thing on screen - it needs the same top-left clearance for the
-     fixed menu button that .card-browser gets everywhere else. */
-  .app-main-viewing > :not(.card-browser) {
+  /* A side panel (deck view, wishlist, my decks, collection, trade - see hasSidePanel in
+     App.tsx) takes the whole screen on mobile instead of squeezing in next to the card browser:
+     there's no room for both, and the browser being visible above it just buries the panel
+     below however many cards happen to be loaded. The visible pane needs the same top-left
+     clearance for the fixed menu button that .card-browser gets everywhere else. */
+  .app-main-has-panel > .card-browser {
+    display: none;
+  }
+
+  .app-main-has-panel > :not(.card-browser) {
     flex: 1 1 auto;
-    padding-left: 44px;
+    /* The menu button is 40px wide starting at left:10px (see .mobile-menu-btn), so it actually
+       spans to x:50 - 44px of clearance still let it overlap a title's first letter or two.
+       56px matches the gap .card-browser already uses above. */
+    padding-left: 56px;
   }
 
   /* Fixed 230px tiles (sized for a desktop card-browser pane) only fit one per row on a phone -

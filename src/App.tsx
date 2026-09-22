@@ -32,6 +32,11 @@ export default function App() {
   const syncMeta = useAppStore((s) => s.syncMeta)
 
   const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist && !showTrade
+  // On mobile (app.css), a side panel takes the whole screen instead of squeezing next to the
+  // card browser - there's no room for both, and the browser being visible above a panel just
+  // buries it below however many cards happen to be loaded. Desktop is unaffected: this class
+  // only does anything inside the mobile media query.
+  const hasSidePanel = viewingDeck || showMyDecks || showCollection || showWishlist || showTrade
   // Only meaningful below the mobile breakpoint (app.css) - the sidebar is always visible on
   // desktop regardless of this. Any navigation inside the sidebar (picking a game/deck, opening
   // a panel) closes it so the tap that navigated also gets you to the content.
@@ -95,7 +100,7 @@ export default function App() {
       <div className={`sidebar-wrap ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
         <Sidebar />
       </div>
-      <main className={`app-main ${viewingDeck ? 'app-main-viewing' : ''}`}>
+      <main className={`app-main ${viewingDeck ? 'app-main-viewing' : ''} ${hasSidePanel ? 'app-main-has-panel' : ''}`}>
         <CardBrowser />
         {showMyDecks ? (
           <MyDecksPanel />
