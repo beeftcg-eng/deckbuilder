@@ -15,6 +15,7 @@ import { registerBackupIpc } from './ipc/backup'
 import { registerCollectionIpc } from './ipc/collection'
 import { registerSettingsIpc } from './ipc/settings'
 import { registerUpdaterIpc, startUpdateChecks } from './ipc/updater'
+import { registerPatchNotesIpc } from './ipc/patchNotes'
 import { snapshot } from './lib/backups'
 import { withDataLock } from './lib/dataFiles'
 import { isWebUrl } from './lib/urls'
@@ -75,6 +76,7 @@ registerBackupIpc()
 registerCollectionIpc()
 registerSettingsIpc()
 registerUpdaterIpc()
+registerPatchNotesIpc()
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

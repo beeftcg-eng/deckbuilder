@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppStore, useCardsById, useOrderedGames, useVisibleGames } from '../state/useAppStore'
 import { ImportDeckModal } from './ImportDeckModal'
+import { PatchNotesModal } from './PatchNotesModal'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
 import { THEMES, getTheme } from '../shared/themes'
 import { resolveDeckIcon } from '../shared/deckIcon'
@@ -72,6 +73,7 @@ export function Sidebar() {
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [deckFilter, setDeckFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
+  const [showPatchNotes, setShowPatchNotes] = useState(false)
 
   const meta = syncMeta[currentGameId]
   const progress = syncProgress[currentGameId]
@@ -411,10 +413,23 @@ export function Sidebar() {
             )}
           </div>
           {describeUpdate(updateStatus) && <div className={updateStatus.state === 'error' ? 'sync-error' : 'text-dim'}>{describeUpdate(updateStatus)}</div>}
+          <div className="version-line">
+            <button className="link-btn" onClick={() => setShowPatchNotes(true)}>
+              Patch notes
+            </button>
+            <button
+              className="link-btn"
+              title="Support the project"
+              onClick={() => window.api.system.openExternal('https://paypal.me/beeftcg')}
+            >
+              ♥ Support the project
+            </button>
+          </div>
         </div>
       )}
 
       {showImport && <ImportDeckModal gameId={currentGameId} onClose={() => setShowImport(false)} />}
+      {showPatchNotes && <PatchNotesModal onClose={() => setShowPatchNotes(false)} />}
     </aside>
   )
 }

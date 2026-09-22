@@ -16,6 +16,7 @@ import type {
   WishlistEntry,
 } from '../src/shared/types'
 import type { UpdateStatus } from '../src/shared/updateStatus'
+import type { PatchNote } from '../src/shared/patchNotes'
 import type { ImportResult } from './ipc/backup'
 
 const api = {
@@ -107,6 +108,9 @@ const api = {
   system: {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:openExternal', url),
     showFile: (path: string): Promise<void> => ipcRenderer.invoke('system:showFile', path),
+  },
+  patchNotes: {
+    list: (): Promise<PatchNote[]> => ipcRenderer.invoke('patchNotes:list'),
   },
   clipboard: {
     writeText: (text: string): Promise<void> => clipboard.writeText(text),
