@@ -34,7 +34,7 @@ export interface YgoCard {
   typeline?: string[]
   archetype?: string
   banlist_info?: Record<string, string>
-  card_sets?: { set_name: string; set_code: string; set_rarity?: string }[]
+  card_sets?: { set_name: string; set_code: string; set_rarity?: string; set_price?: string }[]
   card_images?: { id: number }[]
   card_prices?: { tcgplayer_price?: string }[]
   misc_info?: { formats?: string[] }[]
@@ -84,8 +84,18 @@ function describe(raw: YgoCard): string {
   return lines.join('\n\n')
 }
 
-export function normalizeCard(raw: YgoCard): Card | null {
-  if (NON_DECK_TYPES.has(raw.type) || !raw.card_images?.length) return null
+/**
+ * One Card per set/rarity printing YGOPRODeck lists for this card (an OCG-only card, which often has
+ * none, still gets one placeholder entry) — same idea as Magic's alternate-art printings, and no extra
+ * request needed: `card_sets` (and each entry's own `set_price`) already comes back in the one bulk
+ * request this adapter already makes. Every printing starts out sharing this same id, on purpose:
+ * uniquifyCardIds() (shared/cardIds.ts, run over the whole catalog after fetch) splits them apart the
+ * same way it does for One Piece and Magic, so an existing deck/collection/wishlist entry (which only
+ * ever pointed at one, arbitrary printing) keeps resolving to a real printing after this changed from
+ * one row per card to one row per printing.
+ */
+export function normalizeCard(raw: YgoCard): Card[] {
+  if (NON_DECK_TYPES.has(raw.type) || !raw.card_images?.length) return []
 
   const formats = new Set(raw.misc_info?.[0]?.formats ?? [])
   const legality: Record<string, CardLegalityStatus> = {}
@@ -94,40 +104,44 @@ export function normalizeCard(raw: YgoCard): Card | null {
     if (formats.has(formatName)) legality[id] = banStatus(raw.banlist_info?.[banKey])
   }
 
-  // Each card is listed once, under the first set the data gives for it (OCG-only cards often have none).
-  const printing = raw.card_sets?.[0]
-  const [setCode = '', ...numberParts] = (printing?.set_code ?? '').split('-')
-  const price = Number(raw.card_prices?.[0]?.tcgplayer_price)
   const extra = isExtraDeckType(raw.type)
   const artId = raw.card_images[0].id
+  const text = describe(raw)
+  const fallbackPrice = Number(raw.card_prices?.[0]?.tcgplayer_price)
+  const printings = raw.card_sets?.length ? raw.card_sets : [undefined]
 
-  return {
-    id: `yugioh:${raw.id}`,
-    gameId: 'yugioh',
-    sourceId: String(raw.id), // the passcode: what .ydk deck files list
-    name: raw.name,
-    imageUrl: `dbimg://ygo/full/${artId}.jpg`,
-    imageUrlSmall: `dbimg://ygo/small/${artId}.jpg`,
-    orientation: 'portrait',
-    setId: setCode || 'none',
-    setName: printing?.set_name ?? 'No set listed',
-    setCode: setCode || '—',
-    number: numberParts.join('-'),
-    rarity: printing?.set_rarity ?? null,
-    category: categoryOf(raw.type),
-    subtypes: [...(raw.typeline ?? (raw.race ? [raw.race] : [])), ...(extra ? ['Extra Deck'] : [])],
-    colors: raw.attribute ? [titleCase(raw.attribute)] : [],
-    cost: raw.level != null ? String(raw.level) : null,
-    text: describe(raw),
-    legality,
-    price: Number.isFinite(price) && price > 0 ? price : null,
-  }
+  return printings.map((printing): Card => {
+    const [setCode = '', ...numberParts] = (printing?.set_code ?? '').split('-')
+    const price = Number(printing?.set_price)
+    return {
+      id: `yugioh:${raw.id}`,
+      gameId: 'yugioh',
+      sourceId: String(raw.id), // the passcode: what .ydk deck files list, and shared by every printing (the 3-copy limit is by name)
+      name: raw.name,
+      imageUrl: `dbimg://ygo/full/${artId}.jpg`,
+      imageUrlSmall: `dbimg://ygo/small/${artId}.jpg`,
+      orientation: 'portrait',
+      setId: setCode || 'none',
+      setName: printing?.set_name ?? 'No set listed',
+      setCode: setCode || '—',
+      number: numberParts.join('-'),
+      rarity: printing?.set_rarity ?? null,
+      category: categoryOf(raw.type),
+      subtypes: [...(raw.typeline ?? (raw.race ? [raw.race] : [])), ...(extra ? ['Extra Deck'] : [])],
+      colors: raw.attribute ? [titleCase(raw.attribute)] : [],
+      cost: raw.level != null ? String(raw.level) : null,
+      text,
+      legality,
+      // This printing's own market price when YGOPRODeck has one, else the card's general TCGplayer price.
+      price: Number.isFinite(price) && price > 0 ? price : Number.isFinite(fallbackPrice) && fallbackPrice > 0 ? fallbackPrice : null,
+    }
+  })
 }
 
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   onProgress({ loaded: 0, total: 0 })
   const response = await fetchJsonWithRetry<{ data?: YgoCard[] }>(API_URL, { headers: HEADERS, timeoutMs: 120_000 })
-  const cards = (response.data ?? []).flatMap((raw) => normalizeCard(raw) ?? [])
+  const cards = (response.data ?? []).flatMap((raw) => normalizeCard(raw))
   if (cards.length === 0) throw new Error('YGOPRODeck returned no cards')
   onProgress({ loaded: cards.length, total: cards.length })
   return cards
@@ -181,5 +195,5 @@ export const yugiohAdapter: GameAdapter = {
   openingHandSize: 5,
   fetchAllCards,
   formatDecklistText,
-  setNote: 'Each card is listed once, under the first set the data gives for it, so a set here holds only the cards filed under it.',
+  setNote: "A handful of newly-spoiled or OCG-only cards have no set data yet and won't appear under any set.",
 }

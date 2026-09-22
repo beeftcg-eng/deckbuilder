@@ -10,6 +10,11 @@ const op = (id: string, name: string, file: string, setId = 'OP-01') =>
 const mtg = (oracleId: string, printingId: string, rarity: string, setId = 'set') =>
   makeCard('mtg', { name: 'Cyclonic Rift', id: `mtg:${oracleId}`, sourceId: oracleId, rarity, setId, imageUrl: `https://cards.scryfall.io/normal/front/${printingId}.jpg` })
 
+// YGOPRODeck's card_sets printings of one card all reuse the SAME card_images entry (no per-printing art), so
+// unlike Magic, every duplicate here ties on the image signal too — only rarity actually tells them apart.
+const ygo = (passcode: string, setId: string, rarity: string) =>
+  makeCard('yugioh', { name: 'Dark Magician', id: `yugioh:${passcode}`, sourceId: passcode, rarity, setId, imageUrl: `dbimg://ygo/full/${passcode}.jpg` })
+
 describe('uniquifyCardIds', () => {
   it('returns the very same array when every id is already unique', () => {
     const cards = [op('OP01-006', 'Otama', 'OP01-006.jpg'), op('OP01-007', 'Other', 'OP01-007.jpg')]
@@ -78,6 +83,16 @@ describe('uniquifyCardIds', () => {
     const fixed = uniquifyCardIds([showcase, regular])
     expect(catalogOf(fixed).get('mtg:cyclonic-rift')?.setId).toBe('ced')
     expect(fixed.map((c) => c.id)).toEqual(['mtg:aaaa1111', 'mtg:cyclonic-rift'])
+  })
+
+  it('picks the plain rarity over a secret/ultra one for Yu-Gi-Oh, where every printing shares the same image', () => {
+    const secret = ygo('46986414', 'CT14', 'Secret Rare')
+    const common = ygo('46986414', 'LOB', 'Common')
+    const ultra = ygo('46986414', 'SDY', 'Ultra Rare')
+    const fixed = uniquifyCardIds([secret, common, ultra])
+    expect(catalogOf(fixed).get('yugioh:46986414')?.rarity).toBe('Common')
+    // no per-printing image to derive a fresh id from, so the fallback keys off the id and set instead
+    expect(fixed.map((c) => c.id)).toEqual(['yugioh:46986414~CT14', 'yugioh:46986414', 'yugioh:46986414~SDY'])
   })
 
   it('does not mutate its input', () => {

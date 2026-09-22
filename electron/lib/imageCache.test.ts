@@ -38,7 +38,7 @@ describe('parseImageUrl', () => {
   })
 
   it('matches every image address the Yu-Gi-Oh! adapter produces', () => {
-    const c = normalizeCard(RAW.normal)!
+    const c = normalizeCard(RAW.normal)[0]
     expect(parseImageUrl(c.imageUrl!)).not.toBeNull()
     expect(parseImageUrl(c.imageUrlSmall!)).not.toBeNull()
   })

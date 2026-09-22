@@ -9,8 +9,8 @@ import type { Card, Format } from '../types'
 
 const card = (key: string): Card => {
   const result = normalizeCard(RAW[key])
-  if (!result) throw new Error(`${key} was not kept`)
-  return result
+  if (result.length === 0) throw new Error(`${key} was not kept`)
+  return result[0] // the first printing; fields that don't vary by printing are identical across the rest
 }
 
 describe('normalizeCard', () => {
@@ -60,13 +60,28 @@ describe('normalizeCard', () => {
     expect(card('ocg_only')).toMatchObject({ setId: 'none', setName: 'No set listed', rarity: null })
   })
 
-  it('files a card under the first set it lists', () => {
-    expect(card('normal')).toMatchObject({ setId: 'CT13', setName: '2016 Mega-Tins', setCode: 'CT13', number: 'EN008', rarity: 'Ultra Rare' })
+  it('creates one card per set/rarity printing, each with that printing’s own price', () => {
+    const printings = normalizeCard(RAW.normal)
+    expect(printings).toHaveLength(2)
+    expect(printings[0]).toMatchObject({ setId: 'CT13', setName: '2016 Mega-Tins', setCode: 'CT13', number: 'EN008', rarity: 'Ultra Rare', price: 74.49 })
+    expect(printings[1]).toMatchObject({ setId: 'CT14', setName: '2017 Mega-Tins', setCode: 'CT14', number: 'EN002', rarity: 'Secret Rare', price: 27.92 })
+    // every printing is still the same card for deckbuilding/copy-limit purposes
+    expect(new Set(printings.map((p) => p.id))).toEqual(new Set([`yugioh:${RAW.normal.id}`]))
+    expect(new Set(printings.map((p) => p.sourceId))).toEqual(new Set([String(RAW.normal.id)]))
+  })
+
+  it('falls back to the card’s general TCGplayer price when a specific printing has none', () => {
+    const printings = normalizeCard(RAW.spell_forbidden_tcg) // both its set_price entries are "0"
+    expect(printings.every((p) => p.price === 4.28)).toBe(true)
+  })
+
+  it('gives an OCG-only card (no card_sets at all) one placeholder printing', () => {
+    expect(normalizeCard(RAW.ocg_only)).toHaveLength(1) // shape of that placeholder is checked above ("lists an unsetted OCG card...")
   })
 
   it('skips Tokens and Skill Cards, which are not deck cards', () => {
-    expect(normalizeCard(RAW.token)).toBeNull()
-    expect(normalizeCard(RAW.skill)).toBeNull()
+    expect(normalizeCard(RAW.token)).toEqual([])
+    expect(normalizeCard(RAW.skill)).toEqual([])
   })
 })
 
