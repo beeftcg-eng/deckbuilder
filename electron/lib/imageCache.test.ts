@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ImageFetcher, cacheFile, parseImageUrl, sourceUrl } from './imageCache'
+import { ImageFetcher, cacheFile, parseImageUrl, scheduleSlot, sourceUrl } from './imageCache'
 import { normalizeCard } from '../../src/shared/games/yugioh'
 import { RAW } from '../../src/shared/games/yugiohFixtures'
 
@@ -44,6 +44,30 @@ describe('parseImageUrl', () => {
   })
 })
 
+describe('scheduleSlot', () => {
+  it('waits out the rest of the gap when called too soon after the last start', () => {
+    expect(scheduleSlot(100, 20, 105)).toEqual({ waitMs: 15, nextLastStart: 120 })
+  })
+
+  it('does not wait, and starts from now, once the gap has already elapsed', () => {
+    expect(scheduleSlot(100, 20, 130)).toEqual({ waitMs: -10, nextLastStart: 130 })
+  })
+
+  it('never lets two scheduled starts land less than minGapMs apart, across a whole sequence', () => {
+    let lastStart = 0
+    let now = 0
+    const scheduled: number[] = []
+    for (const elapsed of [0, 3, 1, 50, 0, 0, 22]) {
+      now += elapsed
+      const { nextLastStart } = scheduleSlot(lastStart, 20, now)
+      scheduled.push(nextLastStart)
+      lastStart = nextLastStart
+    }
+    const gaps = scheduled.slice(1).map((t, i) => t - scheduled[i])
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(20)
+  })
+})
+
 describe('ImageFetcher', () => {
   const ref = parseImageUrl('dbimg://ygo/small/111.jpg')!
   const make = (fetchImpl: typeof fetch, extra = {}) => new ImageFetcher({ cacheDir: dir, fetchImpl, minGapMs: 0, retryDelayMs: 1, ...extra })
@@ -78,24 +102,23 @@ describe('ImageFetcher', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('caps how many downloads run at once, and keeps them spaced', async () => {
+  it('caps how many downloads run at once', async () => {
+    // The spacing rule itself (the flaky part under real timers) is unit-tested precisely and
+    // instantly above, via scheduleSlot — this integration test sticks to what real timers can
+    // check reliably: that the concurrency cap is actually enforced end to end.
     let running = 0
     let peak = 0
-    const starts: number[] = []
     const fetchMock = vi.fn(async () => {
-      starts.push(performance.now())
       running++
       peak = Math.max(peak, running)
       await new Promise((r) => setTimeout(r, 15))
       running--
       return okImage()
     })
-    const fetcher = make(fetchMock as unknown as typeof fetch, { maxConcurrent: 3, minGapMs: 20 })
-    await Promise.all(Array.from({ length: 9 }, (_, i) => fetcher.get({ ...ref, id: String(1000 + i) })))
+    const fetcher = make(fetchMock as unknown as typeof fetch, { maxConcurrent: 3, minGapMs: 0 })
+    const results = await Promise.all(Array.from({ length: 9 }, (_, i) => fetcher.get({ ...ref, id: String(1000 + i) })))
     expect(peak).toBeLessThanOrEqual(3)
-    expect(starts).toHaveLength(9)
-    const gaps = starts.slice(1).map((t, i) => t - starts[i])
-    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(15) // ~20 ms apart (timers can land a hair early)
+    expect(results).toHaveLength(9)
   })
 
   it('retries a server error, and gives up on a missing image without retrying', async () => {

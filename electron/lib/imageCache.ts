@@ -36,6 +36,16 @@ export function cacheFile(cacheDir: string, ref: ImageRef): string {
   return join(cacheDir, ref.source, ref.size, `${ref.id}.jpg`)
 }
 
+/**
+ * Pure spacing decision for slot() below: how long to wait before starting, and the new `lastStart`
+ * baseline, given the current time. Kept separate from slot() (and its real setTimeout/performance.now())
+ * so the spacing rule itself is exactly, instantly testable — asserting on it through real timers was
+ * flaky under CI's timer-resolution jitter (a wait meant to land 20ms apart sometimes measured ~14ms).
+ */
+export function scheduleSlot(lastStart: number, minGapMs: number, now: number): { waitMs: number; nextLastStart: number } {
+  return { waitMs: lastStart + minGapMs - now, nextLastStart: Math.max(now, lastStart + minGapMs) }
+}
+
 export interface ImageFetcherOptions {
   cacheDir: string
   fetchImpl?: typeof fetch
@@ -99,10 +109,9 @@ export class ImageFetcher {
     while (this.running >= this.maxConcurrent) await new Promise<void>((resolve) => this.waiting.push(resolve))
     this.running++
     // performance.now(), not Date.now(): on Windows the wall clock ticks about every 15 ms, which let starts land early.
-    const now = performance.now()
-    const wait = this.lastStart + this.minGapMs - now
-    this.lastStart = Math.max(now, this.lastStart + this.minGapMs)
-    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
+    const { waitMs, nextLastStart } = scheduleSlot(this.lastStart, this.minGapMs, performance.now())
+    this.lastStart = nextLastStart
+    if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs))
     return () => {
       this.running--
       this.waiting.shift()?.()
