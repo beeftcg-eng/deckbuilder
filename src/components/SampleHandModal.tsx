@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Card, Deck } from '../shared/types'
 import { expandZone, shuffled } from '../shared/sampleHand'
 
@@ -22,7 +23,7 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
   const hand = library.slice(0, drawn)
   const remaining = Math.max(0, library.length - drawn)
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal sample-hand-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -57,6 +58,7 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

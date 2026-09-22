@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { buildWishlistExportText, type ResolvedWishlistEntry } from '../shared/export'
 import { renderWishlistImage } from '../lib/wishlistImage'
 import { dataUrlBytes, imageExtension } from '../shared/exportImage'
@@ -59,7 +60,7 @@ export function WishlistExportModal({ entries, onClose }: Props) {
     await window.api.exportSaveImage(imageDataUrl, `wishlist.${imageExtension(imageDataUrl)}`)
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal export-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -105,6 +106,7 @@ export function WishlistExportModal({ entries, onClose }: Props) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

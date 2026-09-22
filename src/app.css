@@ -1745,3 +1745,120 @@
 .md-card:focus-within .md-card-actions {
   display: flex;
 }
+
+/* Mobile layout (phone-width PWA) - the desktop build never gets this narrow (Electron's window
+   has a 1000px minWidth), so everything below is purely for the phone app. .sidebar-wrap is
+   `display: contents` outside the breakpoint so it doesn't add an extra box to the desktop flex
+   row at all; inside it, it becomes the actual drawer. */
+.sidebar-wrap {
+  display: contents;
+}
+
+.mobile-menu-btn {
+  display: none;
+}
+
+.mobile-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    width: 40px;
+    height: 40px;
+    z-index: 60;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 18px;
+  }
+
+  .mobile-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: #00000099;
+    z-index: 40;
+  }
+
+  /* Animates `left`, not `transform` - a transform on this element would make it the containing
+     block for any `position: fixed` descendant (e.g. a modal opened from inside Sidebar.tsx,
+     like Import or Patch notes), which would then size/position itself against this 320px drawer
+     instead of the real viewport. `left` has no such side effect. */
+  .sidebar-wrap {
+    display: block;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: -100vw;
+    z-index: 50;
+    width: 85vw;
+    max-width: 320px;
+    transition: left 0.25s ease;
+  }
+
+  .sidebar-wrap.mobile-open {
+    left: 0;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: 100%;
+    padding-top: 56px; /* clears the fixed menu button, which stays visible while the drawer is open */
+  }
+
+  /* The card browser and whichever panel sits next to it (deck editor, collection, wishlist,
+     etc.) stack instead of squeezing into fixed side-by-side widths - each keeps its own
+     internal scroll, splitting the remaining height evenly. */
+  .app-main {
+    flex-direction: column;
+  }
+
+  .card-browser {
+    flex: 1 1 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 12px 12px 12px 56px; /* left space for the fixed menu button */
+  }
+
+  .app-main > *:not(.card-browser) {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  /* When viewing a deck full-screen, .card-browser is hidden (see app-main-viewing rule above)
+     and this pane is the only thing on screen - it needs the same top-left clearance for the
+     fixed menu button that .card-browser gets everywhere else. */
+  .app-main-viewing > :not(.card-browser) {
+    flex: 1 1 auto;
+    padding-left: 44px;
+  }
+
+  /* Fixed 230px tiles (sized for a desktop card-browser pane) only fit one per row on a phone -
+     let them flex down to about half the screen width instead, so two fit per row. */
+  .card-tile {
+    flex: 1 1 140px;
+  }
+
+  /* Above the drawer/backdrop/menu button (z-index 40-60) - a modal opened from inside the
+     sidebar (e.g. Import, Patch notes) covers the whole screen regardless of whether the drawer
+     is still technically open behind it. */
+  .modal-overlay {
+    z-index: 100;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    height: 100%;
+    border-radius: 0;
+  }
+}

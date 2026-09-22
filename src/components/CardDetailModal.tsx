@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import type { Card } from '../shared/types'
 import { useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
@@ -10,7 +11,7 @@ export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => 
   const owned = useAppStore((s) => s.collection[card.id] ?? 0)
   const changeOwned = useAppStore((s) => s.changeOwned)
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal card-detail-modal" onClick={(e) => e.stopPropagation()}>
         <div className="card-detail-image">
@@ -68,6 +69,7 @@ export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => 
           {card.text && <p className="card-detail-text">{card.text}</p>}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

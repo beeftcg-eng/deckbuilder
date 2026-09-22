@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppStore, useCardsById } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { detectFormatFromHeadings, parseDecklistText } from '../shared/importDeck'
@@ -54,7 +55,7 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal import-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -110,6 +111,7 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

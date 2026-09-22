@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import './app.css'
 import { Sidebar } from './components/Sidebar'
 import { CardBrowser } from './components/CardBrowser'
@@ -21,6 +21,7 @@ export default function App() {
   const error = useAppStore((s) => s.error)
   const setError = useAppStore((s) => s.setError)
   const currentGameId = useAppStore((s) => s.currentGameId)
+  const currentDeckId = useAppStore((s) => s.currentDeckId)
   const hasCurrentDeck = useAppStore((s) => currentDeckFor(s.decks, s.currentDeckId, s.currentGameId) !== undefined)
   const showWishlist = useAppStore((s) => s.showWishlist)
   const showCollection = useAppStore((s) => s.showCollection)
@@ -31,6 +32,10 @@ export default function App() {
   const syncMeta = useAppStore((s) => s.syncMeta)
 
   const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist && !showTrade
+  // Only meaningful below the mobile breakpoint (app.css) - the sidebar is always visible on
+  // desktop regardless of this. Any navigation inside the sidebar (picking a game/deck, opening
+  // a panel) closes it so the tap that navigated also gets you to the content.
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   useSyncProgressListener()
   useUpdaterListener()
@@ -53,6 +58,12 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
+  // Closes the mobile drawer whenever the sidebar's own actions changed what's showing, so the
+  // tap that navigated also gets you to the content instead of leaving the drawer open over it.
+  useEffect(() => {
+    setMobileSidebarOpen(false)
+  }, [currentGameId, currentDeckId, showMyDecks, showCollection, showWishlist, showTrade])
+
   useEffect(() => {
     const meta = syncMeta[currentGameId]
     if (meta && meta.count > 0 && !catalogs[currentGameId]) {
@@ -72,7 +83,18 @@ export default function App() {
         </div>
       )}
       <UpdateBanner />
-      <Sidebar />
+      <button
+        className="mobile-menu-btn"
+        onClick={() => setMobileSidebarOpen((v) => !v)}
+        aria-label={mobileSidebarOpen ? 'Close menu' : 'Open menu'}
+        aria-expanded={mobileSidebarOpen}
+      >
+        {mobileSidebarOpen ? '✕' : '☰'}
+      </button>
+      {mobileSidebarOpen && <div className="mobile-sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)} />}
+      <div className={`sidebar-wrap ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
+        <Sidebar />
+      </div>
       <main className={`app-main ${viewingDeck ? 'app-main-viewing' : ''}`}>
         <CardBrowser />
         {showMyDecks ? (

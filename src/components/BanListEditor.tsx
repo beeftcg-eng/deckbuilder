@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import type { Card, Format, GameId } from '../shared/types'
@@ -160,7 +161,7 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
     )
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal banlist-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -241,6 +242,7 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
           <span className="text-dim">Changes apply to your legality checks right away.</span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

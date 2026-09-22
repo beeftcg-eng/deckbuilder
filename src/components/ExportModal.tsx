@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Card, Deck, Format } from '../shared/types'
 import { getAdapter } from '../shared/games/registry'
 import { buildExportText } from '../shared/export'
@@ -64,7 +65,7 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
     await window.api.exportSaveImage(imageDataUrl, `${deck.name.replace(/[^a-z0-9-_ ]/gi, '_')}.${imageExtension(imageDataUrl)}`)
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal export-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -110,6 +111,7 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

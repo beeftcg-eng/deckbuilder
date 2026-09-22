@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { PatchNote } from '../shared/patchNotes'
 
 interface Props {
@@ -68,7 +69,7 @@ export function PatchNotesModal({ onClose }: Props) {
     }
   }, [])
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal patch-notes-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -105,6 +106,7 @@ export function PatchNotesModal({ onClose }: Props) {
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
