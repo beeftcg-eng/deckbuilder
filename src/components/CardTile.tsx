@@ -61,6 +61,7 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
         </div>
         <div className="card-tile-meta text-dim">
           {card.setCode} · {card.number}
+          {card.rarity ? ` · ${card.rarity}` : ''}
           {card.price != null ? ` · ${formatPrice(card.price)}` : ''}
         </div>
         {card.flavorNames && card.flavorNames.length > 0 && (
