@@ -29,6 +29,7 @@ import type { UpdateStatus } from '../shared/updateStatus'
 import type { PatchNote } from '../shared/patchNotes'
 import { getAdapter } from '../shared/games/registry'
 import { uniquifyCardIds } from '../shared/cardIds'
+import { resolveDbImgUrl } from '../shared/dbImgUrl'
 import { carryOverPrices } from '../shared/carryOverPrices'
 import { fetchJson, USER_AGENT } from '../shared/games/fetchUtil'
 import { callRpc, passwordLogin, refreshAccessToken, signUp as clientSignUp, type SyncConfig } from '../shared/sync/client'
@@ -62,10 +63,18 @@ const cards = {
     const previous = adapter.keepPricesWhenMissing ? await readCardCache(gameId) : null
     let fetched: Card[]
     try {
+      const raw = await adapter.fetchAllCards((p) => {
+        broadcast({ gameId, loaded: p.loaded, total: p.total, done: false })
+      })
+      // dbimg:// (Yu-Gi-Oh's hotlink-avoidance scheme) only resolves inside Electron's own
+      // protocol handler - in a browser it just fails to load, so every card's image URL is
+      // rewritten to the real one here, once, at sync time.
       fetched = uniquifyCardIds(
-        await adapter.fetchAllCards((p) => {
-          broadcast({ gameId, loaded: p.loaded, total: p.total, done: false })
-        }),
+        raw.map((card) => ({
+          ...card,
+          imageUrl: card.imageUrl ? resolveDbImgUrl(card.imageUrl) : card.imageUrl,
+          imageUrlSmall: card.imageUrlSmall ? resolveDbImgUrl(card.imageUrlSmall) : card.imageUrlSmall,
+        })),
       )
     } catch (err) {
       broadcast({ gameId, loaded: 0, total: 0, done: true, error: err instanceof Error ? err.message : String(err) })

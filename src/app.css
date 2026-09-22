@@ -1815,21 +1815,40 @@
   }
 
   /* The card browser and whichever panel sits next to it (deck editor, collection, wishlist,
-     etc.) stack instead of squeezing into fixed side-by-side widths - each keeps its own
-     internal scroll, splitting the remaining height evenly. */
+     etc.) stack instead of squeezing into fixed side-by-side widths. Each pane keeping its own
+     internal scroll (splitting the available height evenly, like the desktop layout does between
+     columns) sounds right but is actually bad here: card images are tall, so an evenly-split pane
+     only has room for a sliver of the first row before "Load more" - the card art visibly cut off
+     mid-image, the button sitting right on top of it. The whole page scrolls as one long column
+     instead: every pane below gets its natural full height, nothing is capped or internally
+     scrollable, and .app-shell's fixed 100vh (needed on desktop, where nothing should ever scroll
+     past the window) is relaxed to a minimum instead. The fixed drawer/backdrop/menu button are
+     unaffected either way - `position: fixed` pins them to the viewport regardless of how tall the
+     page underneath them grows. */
+  .app-shell {
+    height: auto;
+    min-height: 100vh;
+  }
+
   .app-main {
     flex-direction: column;
+    overflow: visible;
   }
 
   .card-browser {
-    flex: 1 1 0;
+    flex: none;
+    overflow: visible;
     border-right: none;
     border-bottom: 1px solid var(--border);
     padding: 12px 12px 12px 56px; /* left space for the fixed menu button */
   }
 
+  .card-grid {
+    overflow-y: visible;
+  }
+
   .app-main > *:not(.card-browser) {
-    flex: 1 1 0;
+    flex: none;
     min-height: 0;
   }
 
