@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
 import type { Deck } from '../../src/shared/types'
 import { readDecks, withDataLock, writeDecks } from '../lib/dataFiles'
+import { enqueueSyncOp } from './deckbuilderSync'
 
 export function registerDecksIpc(): void {
   ipcMain.handle('decks:list', (): Promise<Deck[]> => withDataLock(readDecks))
@@ -20,6 +21,7 @@ export function registerDecksIpc(): void {
         const created: Deck = { ...deck, id: deck.id || randomUUID(), createdAt: deck.createdAt || now, updatedAt: now }
         decks.push(created)
         await writeDecks(decks)
+        enqueueSyncOp({ type: 'save_deck', id: created.id, gameId: created.gameId, data: created })
         return created
       }
 
@@ -27,6 +29,7 @@ export function registerDecksIpc(): void {
       const updated: Deck = { ...deck, createdAt: decks[index].createdAt, updatedAt: options?.keepUpdatedAt ? decks[index].updatedAt : now }
       decks[index] = updated
       await writeDecks(decks)
+      enqueueSyncOp({ type: 'save_deck', id: updated.id, gameId: updated.gameId, data: updated })
       return updated
     }),
   )
@@ -35,6 +38,7 @@ export function registerDecksIpc(): void {
     withDataLock(async () => {
       const decks = await readDecks()
       await writeDecks(decks.filter((d) => d.id !== deckId))
+      enqueueSyncOp({ type: 'delete_deck', id: deckId })
     }),
   )
 }

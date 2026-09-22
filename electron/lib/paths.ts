@@ -43,6 +43,13 @@ export function pawmodoroConfigFile(): string {
   return join(userDataDir(), 'pawmodoro-sync.json')
 }
 
+/** This app's own decks/collection/wishlist sync outbox + local rev counter (see
+ * shared/sync/engine.ts) - separate from pawmodoro-sync.json, which only holds the account
+ * connection those ops are sent through. */
+export function syncStateFile(): string {
+  return join(userDataDir(), 'sync-state.json')
+}
+
 export async function ensureDataDirs(): Promise<void> {
   await mkdir(cardsCacheDir(), { recursive: true })
 }

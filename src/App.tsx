@@ -11,6 +11,7 @@ import { DeckViewPage } from './components/DeckViewPage'
 import { useAppStore } from './state/useAppStore'
 import { useSyncProgressListener } from './state/syncProgress'
 import { useUpdaterListener } from './state/updater'
+import { useDeckbuilderSyncListener } from './state/deckbuilderSync'
 import { currentDeckFor } from './shared/decks'
 import { UpdateBanner } from './components/UpdateBanner'
 
@@ -33,6 +34,7 @@ export default function App() {
 
   useSyncProgressListener()
   useUpdaterListener()
+  useDeckbuilderSyncListener()
 
   useEffect(() => {
     initialize()

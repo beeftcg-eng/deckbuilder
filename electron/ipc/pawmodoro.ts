@@ -1,30 +1,23 @@
 import { ipcMain } from 'electron'
-import { readFile, writeFile, rm } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
 import type { PawmodoroConfig, TradeListing, TradeMatch, TradeWant, TraderProfile } from '../../src/shared/types'
-import { pawmodoroConfigFile } from '../lib/paths'
+import {
+  clearPawmodoroConfig,
+  readPawmodoroConfig,
+  writePawmodoroConfig,
+  type StoredPawmodoroConfig,
+} from '../lib/pawmodoroConfig'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../../src/shared/pawmodoroDefaults'
+import { notifyPawmodoroConnectionChanged } from './deckbuilderSync'
 
-interface StoredConfig {
-  url: string
-  anonKey: string
-  email: string
-  refreshToken: string
-}
+type StoredConfig = StoredPawmodoroConfig
+const readConfig = readPawmodoroConfig
 
-async function readConfig(): Promise<StoredConfig | null> {
-  const path = pawmodoroConfigFile()
-  if (!existsSync(path)) return null
-  try {
-    const raw = await readFile(path, 'utf-8')
-    return JSON.parse(raw) as StoredConfig
-  } catch {
-    return null
-  }
-}
-
+// Connecting/disconnecting here also starts/stops this app's own decks/collection/wishlist sync
+// (see deckbuilderSync.ts) - it's the same account and the same Supabase project, so one "connect
+// Pawmodoro" flow covers both instead of asking twice.
 async function writeConfig(config: StoredConfig): Promise<void> {
-  await writeFile(pawmodoroConfigFile(), JSON.stringify(config, null, 2), 'utf-8')
+  await writePawmodoroConfig(config)
+  notifyPawmodoroConnectionChanged()
 }
 
 function toPublicConfig(config: StoredConfig | null): PawmodoroConfig {
@@ -99,8 +92,8 @@ export function registerPawmodoroIpc(): void {
   )
 
   ipcMain.handle('pawmodoro:disconnect', async (): Promise<PawmodoroConfig> => {
-    const path = pawmodoroConfigFile()
-    if (existsSync(path)) await rm(path)
+    await clearPawmodoroConfig()
+    notifyPawmodoroConnectionChanged()
     return toPublicConfig(null)
   })
 

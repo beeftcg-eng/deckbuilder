@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import type { Collection } from '../../src/shared/types'
 import { readCollection, readForTrade, withDataLock, writeCollection, writeForTrade } from '../lib/dataFiles'
+import { enqueueSyncOp, lookupCardNameAndSet } from './deckbuilderSync'
 
 const MAX_OWNED = 999
 
@@ -17,12 +18,14 @@ export function registerCollectionIpc(): void {
     withDataLock(async () => {
       const collection = await readCollection()
       const droppedIds: string[] = []
+      const changed: { cardId: string; quantity: number }[] = []
       for (const { cardId, quantity } of items) {
         const next = clampQuantity((collection[cardId] ?? 0) + quantity)
         if (next === 0) {
           delete collection[cardId]
           droppedIds.push(cardId)
         } else collection[cardId] = next
+        changed.push({ cardId, quantity: next })
       }
       await writeCollection(collection)
       // A card that's no longer owned can't stay marked "for trade".
@@ -30,6 +33,10 @@ export function registerCollectionIpc(): void {
         const forTrade = await readForTrade()
         const next = forTrade.filter((id) => !droppedIds.includes(id))
         if (next.length !== forTrade.length) await writeForTrade(next)
+      }
+      for (const { cardId, quantity } of changed) {
+        const { name, setCode, gameId } = await lookupCardNameAndSet(cardId)
+        enqueueSyncOp({ type: 'set_collection_quantity', gameId, cardId, cardName: name, setCode, quantity })
       }
       return collection
     }),
@@ -42,6 +49,8 @@ export function registerCollectionIpc(): void {
       const current = await readForTrade()
       const next = forTrade ? [...new Set([...current, cardId])] : current.filter((id) => id !== cardId)
       await writeForTrade(next)
+      const { gameId } = await lookupCardNameAndSet(cardId)
+      enqueueSyncOp({ type: 'set_for_trade', gameId, cardId, forTrade })
       return next
     }),
   )

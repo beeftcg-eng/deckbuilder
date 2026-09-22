@@ -62,6 +62,14 @@ npm run build
 
 Type-checks, runs the tests, then produces an AppImage (Linux), NSIS installer (Windows), or dmg (macOS, when built on a Mac) in `release/`. The Linux AppImage is always named `Deckbuilder.AppImage` (no version in the file name), so a desktop launcher pointing at `release/Deckbuilder.AppImage` keeps working across updates — just rebuild.
 
+## Phone app
+
+**Live right now:** https://beeftcg-eng.github.io/deckbuilder/ — open it in your phone's browser and **Add to Home Screen** (Safari: Share → Add to Home Screen; Chrome/Android: menu → Add to Home Screen / Install app) for a real home-screen icon that opens full-screen, no app store needed. This is a PWA (Progressive Web App), not an `.apk` — the same reasoning as Pawmodoro's own phone app applies: an APK can't install on an iPhone at all (an Apple platform restriction), so the actual cross-platform answer is a PWA, and the same link works the same way on Android and iPhone both.
+
+It's almost entirely the same React app as the desktop build — `src/web/webApi.ts` implements the same `window.api` surface the Electron preload script does (see `electron/preload.ts`), just backed by the browser's IndexedDB instead of local JSON files, so none of the UI components or the Zustand store needed to change. Built and deployed to GitHub Pages by `.github/workflows/deploy-pwa.yml` on every push to `master`; to build+preview it locally: `npm run dev:web` (or `npm run build:web` for a production build in `dist-web/`).
+
+**Decks, collection and wishlist sync with desktop** — the one thing local-only phone data wouldn't be much good for. Connect the same Pawmodoro account the desktop app already offers (for wishlist push and trading — connecting once covers all three). Sync is local-first and offline-safe: every edit applies immediately and is queued for upload, following the exact same design as Pawmodoro's own desktop↔phone sync (`sync_engine.py`/`storage.py` there) — see `src/shared/sync/engine.ts` here, and `supabase/schema.sql` in the Pawmodoro repo (the `deckbuilder_decks` table and the `deckbuilder_*` RPCs below the trading feature's own tables) for the server side. Card data itself isn't synced — the phone does its own first sync from the same public card APIs the desktop app uses.
+
 ## Backups and moving to a new machine
 
 Your decks, wishlist and collection live outside this repo, in the app's user data directory (see "Where your data lives" below) — so a fresh `git clone` alone won't bring them along.
@@ -137,8 +145,9 @@ Pokémon and Magic get legality from their card data; One Piece and Riftbound do
 
 ## Architecture notes
 
-- `src/shared/` — game-agnostic types, per-game adapters (`games/*.ts`), the legality checker, and export formatting. Shared between the Electron main process and the React renderer.
-- `electron/` — main process: IPC handlers for card sync/caching, deck persistence, format storage, the wishlist, the collection, settings, Pawmodoro Cloud Sync, backup/restore, and export (paste upload, save-file dialog). `electron/lib/` holds the shared plumbing: `jsonStore.ts` (atomic writes, corrupt-file handling, the per-file save queue) and `backups.ts` (rotating snapshots).
-- `src/` — React renderer (card browser, deck panel, wishlist panel, export/import/sample-hand/ban-list modals). State lives in one zustand store (`src/state/useAppStore.ts`); deck edits apply to it immediately and are saved in the background, which is also what makes undo cheap.
+- `src/shared/` — game-agnostic types, per-game adapters (`games/*.ts`), the legality checker, export formatting, and `sync/` (the decks/collection/wishlist sync engine — outbox + local rev, see "Phone app" above — used identically by both platforms below).
+- `electron/` — main process: IPC handlers for card sync/caching, deck persistence, format storage, the wishlist, the collection, settings, Pawmodoro Cloud Sync + this app's own sync (`ipc/deckbuilderSync.ts`, `lib/nodeSyncStore.ts`), backup/restore, and export (paste upload, save-file dialog). `electron/lib/` holds the shared plumbing: `jsonStore.ts` (atomic writes, corrupt-file handling, the per-file save queue) and `backups.ts` (rotating snapshots).
+- `src/web/` — the browser/PWA implementation of the same `window.api` surface `electron/preload.ts` exposes (`webApi.ts`), backed by IndexedDB (`idb.ts`) instead of local JSON files. Installed by `src/main.tsx` only when Electron's own preload-provided `window.api` isn't already there, so it's a no-op inside the desktop app.
+- `src/` — React renderer (card browser, deck panel, wishlist panel, export/import/sample-hand/ban-list modals). State lives in one zustand store (`src/state/useAppStore.ts`); deck edits apply to it immediately and are saved in the background, which is also what makes undo cheap. This is shared between the desktop and phone builds — see "Phone app" above.
 
 Adding a new game means writing one adapter file implementing `GameAdapter` (fetch + normalize cards, deck zone rules, decklist text formatter) and registering it in `src/shared/games/registry.ts` (the game-id lists used by settings and backups are derived from the registry). A game whose deck shape depends on the format (Magic's Commander vs 60-card formats) sets `deckRulesByFormat`; read rules through `rulesForFormat()`. Optional hooks: `copyLimitFor` (basic lands/Energy, "any number of" cards), `identityColorFilter`, `importOptions`, and zones can be `manualOnly` so a plain click never lands there.

@@ -16,6 +16,7 @@ import { registerCollectionIpc } from './ipc/collection'
 import { registerSettingsIpc } from './ipc/settings'
 import { registerUpdaterIpc, startUpdateChecks } from './ipc/updater'
 import { registerPatchNotesIpc } from './ipc/patchNotes'
+import { registerDeckbuilderSyncIpc } from './ipc/deckbuilderSync'
 import { snapshot } from './lib/backups'
 import { withDataLock } from './lib/dataFiles'
 import { isWebUrl } from './lib/urls'
@@ -77,6 +78,7 @@ registerCollectionIpc()
 registerSettingsIpc()
 registerUpdaterIpc()
 registerPatchNotesIpc()
+registerDeckbuilderSyncIpc()
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

@@ -79,6 +79,16 @@ const api = {
     syncTradeWants: (entries: TradeWant[]): Promise<void> => ipcRenderer.invoke('pawmodoro:syncTradeWants', entries),
     browseTraders: (): Promise<TraderProfile[]> => ipcRenderer.invoke('pawmodoro:browseTraders'),
     tradeMatches: (): Promise<TradeMatch[]> => ipcRenderer.invoke('pawmodoro:tradeMatches'),
+    // Fires when this app's own decks/collection/wishlist sync (separate from the trading calls
+    // above) applies a background pull - e.g. a deck added on the phone. No payload; the listener
+    // just re-fetches via decks.list()/collection.get()/wishlist.list().
+    onSyncPulled: (callback: () => void): (() => void) => {
+      const listener = () => callback()
+      ipcRenderer.on('deckbuilderSync:pulled', listener)
+      return () => {
+        ipcRenderer.removeListener('deckbuilderSync:pulled', listener)
+      }
+    },
   },
   backup: {
     export: (): Promise<boolean> => ipcRenderer.invoke('backup:export'),
