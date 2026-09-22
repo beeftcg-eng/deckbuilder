@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { readFile, writeFile, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import type { PawmodoroConfig } from '../../src/shared/types'
+import type { PawmodoroConfig, TradeListing, TradeMatch, TradeWant, TraderProfile } from '../../src/shared/types'
 import { pawmodoroConfigFile } from '../lib/paths'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../../src/shared/pawmodoroDefaults'
 
@@ -58,6 +58,20 @@ async function refreshAccessToken(config: StoredConfig): Promise<{ accessToken: 
   return { accessToken: result.access_token, refreshToken: result.refresh_token }
 }
 
+// Every trade call needs a config (must be connected) and a fresh access token; Supabase rotates
+// the refresh token on every use, same as pushWishlist below, so it's persisted after every call.
+async function authorizedConfig(): Promise<{ config: StoredConfig; accessToken: string }> {
+  const config = await readConfig()
+  if (!config) throw new PawmodoroError('Not connected to Pawmodoro')
+  const { accessToken, refreshToken } = await refreshAccessToken(config)
+  if (refreshToken !== config.refreshToken) await writeConfig({ ...config, refreshToken })
+  return { config, accessToken }
+}
+
+async function callRpc(config: StoredConfig, accessToken: string, name: string, params: unknown): Promise<unknown> {
+  return request(config.url, config.anonKey, `/rest/v1/rpc/${name}`, params, accessToken)
+}
+
 export function registerPawmodoroIpc(): void {
   ipcMain.handle('pawmodoro:getConfig', async (): Promise<PawmodoroConfig> => toPublicConfig(await readConfig()))
 
@@ -96,11 +110,7 @@ export function registerPawmodoroIpc(): void {
       _e,
       items: { entryId: string; text: string }[],
     ): Promise<{ pushed: { entryId: string; taskId: string }[]; failed: { entryId: string; message: string }[] }> => {
-      const config = await readConfig()
-      if (!config) throw new PawmodoroError('Not connected to Pawmodoro')
-
-      const { accessToken, refreshToken } = await refreshAccessToken(config)
-      if (refreshToken !== config.refreshToken) await writeConfig({ ...config, refreshToken })
+      const { config, accessToken } = await authorizedConfig()
 
       const pushed: { entryId: string; taskId: string }[] = []
       const failed: { entryId: string; message: string }[] = []
@@ -119,4 +129,65 @@ export function registerPawmodoroIpc(): void {
       return { pushed, failed }
     },
   )
+
+  ipcMain.handle('pawmodoro:setTradeProfile', async (_e, isPublic: boolean, displayName: string): Promise<void> => {
+    const { config, accessToken } = await authorizedConfig()
+    await callRpc(config, accessToken, 'deckbuilder_set_profile', { p_public: isPublic, p_display_name: displayName })
+  })
+
+  ipcMain.handle('pawmodoro:syncTradeCollection', async (_e, entries: TradeListing[]): Promise<void> => {
+    const { config, accessToken } = await authorizedConfig()
+    await callRpc(config, accessToken, 'deckbuilder_sync_collection', {
+      p_entries: entries.map((e) => ({
+        game_id: e.gameId, card_id: e.cardId, card_name: e.cardName, set_code: e.setCode, quantity: e.quantity, for_trade: e.forTrade,
+      })),
+    })
+  })
+
+  ipcMain.handle('pawmodoro:syncTradeWants', async (_e, entries: TradeWant[]): Promise<void> => {
+    const { config, accessToken } = await authorizedConfig()
+    await callRpc(config, accessToken, 'deckbuilder_sync_wants', {
+      p_entries: entries.map((e) => ({ game_id: e.gameId, card_id: e.cardId, card_name: e.cardName, quantity: e.quantity })),
+    })
+  })
+
+  ipcMain.handle('pawmodoro:browseTraders', async (): Promise<TraderProfile[]> => {
+    const { config, accessToken } = await authorizedConfig()
+    const rows = (await callRpc(config, accessToken, 'deckbuilder_browse', {})) as Array<{
+      user_id: string
+      display_name: string
+      email: string
+      collection: Array<{ game_id: string; card_id: string; card_name: string; set_code: string; quantity: number; for_trade: boolean }>
+      wants: Array<{ game_id: string; card_id: string; card_name: string; quantity: number }>
+    }>
+    return rows.map((r) => ({
+      userId: r.user_id,
+      displayName: r.display_name,
+      email: r.email,
+      collection: r.collection.map((c) => ({
+        gameId: c.game_id as TradeListing['gameId'], cardId: c.card_id, cardName: c.card_name, setCode: c.set_code, quantity: c.quantity, forTrade: c.for_trade,
+      })),
+      wants: r.wants.map((w) => ({ gameId: w.game_id as TradeWant['gameId'], cardId: w.card_id, cardName: w.card_name, quantity: w.quantity })),
+    }))
+  })
+
+  ipcMain.handle('pawmodoro:tradeMatches', async (): Promise<TradeMatch[]> => {
+    const { config, accessToken } = await authorizedConfig()
+    const rows = (await callRpc(config, accessToken, 'deckbuilder_matches', {})) as Array<{
+      user_id: string
+      display_name: string
+      email: string
+      they_have_what_i_want: Array<{ game_id: string; card_name: string }>
+      i_have_what_they_want: Array<{ game_id: string; card_name: string }>
+      mutual: boolean
+    }>
+    return rows.map((r) => ({
+      userId: r.user_id,
+      displayName: r.display_name,
+      email: r.email,
+      theyHaveWhatIWant: r.they_have_what_i_want.map((c) => ({ gameId: c.game_id as TradeMatch['theyHaveWhatIWant'][number]['gameId'], cardName: c.card_name })),
+      iHaveWhatTheyWant: r.i_have_what_they_want.map((c) => ({ gameId: c.game_id as TradeMatch['iHaveWhatTheyWant'][number]['gameId'], cardName: c.card_name })),
+      mutual: r.mutual,
+    }))
+  })
 }

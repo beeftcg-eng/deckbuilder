@@ -25,6 +25,9 @@ export function CollectionPanel() {
   const wishlist = useAppStore((s) => s.wishlist)
   const changeOwned = useAppStore((s) => s.changeOwned)
   const addToCollection = useAppStore((s) => s.addToCollection)
+  const forTrade = useAppStore((s) => s.forTrade)
+  const toggleForTrade = useAppStore((s) => s.toggleForTrade)
+  const tradeProfile = useAppStore((s) => s.settings.tradeProfile)
   const wishlistCards = useAppStore((s) => s.wishlistCards)
   const adapter = getAdapter(currentGameId)
 
@@ -181,6 +184,13 @@ export function CollectionPanel() {
                       {card.rarity ? ` · ${card.rarity}` : ''}
                     </span>
                     {card.price != null && <span className="text-dim col-price">{formatPrice(card.price * copies)}</span>}
+                    <label
+                      className="col-for-trade"
+                      title={tradeProfile?.public ? 'Show this card on your public for-trade list' : 'Turn on trading (Trade in the sidebar) for this to be visible to anyone'}
+                    >
+                      <input type="checkbox" checked={forTrade.has(card.id)} onChange={() => toggleForTrade(card.id)} />
+                      For trade
+                    </label>
                     <div className="stepper">
                       <button className="btn stepper-btn" onClick={() => changeOwned(card.id, -1)}>
                         −

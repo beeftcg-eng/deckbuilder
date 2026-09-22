@@ -9,6 +9,10 @@ import type {
   GameId,
   PawmodoroConfig,
   SyncProgress,
+  TradeListing,
+  TradeMatch,
+  TradeWant,
+  TraderProfile,
   WishlistEntry,
 } from '../src/shared/types'
 import type { UpdateStatus } from '../src/shared/updateStatus'
@@ -40,6 +44,8 @@ const api = {
   collection: {
     get: (): Promise<Collection> => ipcRenderer.invoke('collection:get'),
     add: (items: { cardId: string; quantity: number }[]): Promise<Collection> => ipcRenderer.invoke('collection:add', items),
+    getForTrade: (): Promise<string[]> => ipcRenderer.invoke('collection:getForTrade'),
+    setForTrade: (cardId: string, forTrade: boolean): Promise<string[]> => ipcRenderer.invoke('collection:setForTrade', cardId, forTrade),
   },
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
@@ -66,6 +72,12 @@ const api = {
       items: { entryId: string; text: string }[],
     ): Promise<{ pushed: { entryId: string; taskId: string }[]; failed: { entryId: string; message: string }[] }> =>
       ipcRenderer.invoke('pawmodoro:pushWishlist', items),
+    setTradeProfile: (isPublic: boolean, displayName: string): Promise<void> =>
+      ipcRenderer.invoke('pawmodoro:setTradeProfile', isPublic, displayName),
+    syncTradeCollection: (entries: TradeListing[]): Promise<void> => ipcRenderer.invoke('pawmodoro:syncTradeCollection', entries),
+    syncTradeWants: (entries: TradeWant[]): Promise<void> => ipcRenderer.invoke('pawmodoro:syncTradeWants', entries),
+    browseTraders: (): Promise<TraderProfile[]> => ipcRenderer.invoke('pawmodoro:browseTraders'),
+    tradeMatches: (): Promise<TradeMatch[]> => ipcRenderer.invoke('pawmodoro:tradeMatches'),
   },
   backup: {
     export: (): Promise<boolean> => ipcRenderer.invoke('backup:export'),

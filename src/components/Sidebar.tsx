@@ -59,6 +59,8 @@ export function Sidebar() {
   const setShowWishlist = useAppStore((s) => s.setShowWishlist)
   const showCollection = useAppStore((s) => s.showCollection)
   const setShowCollection = useAppStore((s) => s.setShowCollection)
+  const showTrade = useAppStore((s) => s.showTrade)
+  const setShowTrade = useAppStore((s) => s.setShowTrade)
   const collectionCopies = useAppStore((s) => Object.values(s.collection).reduce((n, q) => n + q, 0))
   const wishlist = useAppStore((s) => s.wishlist)
   const exportBackup = useAppStore((s) => s.exportBackup)
@@ -150,6 +152,10 @@ export function Sidebar() {
 
       <button className={`wishlist-nav-btn ${showCollection ? 'active' : ''}`} onClick={() => setShowCollection(!showCollection)}>
         ▦ Collection{collectionCopies > 0 ? ` (${collectionCopies})` : ''}
+      </button>
+
+      <button className={`wishlist-nav-btn ${showTrade ? 'active' : ''}`} onClick={() => setShowTrade(!showTrade)}>
+        🔀 Trade
       </button>
 
       <nav className="game-tabs">

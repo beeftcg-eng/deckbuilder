@@ -196,6 +196,8 @@ export interface AppSettings {
   deckViewMode?: DeckViewMode
   /** Colour theme id (see shared/themes.ts). */
   theme?: string
+  /** Local copy of the last trade-profile visibility pushed to the cloud (see shared/types.ts TradeProfile). */
+  tradeProfile?: TradeProfile
 }
 
 export interface PawmodoroConfig {
@@ -203,4 +205,52 @@ export interface PawmodoroConfig {
   anonKey: string
   email: string
   connected: boolean
+}
+
+/** Whether your collection/wants are visible to other connected accounts, and the name shown while browsing. */
+export interface TradeProfile {
+  public: boolean
+  displayName: string
+}
+
+/** One of your owned cards, as pushed to the cloud for other people to browse/match against. */
+export interface TradeListing {
+  gameId: GameId
+  cardId: string
+  cardName: string
+  setCode: string
+  quantity: number
+  forTrade: boolean
+}
+
+/** One of your wishlist cards, as pushed to the cloud so others can see what you're after. */
+export interface TradeWant {
+  gameId: GameId
+  cardId: string
+  cardName: string
+  quantity: number
+}
+
+/** Another connected, public account: their whole collection and want list, for the Browse page. */
+export interface TraderProfile {
+  userId: string
+  displayName: string
+  email: string
+  collection: TradeListing[]
+  wants: TradeWant[]
+}
+
+export interface TradeMatchCard {
+  gameId: GameId
+  cardName: string
+}
+
+/** Someone whose for-trade list covers something you want, or who wants something you have for trade (or both — `mutual`). */
+export interface TradeMatch {
+  userId: string
+  displayName: string
+  email: string
+  theyHaveWhatIWant: TradeMatchCard[]
+  iHaveWhatTheyWant: TradeMatchCard[]
+  mutual: boolean
 }

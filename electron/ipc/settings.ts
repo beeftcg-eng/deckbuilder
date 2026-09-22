@@ -20,9 +20,14 @@ function sanitize(raw: unknown): AppSettings {
   if (typeof source.lastDeckId === 'string' || source.lastDeckId === null) settings.lastDeckId = source.lastDeckId
   if (isDeckSortMode(source.deckSort)) settings.deckSort = source.deckSort
   if (Array.isArray(source.gameOrder)) settings.gameOrder = [...new Set(source.gameOrder)].filter((id): id is GameId => GAME_IDS.includes(id as GameId))
+  if (Array.isArray(source.hiddenGames)) settings.hiddenGames = [...new Set(source.hiddenGames)].filter((id): id is GameId => GAME_IDS.includes(id as GameId))
   if (Array.isArray(source.deckOrder)) settings.deckOrder = [...new Set(source.deckOrder.filter((id): id is string => typeof id === 'string'))].slice(0, 5000)
   if (isDeckViewMode(source.deckViewMode)) settings.deckViewMode = source.deckViewMode
   if (isThemeId(source.theme)) settings.theme = source.theme
+  if (isPlainObject(source.tradeProfile)) {
+    const tp = source.tradeProfile as Record<string, unknown>
+    if (typeof tp.public === 'boolean' && typeof tp.displayName === 'string') settings.tradeProfile = { public: tp.public, displayName: tp.displayName }
+  }
   return settings
 }
 

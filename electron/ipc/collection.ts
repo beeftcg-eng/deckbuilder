@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import type { Collection } from '../../src/shared/types'
-import { readCollection, withDataLock, writeCollection } from '../lib/dataFiles'
+import { readCollection, readForTrade, withDataLock, writeCollection, writeForTrade } from '../lib/dataFiles'
 
 const MAX_OWNED = 999
 
@@ -16,13 +16,33 @@ export function registerCollectionIpc(): void {
   ipcMain.handle('collection:add', (_e, items: { cardId: string; quantity: number }[]): Promise<Collection> =>
     withDataLock(async () => {
       const collection = await readCollection()
+      const droppedIds: string[] = []
       for (const { cardId, quantity } of items) {
         const next = clampQuantity((collection[cardId] ?? 0) + quantity)
-        if (next === 0) delete collection[cardId]
-        else collection[cardId] = next
+        if (next === 0) {
+          delete collection[cardId]
+          droppedIds.push(cardId)
+        } else collection[cardId] = next
       }
       await writeCollection(collection)
+      // A card that's no longer owned can't stay marked "for trade".
+      if (droppedIds.length > 0) {
+        const forTrade = await readForTrade()
+        const next = forTrade.filter((id) => !droppedIds.includes(id))
+        if (next.length !== forTrade.length) await writeForTrade(next)
+      }
       return collection
+    }),
+  )
+
+  ipcMain.handle('collection:getForTrade', (): Promise<string[]> => withDataLock(readForTrade))
+
+  ipcMain.handle('collection:setForTrade', (_e, cardId: string, forTrade: boolean): Promise<string[]> =>
+    withDataLock(async () => {
+      const current = await readForTrade()
+      const next = forTrade ? [...new Set([...current, cardId])] : current.filter((id) => id !== cardId)
+      await writeForTrade(next)
+      return next
     }),
   )
 }

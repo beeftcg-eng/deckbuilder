@@ -13,10 +13,13 @@ import type {
   GameId,
   PawmodoroConfig,
   SyncProgress,
+  TradeMatch,
+  TraderProfile,
   WishlistEntry,
 } from '../shared/types'
 import { GAME_LIST, getAdapter } from '../shared/games/registry'
 import { buildPoolIndex, gameIdOfCardId, missingForDeck } from '../shared/collection'
+import { buildTradeCollection, buildTradeWants } from '../shared/trade'
 import type { ParsedDeck } from '../shared/importDeck'
 import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import type { UpdateStatus } from '../shared/updateStatus'
@@ -169,6 +172,22 @@ interface AppState {
   disconnectPawmodoro: () => Promise<void>
   pushWishlistToPawmodoro: (items: { entryId: string; text: string }[]) => Promise<{ pushedCount: number; failedCount: number }>
 
+  showTrade: boolean
+  setShowTrade: (show: boolean) => void
+  /** Card ids from `collection` currently marked "for trade" — separate from quantity, see electron/lib/paths.ts forTradeFile. */
+  forTrade: Set<string>
+  loadForTrade: () => Promise<void>
+  toggleForTrade: (cardId: string) => Promise<void>
+  /** Turns your profile public/private (and sets the name shown while browsing); public turns on an immediate sync. */
+  setTradeVisibility: (isPublic: boolean, displayName: string) => Promise<void>
+  tradeSyncing: boolean
+  /** Pushes your current collection/for-trade flags and wishlist to the cloud, for Browse/Matches to see. No-ops while private. */
+  syncTradeData: () => Promise<{ skipped: number }>
+  browseTraders: TraderProfile[]
+  loadBrowseTraders: () => Promise<void>
+  tradeMatches: TradeMatch[]
+  loadTradeMatches: () => Promise<void>
+
   exportBackup: () => Promise<boolean>
   importBackup: () => Promise<ImportBackupResult>
 }
@@ -209,7 +228,16 @@ export const useAppStore = create<AppState>((set, get) => {
 
   async function addAndSelectDeck(deck: Deck, undoLabel: string, viewing = false): Promise<void> {
     const saved = await window.api.decks.save(deck)
-    set((s) => ({ decks: [...s.decks, saved], currentDeckId: saved.id, currentGameId: saved.gameId, showWishlist: false, showCollection: false, showMyDecks: false, deckViewing: viewing }))
+    set((s) => ({
+      decks: [...s.decks, saved],
+      currentDeckId: saved.id,
+      currentGameId: saved.gameId,
+      showWishlist: false,
+      showCollection: false,
+      showMyDecks: false,
+      showTrade: false,
+      deckViewing: viewing,
+    }))
     pushUndo({ kind: 'create', label: undoLabel, deckId: saved.id })
     persistSettings({ lastDeckId: saved.id, lastGameId: saved.gameId })
   }
@@ -225,6 +253,7 @@ export const useAppStore = create<AppState>((set, get) => {
     showWishlist: false,
     showCollection: false,
     showMyDecks: false,
+    showTrade: false,
     deckViewing: false,
     settings: {},
     undoStack: [],
@@ -235,6 +264,10 @@ export const useAppStore = create<AppState>((set, get) => {
     collection: {},
     pawmodoroConfig: { url: DEFAULT_PAWMODORO_URL, anonKey: DEFAULT_PAWMODORO_ANON_KEY, email: '', connected: false },
     pushingWishlist: false,
+    forTrade: new Set(),
+    tradeSyncing: false,
+    browseTraders: [],
+    tradeMatches: [],
 
     initialize: async () => {
       try {
@@ -250,6 +283,7 @@ export const useAppStore = create<AppState>((set, get) => {
         await Promise.all([
           get().loadWishlist(),
           get().loadCollection(),
+          get().loadForTrade(),
           ...GAME_LIST.map((adapter) => get().loadMeta(adapter.id)),
           ...GAME_LIST.map((adapter) => get().loadFormats(adapter.id)),
         ])
@@ -403,7 +437,7 @@ export const useAppStore = create<AppState>((set, get) => {
         set((s) => ({ decks: s.decks.map((d) => (d.id === entry.before.id ? { ...entry.before } : d)) }))
         await persistDeck(entry.before)
       } else if (entry.kind === 'delete') {
-        set((s) => ({ decks: [...s.decks, entry.deck], currentDeckId: entry.deck.id, currentGameId: entry.deck.gameId, showWishlist: false, showCollection: false, showMyDecks: false }))
+        set((s) => ({ decks: [...s.decks, entry.deck], currentDeckId: entry.deck.id, currentGameId: entry.deck.gameId, showWishlist: false, showCollection: false, showMyDecks: false, showTrade: false }))
         await persistDeck(entry.deck)
       } else {
         set((s) => ({
@@ -449,11 +483,11 @@ export const useAppStore = create<AppState>((set, get) => {
         if (fallback) get().setGame(fallback.id)
       }
     },
-    setShowMyDecks: (show) => set(show ? { showMyDecks: true, showWishlist: false, showCollection: false } : { showMyDecks: false }),
+    setShowMyDecks: (show) => set(show ? { showMyDecks: true, showWishlist: false, showCollection: false, showTrade: false } : { showMyDecks: false }),
     openDeck: (deckId) => {
       const deck = get().decks.find((d) => d.id === deckId)
       if (!deck) return
-      set({ currentGameId: deck.gameId, currentDeckId: deckId, showMyDecks: false, showWishlist: false, showCollection: false, deckViewing: true })
+      set({ currentGameId: deck.gameId, currentDeckId: deckId, showMyDecks: false, showWishlist: false, showCollection: false, showTrade: false, deckViewing: true })
       persistSettings({ lastGameId: deck.gameId, lastDeckId: deckId })
     },
     setDeckViewMode: (mode) => persistSettings({ deckViewMode: mode }),
@@ -472,8 +506,9 @@ export const useAppStore = create<AppState>((set, get) => {
 
     applySyncProgress: (progress) => set((s) => ({ syncProgress: { ...s.syncProgress, [progress.gameId]: progress } })),
 
-    setShowWishlist: (show) => set(show ? { showWishlist: true, showCollection: false, showMyDecks: false } : { showWishlist: false }),
-    setShowCollection: (show) => set(show ? { showCollection: true, showWishlist: false, showMyDecks: false } : { showCollection: false }),
+    setShowWishlist: (show) => set(show ? { showWishlist: true, showCollection: false, showMyDecks: false, showTrade: false } : { showWishlist: false }),
+    setShowCollection: (show) => set(show ? { showCollection: true, showWishlist: false, showMyDecks: false, showTrade: false } : { showCollection: false }),
+    setShowTrade: (show) => set(show ? { showTrade: true, showWishlist: false, showCollection: false, showMyDecks: false } : { showTrade: false }),
 
     loadWishlist: async () => {
       const wishlist = await window.api.wishlist.list()
@@ -587,6 +622,52 @@ export const useAppStore = create<AppState>((set, get) => {
       } finally {
         set({ pushingWishlist: false })
       }
+    },
+
+    loadForTrade: async () => {
+      const ids = await window.api.collection.getForTrade()
+      set({ forTrade: new Set(ids) })
+    },
+
+    toggleForTrade: async (cardId) => {
+      const isOn = get().forTrade.has(cardId)
+      const ids = await window.api.collection.setForTrade(cardId, !isOn)
+      set({ forTrade: new Set(ids) })
+    },
+
+    setTradeVisibility: async (isPublic, displayName) => {
+      await window.api.pawmodoro.setTradeProfile(isPublic, displayName)
+      const tradeProfile = { public: isPublic, displayName }
+      set((s) => ({ settings: { ...s.settings, tradeProfile } }))
+      persistSettings({ tradeProfile })
+      if (isPublic) await get().syncTradeData()
+    },
+
+    syncTradeData: async () => {
+      set({ tradeSyncing: true })
+      try {
+        const { catalogs, collection, forTrade, wishlist } = get()
+        const cardsById = (gameId: GameId) => catalogs[gameId]?.byId
+        const ownedResult = buildTradeCollection(collection, forTrade, cardsById)
+        const wantsResult = buildTradeWants(wishlist, cardsById)
+        await Promise.all([
+          window.api.pawmodoro.syncTradeCollection(ownedResult.entries),
+          window.api.pawmodoro.syncTradeWants(wantsResult.entries),
+        ])
+        return { skipped: ownedResult.skipped + wantsResult.skipped }
+      } finally {
+        set({ tradeSyncing: false })
+      }
+    },
+
+    loadBrowseTraders: async () => {
+      const browseTraders = await window.api.pawmodoro.browseTraders()
+      set({ browseTraders })
+    },
+
+    loadTradeMatches: async () => {
+      const tradeMatches = await window.api.pawmodoro.tradeMatches()
+      set({ tradeMatches })
     },
 
     exportBackup: () => window.api.backup.export(),

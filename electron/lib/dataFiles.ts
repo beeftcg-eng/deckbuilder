@@ -1,5 +1,5 @@
 import type { Collection, Deck, WishlistEntry } from '../../src/shared/types'
-import { collectionFile, decksFile, wishlistFile } from './paths'
+import { collectionFile, decksFile, forTradeFile, wishlistFile } from './paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from './jsonStore'
 import { maybeSnapshot } from './backups'
 
@@ -14,6 +14,7 @@ export function withDataLock<T>(task: () => Promise<T>): Promise<T> {
 export const readDecks = () => readJsonFile<Deck[]>(decksFile(), [], Array.isArray)
 export const readWishlist = () => readJsonFile<WishlistEntry[]>(wishlistFile(), [], Array.isArray)
 export const readCollection = () => readJsonFile<Collection>(collectionFile(), {}, isPlainObject)
+export const readForTrade = () => readJsonFile<string[]>(forTradeFile(), [], Array.isArray)
 
 export async function writeDecks(decks: Deck[]): Promise<void> {
   await maybeSnapshot()
@@ -28,4 +29,9 @@ export async function writeWishlist(entries: WishlistEntry[]): Promise<void> {
 export async function writeCollection(collection: Collection): Promise<void> {
   await maybeSnapshot()
   await writeJsonAtomic(collectionFile(), collection)
+}
+
+export async function writeForTrade(cardIds: string[]): Promise<void> {
+  await maybeSnapshot()
+  await writeJsonAtomic(forTradeFile(), cardIds)
 }

@@ -6,6 +6,7 @@ import { DeckPanel } from './components/DeckPanel'
 import { WishlistPanel } from './components/WishlistPanel'
 import { CollectionPanel } from './components/CollectionPanel'
 import { MyDecksPanel } from './components/MyDecksPanel'
+import { TradePanel } from './components/TradePanel'
 import { DeckViewPage } from './components/DeckViewPage'
 import { useAppStore } from './state/useAppStore'
 import { useSyncProgressListener } from './state/syncProgress'
@@ -23,11 +24,12 @@ export default function App() {
   const showWishlist = useAppStore((s) => s.showWishlist)
   const showCollection = useAppStore((s) => s.showCollection)
   const showMyDecks = useAppStore((s) => s.showMyDecks)
+  const showTrade = useAppStore((s) => s.showTrade)
   const deckViewing = useAppStore((s) => s.deckViewing)
   const catalogs = useAppStore((s) => s.catalogs)
   const syncMeta = useAppStore((s) => s.syncMeta)
 
-  const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist
+  const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist && !showTrade
 
   useSyncProgressListener()
   useUpdaterListener()
@@ -77,6 +79,8 @@ export default function App() {
           <CollectionPanel />
         ) : showWishlist ? (
           <WishlistPanel />
+        ) : showTrade ? (
+          <TradePanel />
         ) : hasCurrentDeck ? (
           deckViewing ? <DeckViewPage /> : <DeckPanel />
         ) : (

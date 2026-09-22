@@ -26,6 +26,11 @@ export function collectionFile(): string {
   return join(userDataDir(), 'collection.json')
 }
 
+/** Card ids from `collection` currently marked "for trade" — a plain array, not merged into collection.json, so the existing quantity-only format never has to change. */
+export function forTradeFile(): string {
+  return join(userDataDir(), 'for-trade.json')
+}
+
 export function settingsFile(): string {
   return join(userDataDir(), 'settings.json')
 }
