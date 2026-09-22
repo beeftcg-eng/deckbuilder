@@ -2,14 +2,12 @@ import type { Card, CardLegalityStatus, Deck, DeckRules, Format } from '../types
 import type { FetchProgress, GameAdapter, GuidedStage } from './types'
 import { SCRYFALL_HEADERS, fetchJson, fetchJsonWithRetry, sleep } from './fetchUtil'
 
-// Scryfall's "Unique Artwork" bulk file: one entry per unique illustration (~45k), so an alternate-art,
-// showcase or Secret-Lair-style reprint of a card is its own browsable/collectible entry instead of being
-// invisible until you knew its exact name. A near match on "Oracle Cards" (one row per card, ~25 MB) in
-// download size (~38 MB) since it still collapses plain reprints that reuse an earlier printing's art —
-// nowhere near "Default Cards" (~80 MB, every single printing, including identical-art reprints and
-// foil/nonfoil duplicates). Bulk files are refreshed daily and are Scryfall's recommended way to fetch
-// the whole catalog.
-const BULK_INFO_URL = 'https://api.scryfall.com/bulk-data/unique_artwork'
+// Scryfall's "Default Cards" bulk file: every real-world printing (~80 MB) — alternate art, showcase,
+// Secret Lair, and reprints that reuse an earlier printing's art (Masters sets, From the Vault, etc.)
+// all get their own browsable/collectible/searchable entry. Digital-only (Arena/MTGO) printings are
+// filtered out in normalizeCard() below via Scryfall's `digital` flag. Bulk files are refreshed daily
+// and are Scryfall's recommended way to fetch the whole catalog.
+const BULK_INFO_URL = 'https://api.scryfall.com/bulk-data/default_cards'
 
 /** Scryfall's format keys — also this game's Format ids, so `card.legality[format.id]` just works. */
 export const MTG_FORMAT_IDS = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'commander', 'pauper'] as const
@@ -53,6 +51,7 @@ export interface ScryfallCard extends ScryfallFace {
   set_name: string
   collector_number: string
   rarity?: string
+  digital?: boolean
   legalities?: Record<string, string>
   prices?: { usd?: string | null; usd_foil?: string | null; usd_etched?: string | null }
   card_faces?: ScryfallFace[]
@@ -109,18 +108,20 @@ function priceOf(raw: ScryfallCard): number | null {
 /**
  * Turns one Scryfall card object into a Card, or null for things that aren't deck cards. Cards
  * that no supported format can ever play (Un-sets, digital-only Alchemy…) are left out too, except
- * ones legal in the upcoming Standard, so a card can be browsed as soon as it's spoiled.
+ * ones legal in the upcoming Standard, so a card can be browsed as soon as it's spoiled. Printings
+ * that only exist digitally (Arena/MTGO, `raw.digital`) are dropped too, since the bulk source
+ * (default_cards) includes them alongside every real paper printing.
  *
  * The id is the card's `oracle_id`, so every printing sharing one oracle_id starts out sharing one
  * id too — uniquifyCardIds() (shared/cardIds.ts, run over the whole catalog after fetch, same as
  * One Piece) then splits that group apart: the most "regular" printing keeps this oracle_id-based
- * id, and every alternate-art printing gets its own id from its Scryfall printing id instead. That
- * keeps existing saved decks, collection and wishlist entries (which only ever saw the "regular"
- * printing's id) resolving correctly after this file switched from one row per card to one row per
- * unique artwork.
+ * id, and every other printing (alternate art, showcase, a reprint in a different set, etc.) gets
+ * its own id from its Scryfall printing id instead. That keeps existing saved decks, collection and
+ * wishlist entries (which only ever saw the "regular" printing's id) resolving correctly.
  */
 export function normalizeCard(raw: ScryfallCard): Card | null {
   if (SKIPPED_LAYOUTS.has(raw.layout)) return null
+  if (raw.digital) return null
   const legality = legalityOf(raw)
   const playable = Object.values(legality).some((status) => status === 'legal' || status === 'restricted')
   if (!playable && raw.legalities?.future !== 'legal') return null
@@ -352,7 +353,6 @@ export const mtgAdapter: GameAdapter = {
   getGuidedStage,
   copyLimitFor,
   colorOrder: COLOR_ORDER,
-  setNote: "Magic's card data lists one printing per unique artwork, so a set here won't include a plain reprint that reuses an earlier printing's art (only a set's own alternate-art/showcase treatments show up as their own entries).",
   identityColorFilter: true,
   importOptions: { blankLineStartsSideboard: true, stripPrintingSuffix: true },
 }

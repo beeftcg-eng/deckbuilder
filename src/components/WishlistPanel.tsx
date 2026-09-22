@@ -203,6 +203,7 @@ export function WishlistPanel() {
                         <span className="text-dim">
                           {' '}
                           — {card.setCode} #{card.number}
+                          {card.rarity ? ` · ${card.rarity}` : ''}
                         </span>
                       )}
                     </div>
