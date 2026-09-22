@@ -134,6 +134,8 @@ interface AppState {
   setDeckLocked: (deckId: string, locked: boolean) => Promise<void>
   /** Saves the order of the game tabs in the sidebar. */
   setGameOrder: (order: GameId[]) => void
+  /** Shows or hides a game's tab in the sidebar. Never lets the last visible game be hidden, and switches off a game you're hiding. */
+  setGameHidden: (gameId: GameId, hidden: boolean) => void
   /** Opens a deck from anywhere (the My Decks page): switches to its game, selects it, and shows the deck panel. */
   openDeck: (deckId: string) => void
   setDeckViewMode: (mode: DeckViewMode) => void
@@ -435,6 +437,18 @@ export const useAppStore = create<AppState>((set, get) => {
       set((s) => ({ settings: { ...s.settings, gameOrder: order } }))
       persistSettings({ gameOrder: order })
     },
+    setGameHidden: (gameId, hidden) => {
+      const current = get().settings.hiddenGames ?? []
+      if (hidden === current.includes(gameId)) return
+      if (hidden && current.length >= GAME_LIST.length - 1) return // always leave at least one game visible
+      const hiddenGames = hidden ? [...current, gameId] : current.filter((id) => id !== gameId)
+      set((s) => ({ settings: { ...s.settings, hiddenGames } }))
+      persistSettings({ hiddenGames })
+      if (hidden && get().currentGameId === gameId) {
+        const fallback = GAME_LIST.find((g) => !hiddenGames.includes(g.id))
+        if (fallback) get().setGame(fallback.id)
+      }
+    },
     setShowMyDecks: (show) => set(show ? { showMyDecks: true, showWishlist: false, showCollection: false } : { showMyDecks: false }),
     openDeck: (deckId) => {
       const deck = get().decks.find((d) => d.id === deckId)
@@ -609,4 +623,11 @@ export { GAME_LIST }
 export function useOrderedGames() {
   const order = useAppStore((s) => s.settings.gameOrder)
   return useMemo(() => orderGames(GAME_LIST, order), [order])
+}
+
+/** Same as useOrderedGames, minus any games hidden via setGameHidden. */
+export function useVisibleGames() {
+  const ordered = useOrderedGames()
+  const hidden = useAppStore((s) => s.settings.hiddenGames)
+  return useMemo(() => (hidden?.length ? ordered.filter((g) => !hidden.includes(g.id)) : ordered), [ordered, hidden])
 }

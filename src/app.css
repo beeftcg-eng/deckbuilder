@@ -54,6 +54,28 @@
   border-color: var(--accent);
 }
 
+.game-manage-toggle {
+  align-self: flex-start;
+  margin-top: -6px;
+}
+
+.game-manage {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-elevated-2);
+  border-radius: var(--radius);
+  padding: 10px;
+  margin-top: -6px;
+}
+
+.game-manage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
 .sync-box {
   background: var(--bg-elevated-2);
   border-radius: var(--radius);

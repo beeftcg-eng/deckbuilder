@@ -41,6 +41,13 @@ export interface Card {
    * before prices were added don't have the field until the next sync.
    */
   price?: number | null
+  /**
+   * Alternate "flavor" names this card has also been printed under — Secret Lair drops and
+   * Universes Beyond crossovers often reprint an existing card with a different name (e.g.
+   * Dovin's Veto as "Shadowbringers"). Magic-only currently; lets a search for the flavor name
+   * still find the card without the app carrying every individual printing as its own entry.
+   */
+  flavorNames?: string[]
 }
 
 /** 'restricted' = one copy (Vintage's restricted list, Yu-Gi-Oh!'s Limited); 'semi-restricted' = two copies (Yu-Gi-Oh!'s Semi-Limited). */
@@ -184,6 +191,8 @@ export interface AppSettings {
   deckOrder?: string[]
   /** Game ids in the order arranged in the sidebar. */
   gameOrder?: GameId[]
+  /** Game ids hidden from the sidebar's game tabs (still synced/kept, just not shown). */
+  hiddenGames?: GameId[]
   deckViewMode?: DeckViewMode
   /** Colour theme id (see shared/themes.ts). */
   theme?: string

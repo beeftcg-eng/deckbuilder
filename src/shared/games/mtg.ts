@@ -1,6 +1,6 @@
 import type { Card, CardLegalityStatus, Deck, DeckRules, Format } from '../types'
 import type { FetchProgress, GameAdapter, GuidedStage } from './types'
-import { SCRYFALL_HEADERS, fetchJson } from './fetchUtil'
+import { SCRYFALL_HEADERS, fetchJson, fetchJsonWithRetry, sleep } from './fetchUtil'
 
 // Scryfall's "Oracle Cards" bulk file: one entry per unique card (~35k), each shown as its most
 // recognizable printing. That matches how Magic decks are built and limited — by card name, not
@@ -202,13 +202,53 @@ export async function readBulkCards(res: Response, onProgress: (p: FetchProgress
   return cards
 }
 
+interface ScryfallSearchResponse {
+  data: { oracle_id?: string; flavor_name?: string }[]
+  has_more: boolean
+  next_page?: string
+}
+
+const FLAVOR_NAME_SEARCH_URL = 'https://api.scryfall.com/cards/search?q=has%3Aflavorname&unique=prints&order=name'
+
+/**
+ * Cards that have been printed under an alternate "flavor" name — Secret Lair drops and Universes
+ * Beyond crossovers (Godzilla, Final Fantasy, ...) often reprint an existing card renamed to fit the
+ * theme, e.g. Dovin's Veto as "Shadowbringers". Oracle Cards (the bulk file above) shows only one
+ * printing per card and it's rarely the renamed one, so these come from a separate, much smaller,
+ * paginated search instead of downloading every printing just to catch a few hundred flavor names.
+ * Best-effort: a Scryfall hiccup here shouldn't fail the whole sync over a nice-to-have.
+ */
+async function fetchFlavorNames(): Promise<Map<string, Set<string>>> {
+  const byOracleId = new Map<string, Set<string>>()
+  let url: string | undefined = FLAVOR_NAME_SEARCH_URL
+  while (url) {
+    const page: ScryfallSearchResponse = await fetchJsonWithRetry<ScryfallSearchResponse>(url, { headers: SCRYFALL_HEADERS })
+    for (const card of page.data) {
+      if (!card.oracle_id || !card.flavor_name) continue
+      const names = byOracleId.get(card.oracle_id) ?? new Set<string>()
+      names.add(card.flavor_name)
+      byOracleId.set(card.oracle_id, names)
+    }
+    url = page.has_more ? page.next_page : undefined
+    if (url) await sleep(100) // courtesy delay between search pages, per Scryfall's rate-limit guidance
+  }
+  return byOracleId
+}
+
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   onProgress({ loaded: 0, total: 0 })
   const info = await fetchJson<{ jsonl_download_uri?: string }>(BULK_INFO_URL, 1, SCRYFALL_HEADERS)
   if (!info.jsonl_download_uri) throw new Error("Scryfall didn't say where its card data file is")
   const res = await fetch(info.jsonl_download_uri, { headers: SCRYFALL_HEADERS })
   if (!res.ok) throw new Error(`Request failed (${res.status}): ${info.jsonl_download_uri}`)
-  return readBulkCards(res, onProgress)
+  const cards = await readBulkCards(res, onProgress)
+
+  const flavorNames = await fetchFlavorNames().catch(() => new Map<string, Set<string>>())
+  if (flavorNames.size === 0) return cards
+  return cards.map((card) => {
+    const names = flavorNames.get(card.sourceId)
+    return names ? { ...card, flavorNames: [...names] } : card
+  })
 }
 
 /** Legendary creatures, and cards that say they can be your commander. (Legendary Vehicles/Spacecraft and Backgrounds aren't recognised.) */

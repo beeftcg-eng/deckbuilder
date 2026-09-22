@@ -63,6 +63,11 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
           {card.setCode} · {card.number}
           {card.price != null ? ` · ${formatPrice(card.price)}` : ''}
         </div>
+        {card.flavorNames && card.flavorNames.length > 0 && (
+          <div className="card-tile-meta text-dim" title={`Also printed as: ${card.flavorNames.join(', ')}`}>
+            aka {card.flavorNames.join(', ')}
+          </div>
+        )}
       </div>
       <div className="card-tile-controls">
         <button className="btn stepper-btn" disabled={disabled || quantity <= 0} onClick={() => onChange(Math.max(0, quantity - 1))}>

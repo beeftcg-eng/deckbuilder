@@ -136,7 +136,8 @@ export function CardBrowser() {
         q &&
         !c.name.toLowerCase().includes(q) &&
         !c.text?.toLowerCase().includes(q) &&
-        !c.subtypes.some((s) => s.toLowerCase().includes(q))
+        !c.subtypes.some((s) => s.toLowerCase().includes(q)) &&
+        !c.flavorNames?.some((n) => n.toLowerCase().includes(q))
       )
         return false
       return true

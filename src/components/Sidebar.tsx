@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useAppStore, useCardsById, useOrderedGames } from '../state/useAppStore'
+import { useAppStore, useCardsById, useOrderedGames, useVisibleGames } from '../state/useAppStore'
 import { ImportDeckModal } from './ImportDeckModal'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
 import { THEMES, getTheme } from '../shared/themes'
@@ -44,7 +44,11 @@ export function Sidebar() {
   const showMyDecks = useAppStore((s) => s.showMyDecks)
   const setShowMyDecks = useAppStore((s) => s.setShowMyDecks)
   const orderedGames = useOrderedGames()
+  const visibleGames = useVisibleGames()
+  const hiddenGames = useAppStore((s) => s.settings.hiddenGames)
   const setGameOrder = useAppStore((s) => s.setGameOrder)
+  const setGameHidden = useAppStore((s) => s.setGameHidden)
+  const [showGameManage, setShowGameManage] = useState(false)
   const [dragGameId, setDragGameId] = useState<GameId | null>(null)
   const [gameDrop, setGameDrop] = useState<{ id: GameId; position: 'before' | 'after' } | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
@@ -149,7 +153,7 @@ export function Sidebar() {
       </button>
 
       <nav className="game-tabs">
-        {orderedGames.map((adapter) => (
+        {visibleGames.map((adapter) => (
           <button
             key={adapter.id}
             className={`game-tab ${adapter.id === currentGameId ? 'active' : ''} ${dragGameId === adapter.id ? 'dragging' : ''} ${gameDrop?.id === adapter.id ? `drop-${gameDrop.position}` : ''}`}
@@ -193,6 +197,30 @@ export function Sidebar() {
           </button>
         ))}
       </nav>
+
+      <button className="link-btn game-manage-toggle" onClick={() => setShowGameManage(!showGameManage)}>
+        {showGameManage ? 'Done' : 'Manage games…'}
+      </button>
+
+      {showGameManage && (
+        <div className="game-manage">
+          {orderedGames.map((adapter) => {
+            const hidden = hiddenGames?.includes(adapter.id) ?? false
+            const isLastVisible = !hidden && visibleGames.length <= 1
+            return (
+              <label key={adapter.id} className="game-manage-row" title={isLastVisible ? 'At least one game must stay visible' : undefined}>
+                <input
+                  type="checkbox"
+                  checked={!hidden}
+                  disabled={isLastVisible}
+                  onChange={(e) => setGameHidden(adapter.id, !e.target.checked)}
+                />
+                {adapter.name}
+              </label>
+            )
+          })}
+        </div>
+      )}
 
       <div className="sync-box">
         <div className="sync-status">

@@ -51,6 +51,9 @@ export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => 
             <div className="text-dim">Color identity: {card.colorIdentity.length > 0 ? card.colorIdentity.join(', ') : 'Colorless'}</div>
           )}
           {card.cost != null && <div className="text-dim">Cost: {card.cost}</div>}
+          {card.flavorNames && card.flavorNames.length > 0 && (
+            <div className="text-dim">Also printed as: {card.flavorNames.join(', ')}</div>
+          )}
           {card.price != null && <div className="text-dim">Market price ≈ {formatPrice(card.price)}</div>}
           <div className="detail-owned">
             <span>Owned (this printing)</span>
