@@ -82,6 +82,67 @@ describe('parseDecklistText', () => {
       expect(parsed.zones.main).toEqual([{ cardId: sideCard.id, quantity: 1 }])
       expect(parsed.zones.sideboard).toEqual([{ cardId: sideCard.id, quantity: 2 }])
     })
+
+    // Rift Atlas exports (and riftcodex's own card data is itself inconsistent about this) write a
+    // Legend/Champion's title with a comma ("Irelia, Blade Dancer") even for cards whose real name
+    // uses a dash instead ("Irelia - Blade Dancer") - a real bug report reproduced these three
+    // issues together from one real Rift Atlas export.
+    const dashLegend = makeCard('riftbound', { name: 'Irelia - Blade Dancer', sourceId: 'unl-300-219', category: 'Legend' })
+    const calmRune = makeCard('riftbound', { name: 'Calm Rune', sourceId: 'unl-301-219', category: 'Rune', subtypes: ['Basic'] })
+    const chaosRune = makeCard('riftbound', { name: 'Chaos Rune', sourceId: 'unl-302-219', category: 'Rune', subtypes: ['Basic'] })
+    const runeCatalog = catalogOf([dashLegend, champion, unit, sideCard, bf1, bf2, calmRune, chaosRune])
+
+    it('matches a Legend/Champion whose title uses " - " even when the list writes it with ", ", and vice versa', () => {
+      const text = 'Legend:\n1 Irelia, Blade Dancer'
+      const parsed = parseDecklistText(text, riftboundAdapter, runeCatalog)
+      expect(parsed.zones.legend).toEqual([{ cardId: dashLegend.id, quantity: 1 }])
+      expect(parsed.unmatched).toEqual([])
+    })
+
+    it('recognizes "<Domain> Rune" as the Rune Deck pick, not the literal "Calm Rune"/"Chaos Rune" cards that also exist in the catalog', () => {
+      const text = 'Runes:\n6 Calm Rune\n6 Chaos Rune'
+      const parsed = parseDecklistText(text, riftboundAdapter, runeCatalog)
+      expect(parsed.freeTextZones.runes).toEqual([
+        { label: 'Calm', quantity: 6 },
+        { label: 'Chaos', quantity: 6 },
+      ])
+      expect(parsed.zones.main ?? []).toEqual([]) // not misfiled as real cards into Main Deck
+      expect(parsed.unmatched).toEqual([])
+    })
+
+    it('parses a full real-world Rift Atlas export correctly: Legend, Champion, Battlefields, Runes and Sideboard each in their own place', () => {
+      const text = [
+        'Legend:',
+        '1 Irelia, Blade Dancer',
+        '',
+        'Champion:',
+        '1 Vi, Champion',
+        '',
+        'MainDeck:',
+        '3 Brawler',
+        '',
+        'Battlefields:',
+        '1 Arena One',
+        '',
+        'Runes:',
+        '6 Calm Rune',
+        '6 Chaos Rune',
+        '',
+        'Sideboard:',
+        '2 Side Spell',
+      ].join('\n')
+      const parsed = parseDecklistText(text, riftboundAdapter, runeCatalog)
+      expect(parsed.zones.legend).toEqual([{ cardId: dashLegend.id, quantity: 1 }])
+      expect(parsed.zones.main).toEqual(expect.arrayContaining([{ cardId: champion.id, quantity: 1 }, { cardId: unit.id, quantity: 3 }]))
+      expect(parsed.zones.main).toHaveLength(2) // no runes bled into it
+      expect(parsed.zones.battlefields).toEqual([{ cardId: bf1.id, quantity: 1 }])
+      expect(parsed.zones.sideboard).toEqual([{ cardId: sideCard.id, quantity: 2 }])
+      expect(parsed.freeTextZones.runes).toEqual([
+        { label: 'Calm', quantity: 6 },
+        { label: 'Chaos', quantity: 6 },
+      ])
+      expect(parsed.unmatched).toEqual([])
+    })
   })
 
   describe('Pokémon', () => {

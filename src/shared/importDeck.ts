@@ -68,12 +68,41 @@ function stripPrintingSuffixes(text: string): string {
   return current
 }
 
+// Riftbound's own card data (riftcodex) isn't consistent about how a Legend/Champion's title is
+// separated from its base name - some cards are "Name - Title" ("Pyke - Returned"), others are
+// "Name, Title" ("Irelia, Fervent") - and Rift Atlas's export always writes the comma form, which
+// then fails to match a card only listed under the dash form. Tried both ways since a real card
+// name legitimately containing a comma or a dash is exceedingly unlikely to also happen to match
+// a different real card once swapped, so this only ever helps, never mismatches.
+function swapNameSeparator(text: string): string | null {
+  if (text.includes(' - ')) return text.replace(' - ', ', ')
+  if (text.includes(', ')) return text.replace(', ', ' - ')
+  return null
+}
+
 function resolveCard(text: string, index: CardIndex, stripSuffix = false, prefs: PrintingPrefs = {}): Card | undefined {
   const direct = resolveCardExact(text, index, prefs)
-  if (direct || !stripSuffix) return direct
+  if (direct) return direct
+  const swapped = swapNameSeparator(text)
+  const bySwap = swapped ? resolveCardExact(swapped, index, prefs) : undefined
+  if (bySwap || !stripSuffix) return bySwap
   // Only after the whole line failed to match, so a real name that ends in parentheses ("Boss's Orders (Cyrus)") is safe.
   const stripped = stripPrintingSuffixes(text)
   return stripped !== text ? resolveCardExact(stripped, index, prefs) : undefined
+}
+
+// A free-text pick's name sometimes also exists as a real catalog card in its own right (Riftbound's
+// "Calm Rune" is both a Rune Deck pick and a literal card named "Calm Rune"), so a line under a
+// freeText zone's heading needs to recognize "<option> <word...>" ("Calm Rune"), not just the bare
+// option ("Calm") - otherwise it falls through to card-name matching, finds the real card, and the
+// pick lands in whichever zone that card normally belongs in instead of the freeText zone. Still a
+// whole-word match ("Calmness" doesn't count), and still exact-match first.
+function matchFreeTextOption(options: readonly string[], rest: string): string | undefined {
+  const wanted = normalizeName(rest)
+  return options.find((o) => {
+    const n = normalizeName(o)
+    return wanted === n || wanted.startsWith(`${n} `)
+  })
 }
 
 function resolveCardExact(text: string, index: CardIndex, prefs: PrintingPrefs): Card | undefined {
@@ -264,7 +293,7 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
       const rest = cardLine[2]
 
       if (!tagZone && currentZone?.freeText) {
-        const option = currentZone.freeText.options.find((o) => normalizeName(o) === normalizeName(rest))
+        const option = matchFreeTextOption(currentZone.freeText.options, rest)
         if (option) {
           addFreeText(currentZone.id, option, quantity)
           continue
@@ -278,8 +307,8 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
       }
 
       // Not a card — maybe a rune/resource line that arrived without its header.
-      const freeZone = zoneRules.find((z) => z.freeText?.options.some((o) => normalizeName(o) === normalizeName(rest)))
-      const option = freeZone?.freeText?.options.find((o) => normalizeName(o) === normalizeName(rest))
+      const freeZone = zoneRules.find((z) => z.freeText && matchFreeTextOption(z.freeText.options, rest))
+      const option = freeZone?.freeText ? matchFreeTextOption(freeZone.freeText.options, rest) : undefined
       if (freeZone && option) addFreeText(freeZone.id, option, quantity)
       else result.unmatched.push(rawLine)
       continue
