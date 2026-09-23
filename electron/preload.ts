@@ -8,6 +8,8 @@ import type {
   Deck,
   Format,
   GameId,
+  PairingsConfig,
+  PairingsDeckRecord,
   PawmodoroConfig,
   SyncProgress,
   TradeListing,
@@ -95,6 +97,13 @@ const api = {
         ipcRenderer.removeListener('deckbuilderSync:pulled', listener)
       }
     },
+  },
+  // Your tournament results from Pairings, a separate app and account (see shared/pairingsRecord.ts).
+  pairings: {
+    getConfig: (): Promise<PairingsConfig> => ipcRenderer.invoke('pairings:getConfig'),
+    connect: (email: string, password: string): Promise<PairingsConfig> => ipcRenderer.invoke('pairings:connect', email, password),
+    disconnect: (): Promise<PairingsConfig> => ipcRenderer.invoke('pairings:disconnect'),
+    deckRecords: (): Promise<PairingsDeckRecord[]> => ipcRenderer.invoke('pairings:deckRecords'),
   },
   backup: {
     export: (): Promise<boolean> => ipcRenderer.invoke('backup:export'),

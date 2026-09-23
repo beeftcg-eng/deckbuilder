@@ -2001,3 +2001,61 @@
     border-radius: 0;
   }
 }
+
+/* This deck's Pairings tournament record, under the deck view header (PairingsRecordStrip). */
+.pr-strip {
+  padding: 6px 18px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-strong);
+  font-size: 13px;
+}
+
+.pr-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pr-row > :first-child {
+  margin-right: auto;
+}
+
+.pr-tools {
+  display: flex;
+  gap: 6px;
+}
+
+.pr-total {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 2px 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pr-connect {
+  font-size: 12px;
+}
+
+.pr-list {
+  list-style: none;
+  margin: 6px 0 2px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.pr-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+
+.pr-event {
+  font-weight: 600;
+}

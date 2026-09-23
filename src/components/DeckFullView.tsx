@@ -9,6 +9,7 @@ import { DECK_VIEW_MODES, DECK_VIEW_MODE_LABELS, buildDeckView, textBlocks, type
 import type { Card, Deck, Format } from '../shared/types'
 import { CardDetailModal } from './CardDetailModal'
 import { DeckLockButton } from './DeckLockButton'
+import { PairingsRecordStrip } from './PairingsRecordStrip'
 
 interface Props {
   deck: Deck
@@ -157,6 +158,8 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
           </button>
         </div>
       </div>
+
+      <PairingsRecordStrip deck={deck} />
 
       <div className="fv-body">
         {sections.length === 0 ? (

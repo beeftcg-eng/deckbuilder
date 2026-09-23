@@ -130,6 +130,20 @@ export interface Deck {
   freeTextZones: Record<string, DeckFreeTextEntry[]>
   createdAt: string
   updatedAt: string
+  /**
+   * A readable digest of the deck (leader/legend name, colors, card count, format label), refreshed
+   * on every save while the game's cards are loaded - see deckSummary.ts. Card ids alone mean
+   * nothing outside this app, so this is what Pairings shows for a deck it imported from here.
+   */
+  summary?: DeckSummary
+}
+
+export interface DeckSummary {
+  /** The identity card(s) by name: Riftbound's Legend, One Piece's Leader, Magic's Commander(s). */
+  leader: string | null
+  colors: string[]
+  cardCount: number
+  formatLabel: string | null
 }
 
 /**
@@ -227,6 +241,32 @@ export interface PawmodoroConfig {
   anonKey: string
   email: string
   connected: boolean
+}
+
+/** The Pairings (tournament tracker) login, which is a separate account on a separate project from Pawmodoro. */
+export interface PairingsConfig {
+  email: string
+  connected: boolean
+}
+
+/** One event you logged with a deck in Pairings - see pairingsRecord.ts. */
+export interface PairingsResult {
+  event: string
+  date: string
+  game: string
+  format: string
+  store: string
+  placement: string
+  /** As typed in Pairings, e.g. "3-1" or "3-1-1" (wins-losses-draws). */
+  record: string
+  inProgress: boolean
+  matches: { opponent: string; outcome: 'W' | 'L' | 'D' | '' }[]
+}
+
+/** Every Pairings result logged with the Pairings deck(s) linked to one Brewhouse deck. */
+export interface PairingsDeckRecord {
+  brewhouseDeckId: string
+  results: PairingsResult[]
 }
 
 /** Whether your collection/wants are visible to other connected accounts, and the name shown while browsing. */

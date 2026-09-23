@@ -57,3 +57,8 @@ export function syncStateFile(): string {
 export async function ensureDataDirs(): Promise<void> {
   await mkdir(cardsCacheDir(), { recursive: true })
 }
+
+/** The Pairings login (a separate account from Pawmodoro's). Not part of backups, like pawmodoro-sync.json. */
+export function pairingsConfigFile(): string {
+  return join(userDataDir(), 'pairings-account.json')
+}

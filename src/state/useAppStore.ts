@@ -12,6 +12,8 @@ import type {
   DeckViewMode,
   Format,
   GameId,
+  PairingsConfig,
+  PairingsResult,
   PawmodoroConfig,
   SyncProgress,
   TradeMatch,
@@ -28,6 +30,7 @@ import { currentDeckFor } from '../shared/decks'
 import { applyVisibleOrder, reorderByDrop, type DeckSortMode } from '../shared/deckOrder'
 import { orderGames } from '../shared/gameOrder'
 import { applyTheme } from '../lib/theme'
+import { withSummary } from '../shared/deckSummary'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 
 interface Catalog {
@@ -190,6 +193,17 @@ interface AppState {
   disconnectPawmodoro: () => Promise<void>
   pushWishlistToPawmodoro: (items: { entryId: string; text: string }[]) => Promise<{ pushedCount: number; failedCount: number }>
 
+  /** The Pairings (tournament tracker) login - a separate account from Pawmodoro's. */
+  pairingsConfig: PairingsConfig
+  /** Results logged in Pairings, by Brewhouse deck id; null until fetched. */
+  pairingsRecords: Record<string, PairingsResult[]> | null
+  pairingsLoading: boolean
+  pairingsError: string | null
+  loadPairingsConfig: () => Promise<void>
+  connectPairings: (email: string, password: string) => Promise<void>
+  disconnectPairings: () => Promise<void>
+  loadPairingsRecords: () => Promise<void>
+
   showTrade: boolean
   setShowTrade: (show: boolean) => void
   /** Card ids from `collection` currently marked "for trade" — separate from quantity, see electron/lib/paths.ts forTradeFile. */
@@ -229,11 +243,21 @@ export const useAppStore = create<AppState>((set, get) => {
    * copied back — replacing the whole deck here could clobber a newer edit
    * that was applied while this save was in flight.
    */
+  /** The deck with its readable summary refreshed, when its game's cards are loaded (see deckSummary.ts). */
+  function summarized(deck: Deck): Deck {
+    const catalog = get().catalogs[deck.gameId]
+    if (!catalog) return deck
+    const formats = get().formats[deck.gameId] ?? getAdapter(deck.gameId).defaultFormats
+    return withSummary(deck, catalog.byId, formats.find((f) => f.id === deck.formatId)?.label ?? null)
+  }
+
   async function persistDeck(deck: Deck, options?: { keepUpdatedAt?: boolean }): Promise<void> {
     try {
-      const saved = await window.api.decks.save(deck, options)
+      const saved = await window.api.decks.save(summarized(deck), options)
       set((s) => ({
-        decks: s.decks.map((d) => (d.id === saved.id ? { ...d, createdAt: saved.createdAt, updatedAt: saved.updatedAt } : d)),
+        decks: s.decks.map((d) =>
+          d.id === saved.id ? { ...d, createdAt: saved.createdAt, updatedAt: saved.updatedAt, ...(saved.summary ? { summary: saved.summary } : {}) } : d,
+        ),
       }))
     } catch (err) {
       set({ error: `Couldn't save "${deck.name}": ${errorMessage(err)}` })
@@ -245,7 +269,7 @@ export const useAppStore = create<AppState>((set, get) => {
   }
 
   async function addAndSelectDeck(deck: Deck, undoLabel: string, viewing = false): Promise<void> {
-    const saved = await window.api.decks.save(deck)
+    const saved = await window.api.decks.save(summarized(deck))
     set((s) => ({
       decks: [...s.decks, saved],
       currentDeckId: saved.id,
@@ -286,6 +310,10 @@ export const useAppStore = create<AppState>((set, get) => {
     collection: {},
     pawmodoroConfig: { url: DEFAULT_PAWMODORO_URL, anonKey: DEFAULT_PAWMODORO_ANON_KEY, email: '', connected: false },
     pushingWishlist: false,
+    pairingsConfig: { email: '', connected: false },
+    pairingsRecords: null,
+    pairingsLoading: false,
+    pairingsError: null,
     forTrade: new Set(),
     tradeSyncing: false,
     browseTraders: [],
@@ -297,8 +325,11 @@ export const useAppStore = create<AppState>((set, get) => {
         set({ decks, settings })
         applyTheme(settings.theme)
 
-        // Reopen where you left off: the last deck (which also implies its game), else the last game.
-        const lastDeck = decks.find((d) => d.id === settings.lastDeckId)
+        // Open the deck a link names (Pairings' "Open in Brewhouse" goes to the phone app with ?deck=<id>),
+        // else reopen where you left off: the last deck (which also implies its game), else the last game.
+        const linkedDeckId = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('deck')
+        if (linkedDeckId) history.replaceState(null, '', location.pathname + location.hash)
+        const lastDeck = decks.find((d) => d.id === linkedDeckId) ?? decks.find((d) => d.id === settings.lastDeckId)
         if (lastDeck) set({ currentDeckId: lastDeck.id, currentGameId: lastDeck.gameId, deckViewing: true })
         else if (settings.lastGameId) set({ currentGameId: settings.lastGameId })
 
@@ -331,6 +362,13 @@ export const useAppStore = create<AppState>((set, get) => {
       const cards = await window.api.cards.load(gameId)
       const byId = new Map(cards.map((c) => [c.id, c]))
       set((s) => ({ catalogs: { ...s.catalogs, [gameId]: { cards, byId } } }))
+      // Decks saved before summaries existed get one now, without counting as an edit. Each deck is
+      // read from the store right before its save is issued, so this never saves over a newer edit.
+      for (const { id } of get().decks.filter((d) => d.gameId === gameId && !d.summary)) {
+        const deck = get().decks.find((d) => d.id === id)
+        if (!deck || deck.summary || !summarized(deck).summary) continue
+        await persistDeck(deck, { keepUpdatedAt: true })
+      }
     },
 
     syncCatalog: async (gameId) => {
@@ -703,6 +741,36 @@ export const useAppStore = create<AppState>((set, get) => {
     disconnectPawmodoro: async () => {
       const pawmodoroConfig = await window.api.pawmodoro.disconnect()
       set({ pawmodoroConfig })
+    },
+
+    loadPairingsConfig: async () => {
+      set({ pairingsConfig: await window.api.pairings.getConfig() })
+    },
+
+    connectPairings: async (email, password) => {
+      const pairingsConfig = await window.api.pairings.connect(email, password)
+      set({ pairingsConfig, pairingsRecords: null, pairingsError: null })
+      await get().loadPairingsRecords()
+    },
+
+    disconnectPairings: async () => {
+      const pairingsConfig = await window.api.pairings.disconnect()
+      set({ pairingsConfig, pairingsRecords: null, pairingsError: null })
+    },
+
+    loadPairingsRecords: async () => {
+      if (!get().pairingsConfig.connected || get().pairingsLoading) return
+      set({ pairingsLoading: true, pairingsError: null })
+      try {
+        const records = await window.api.pairings.deckRecords()
+        const byDeck: Record<string, PairingsResult[]> = {}
+        for (const r of records) byDeck[r.brewhouseDeckId] = [...(byDeck[r.brewhouseDeckId] ?? []), ...r.results]
+        set({ pairingsRecords: byDeck })
+      } catch (err) {
+        set({ pairingsError: errorMessage(err) })
+      } finally {
+        set({ pairingsLoading: false })
+      }
     },
 
     pushWishlistToPawmodoro: async (items) => {

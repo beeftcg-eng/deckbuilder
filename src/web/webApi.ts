@@ -18,6 +18,8 @@ import type {
   Deck,
   Format,
   GameId,
+  PairingsConfig,
+  PairingsDeckRecord,
   PawmodoroConfig,
   SyncProgress,
   TradeListing,
@@ -37,6 +39,8 @@ import { callRpc, passwordLogin, refreshAccessToken, signUp as clientSignUp, typ
 import { SyncEngine } from '../shared/sync/engine'
 import type { PulledState } from '../shared/sync/ops'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
+import { PAIRINGS_ANON_KEY, PAIRINGS_URL } from '../shared/pairingsDefaults'
+import { fetchDeckRecords } from '../shared/pairingsRecord'
 import { idbGet, idbGetAll, idbSet, idbDelete, idbReplaceAll } from './idb'
 import { WebSyncStore } from './webSyncStore'
 
@@ -603,6 +607,40 @@ const patchNotes = {
   },
 }
 
+// ---------- pairings (tournament results; mirrors electron/ipc/pairings.ts) ----------
+
+// A different account from Pawmodoro's, so it gets its own key in the 'sync' store.
+const PAIRINGS_CONFIG_KEY = 'pairingsConfig'
+
+async function readPairingsConfig(): Promise<SyncConfig | null> {
+  return (await idbGet<SyncConfig | null>('sync', PAIRINGS_CONFIG_KEY)) ?? null
+}
+
+function toPairingsPublicConfig(config: SyncConfig | null): PairingsConfig {
+  return { email: config?.email ?? '', connected: !!config?.refreshToken }
+}
+
+const pairings = {
+  getConfig: async (): Promise<PairingsConfig> => toPairingsPublicConfig(await readPairingsConfig()),
+  connect: async (email: string, password: string): Promise<PairingsConfig> => {
+    const { refreshToken } = await passwordLogin(PAIRINGS_URL, PAIRINGS_ANON_KEY, email, password)
+    const config: SyncConfig = { url: PAIRINGS_URL, anonKey: PAIRINGS_ANON_KEY, email, refreshToken }
+    await idbSet('sync', PAIRINGS_CONFIG_KEY, config)
+    return toPairingsPublicConfig(config)
+  },
+  disconnect: async (): Promise<PairingsConfig> => {
+    await idbSet('sync', PAIRINGS_CONFIG_KEY, null)
+    return toPairingsPublicConfig(null)
+  },
+  deckRecords: async (): Promise<PairingsDeckRecord[]> => {
+    const config = await readPairingsConfig()
+    if (!config) throw new Error('Not connected to Pairings')
+    const { records, refreshToken } = await fetchDeckRecords(config)
+    if (refreshToken !== config.refreshToken) await idbSet('sync', PAIRINGS_CONFIG_KEY, { ...config, refreshToken })
+    return records
+  },
+}
+
 const clipboardApi = {
   writeText: async (text: string): Promise<void> => {
     await navigator.clipboard.writeText(text)
@@ -620,6 +658,7 @@ export const webApi = {
   settings: settingsApi,
   wishlist,
   pawmodoro,
+  pairings,
   backup,
   updater,
   exportPaste,

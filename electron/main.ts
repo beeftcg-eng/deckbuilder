@@ -12,6 +12,7 @@ import { ImageFetcher } from './lib/imageCache'
 import { userDataDir } from './lib/paths'
 import { registerWishlistIpc } from './ipc/wishlist'
 import { registerPawmodoroIpc } from './ipc/pawmodoro'
+import { registerPairingsIpc } from './ipc/pairings'
 import { registerBackupIpc } from './ipc/backup'
 import { registerCollectionIpc } from './ipc/collection'
 import { registerSettingsIpc } from './ipc/settings'
@@ -75,6 +76,7 @@ const imageFetcher = new ImageFetcher({ cacheDir: join(userDataDir(), 'image-cac
 registerImagesIpc(imageFetcher)
 registerWishlistIpc()
 registerPawmodoroIpc()
+registerPairingsIpc()
 registerBackupIpc()
 registerCollectionIpc()
 registerSettingsIpc()
