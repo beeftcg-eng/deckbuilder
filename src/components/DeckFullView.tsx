@@ -9,6 +9,7 @@ import { DECK_VIEW_MODES, DECK_VIEW_MODE_LABELS, buildDeckView, textBlocks, type
 import type { Card, Deck, Format } from '../shared/types'
 import { CardDetailModal } from './CardDetailModal'
 import { DeckLockButton } from './DeckLockButton'
+import { ExportModal } from './ExportModal'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
 
 interface Props {
@@ -32,6 +33,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
   const [detail, setDetail] = useState<Card | null>(null)
   const [osFullscreen, setOsFullscreen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showExport, setShowExport] = useState(false)
 
   const zones = useMemo(() => rulesForFormat(adapter, deck.formatId), [adapter, deck.formatId])
   const sections = useMemo(() => buildDeckView(deck, zones, cardsById), [deck, zones, cardsById])
@@ -149,6 +151,11 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
           <button className="btn" onClick={handleCopy}>
             {copied ? 'Copied!' : 'Copy list'}
           </button>
+          {format && (
+            <button className="btn" onClick={() => setShowExport(true)} title="Save as text or a picture, or get a shareable link">
+              Export
+            </button>
+          )}
           <button className="btn" onClick={toggleOsFullscreen} title="Hide the window frame and fill the screen (Esc to leave)">
             {osFullscreen ? 'Exit full screen' : '⛶ Full screen'}
           </button>
@@ -218,6 +225,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
       </div>
 
       {detail && <CardDetailModal card={detail} onClose={() => setDetail(null)} />}
+      {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}
     </div>
   )
 }
