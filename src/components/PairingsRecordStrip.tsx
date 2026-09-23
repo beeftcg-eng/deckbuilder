@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
-import { summarizeRecord } from '../shared/pairingsRecord'
+import { summarizeRecord, type Matchup } from '../shared/pairingsRecord'
 import type { Deck } from '../shared/types'
 import { PairingsAccountModal } from './PairingsAccountModal'
 
@@ -10,20 +10,12 @@ export function PairingsRecordStrip({ deck }: { deck: Deck }) {
   const records = useAppStore((s) => s.pairingsRecords)
   const loading = useAppStore((s) => s.pairingsLoading)
   const error = useAppStore((s) => s.pairingsError)
-  const loadConfig = useAppStore((s) => s.loadPairingsConfig)
   const loadRecords = useAppStore((s) => s.loadPairingsRecords)
   const [showAccount, setShowAccount] = useState(false)
   const [open, setOpen] = useState(false)
 
-  useEffect(() => {
-    void loadConfig()
-  }, [loadConfig])
-
-  // Fetched once per session (and on ↻), not per deck: one call returns every linked deck.
-  useEffect(() => {
-    if (config.connected && records === null && !error) void loadRecords()
-  }, [config.connected, records, error, loadRecords])
-
+  // The store fetches results at startup, on connect, on ↻ and when you come back to the window:
+  // one call covers every linked deck, so nothing is fetched per deck here.
   const results = records?.[deck.id]
   const summary = useMemo(() => (results?.length ? summarizeRecord(results) : null), [results])
 
@@ -74,6 +66,22 @@ export function PairingsRecordStrip({ deck }: { deck: Deck }) {
           </button>
         </span>
       </div>
+      {open && summary && (summary.bestAgainst.length > 0 || summary.toughestAgainst.length > 0) && (
+        <div className="pr-matchups">
+          {summary.bestAgainst.length > 0 && (
+            <span>
+              <span className="text-dim">Best against </span>
+              {summary.bestAgainst.map(matchupLabel).join(', ')}
+            </span>
+          )}
+          {summary.toughestAgainst.length > 0 && (
+            <span>
+              <span className="text-dim">Toughest </span>
+              {summary.toughestAgainst.map(matchupLabel).join(', ')}
+            </span>
+          )}
+        </div>
+      )}
       {open && summary && (
         <ul className="pr-list">
           {summary.results.map((r, i) => (
@@ -91,4 +99,8 @@ export function PairingsRecordStrip({ deck }: { deck: Deck }) {
       {account}
     </div>
   )
+}
+
+function matchupLabel(m: Matchup): string {
+  return `${m.opponent} ${m.wins}-${m.losses}${m.draws ? `-${m.draws}` : ''}`
 }

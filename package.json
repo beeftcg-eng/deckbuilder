@@ -1,7 +1,8 @@
 {
   "name": "deckbuilder",
   "private": true,
-  "version": "0.13.1",
+  "version": "0.14.0",
+  "desktopName": "Deckbuilder.desktop",
   "description": "A multi-game TCG deckbuilder with legality checking and export (Riftbound, One Piece, Pokemon, Magic: The Gathering)",
   "author": "beeftcg",
   "type": "module",
@@ -30,7 +31,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
-    "electron": "^44.3.0",
+    "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
@@ -67,7 +68,8 @@
       "category": "Game",
       "icon": "build/icon.png",
       "executableName": "deckbuilder",
-      "artifactName": "Deckbuilder.${ext}"
+      "artifactName": "Deckbuilder.${ext}",
+      "syncDesktopName": true
     },
     "mac": {
       "target": [

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseDeckRecords, parseRecord, summarizeRecord } from './pairingsRecord'
+import { matchupsOf, parseDeckRecords, parseRecord, summarizeRecord } from './pairingsRecord'
 import type { PairingsResult } from './types'
 
 function result(overrides: Partial<PairingsResult>): PairingsResult {
@@ -55,5 +55,32 @@ describe('parseDeckRecords', () => {
     expect(out[0].results[1]).toMatchObject({ event: '', record: '' })
     expect(parseDeckRecords(null)).toEqual([])
     expect(parseDeckRecords({ decks: 'x' })).toEqual([])
+  })
+})
+
+describe('matchups', () => {
+  const m = (opponent: string, outcome: 'W' | 'L' | 'D' | '') => ({ opponent, outcome })
+  const results = [
+    result({ matches: [m('Jinx', 'W'), m('Viktor', 'L'), m('jinx ', 'W'), m('', 'W'), m('Ahri', '')] }),
+    result({ matches: [m('Viktor', 'L'), m('Jinx', 'L'), m('Viktor', 'W'), m('Lux', 'W'), m('Ekko', 'D')] }),
+  ]
+
+  it('groups opponents ignoring case and spaces, and skips blank names or outcomes', () => {
+    expect(matchupsOf(results)).toEqual([
+      { opponent: 'Jinx', wins: 2, losses: 1, draws: 0, games: 3 },
+      { opponent: 'Viktor', wins: 1, losses: 2, draws: 0, games: 3 },
+      { opponent: 'Ekko', wins: 0, losses: 0, draws: 1, games: 1 },
+      { opponent: 'Lux', wins: 1, losses: 0, draws: 0, games: 1 },
+    ])
+  })
+
+  it('ranks best and toughest only among opponents faced at least twice', () => {
+    const s = summarizeRecord(results)
+    expect(s.bestAgainst.map((x) => x.opponent)).toEqual(['Jinx', 'Viktor'])
+    expect(s.toughestAgainst.map((x) => x.opponent)).toEqual(['Viktor', 'Jinx'])
+  })
+
+  it('is empty when no matches were logged', () => {
+    expect(summarizeRecord([result({ record: '3-0' })])).toMatchObject({ matchups: [], bestAgainst: [], toughestAgainst: [] })
   })
 })

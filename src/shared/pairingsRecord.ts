@@ -27,6 +27,41 @@ export interface RecordSummary {
   events: number
   /** Newest first. */
   results: PairingsResult[]
+  /** Every opponent faced in logged matches, most-played first. */
+  matchups: Matchup[]
+  /** Opponents you beat the most / lose to the most, among those faced at least twice (like Pairings' own stats). */
+  bestAgainst: Matchup[]
+  toughestAgainst: Matchup[]
+}
+
+export interface Matchup {
+  opponent: string
+  wins: number
+  losses: number
+  draws: number
+  games: number
+}
+
+/** How many games against one opponent before it counts as a matchup, so one fluke doesn't top a list. */
+const MIN_MATCHUP_GAMES = 2
+
+/** Opponents are typed by hand, so "jinx" and "Jinx " are the same opponent; the first spelling seen is shown. */
+export function matchupsOf(results: PairingsResult[]): Matchup[] {
+  const byKey = new Map<string, Matchup>()
+  for (const r of results) {
+    for (const m of r.matches) {
+      const name = m.opponent.trim()
+      if (!name || !m.outcome) continue
+      const key = name.toLowerCase()
+      const entry = byKey.get(key) ?? { opponent: name, wins: 0, losses: 0, draws: 0, games: 0 }
+      if (m.outcome === 'W') entry.wins++
+      else if (m.outcome === 'L') entry.losses++
+      else entry.draws++
+      entry.games++
+      byKey.set(key, entry)
+    }
+  }
+  return [...byKey.values()].sort((a, b) => b.games - a.games || a.opponent.localeCompare(b.opponent))
 }
 
 export function summarizeRecord(results: PairingsResult[]): RecordSummary {
@@ -41,6 +76,9 @@ export function summarizeRecord(results: PairingsResult[]): RecordSummary {
     draws += rec.d
   }
   const decided = wins + losses
+  const matchups = matchupsOf(results)
+  const eligible = matchups.filter((m) => m.games >= MIN_MATCHUP_GAMES)
+  const rate = (m: Matchup) => (m.wins + m.losses > 0 ? m.wins / (m.wins + m.losses) : 0)
   return {
     wins,
     losses,
@@ -48,6 +86,9 @@ export function summarizeRecord(results: PairingsResult[]): RecordSummary {
     winRate: decided > 0 ? Math.round((wins / decided) * 100) : null,
     events: results.length,
     results: [...results].sort((a, b) => (b.date || '').localeCompare(a.date || '')),
+    matchups,
+    bestAgainst: eligible.filter((m) => m.wins > 0).sort((a, b) => b.wins - a.wins || rate(b) - rate(a)).slice(0, 3),
+    toughestAgainst: eligible.filter((m) => m.losses > 0).sort((a, b) => b.losses - a.losses || rate(a) - rate(b)).slice(0, 3),
   }
 }
 

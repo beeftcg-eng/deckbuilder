@@ -202,7 +202,8 @@ interface AppState {
   loadPairingsConfig: () => Promise<void>
   connectPairings: (email: string, password: string) => Promise<void>
   disconnectPairings: () => Promise<void>
-  loadPairingsRecords: () => Promise<void>
+  /** Fetches your Pairings results. `ifOlderThanMs` skips it when the last fetch is more recent than that. */
+  loadPairingsRecords: (options?: { ifOlderThanMs?: number }) => Promise<void>
 
   showTrade: boolean
   setShowTrade: (show: boolean) => void
@@ -243,6 +244,9 @@ export const useAppStore = create<AppState>((set, get) => {
    * copied back — replacing the whole deck here could clobber a newer edit
    * that was applied while this save was in flight.
    */
+  /** When Pairings results were last fetched (ms), so coming back to the window doesn't refetch every time. */
+  let pairingsFetchedAt = 0
+
   /** The deck with its readable summary refreshed, when its game's cards are loaded (see deckSummary.ts). */
   function summarized(deck: Deck): Deck {
     const catalog = get().catalogs[deck.gameId]
@@ -341,6 +345,18 @@ export const useAppStore = create<AppState>((set, get) => {
           ...GAME_LIST.map((adapter) => get().loadMeta(adapter.id)),
           ...GAME_LIST.map((adapter) => get().loadFormats(adapter.id)),
         ])
+
+        // Pairings results: fetched once in the background, then again when you come back to the
+        // window (a result logged in Pairings meanwhile shows up), at most once a minute.
+        void get()
+          .loadPairingsConfig()
+          .then(() => get().loadPairingsRecords())
+          .catch(() => undefined)
+        const refreshPairings = () => {
+          if (document.visibilityState === 'visible') void get().loadPairingsRecords({ ifOlderThanMs: 60_000 })
+        }
+        window.addEventListener('focus', refreshPairings)
+        document.addEventListener('visibilitychange', refreshPairings)
       } catch (err) {
         set({ error: `Couldn't load your data: ${errorMessage(err)}` })
       }
@@ -758,9 +774,11 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ pairingsConfig, pairingsRecords: null, pairingsError: null })
     },
 
-    loadPairingsRecords: async () => {
+    loadPairingsRecords: async (options) => {
       if (!get().pairingsConfig.connected || get().pairingsLoading) return
+      if (options?.ifOlderThanMs != null && Date.now() - pairingsFetchedAt < options.ifOlderThanMs) return
       set({ pairingsLoading: true, pairingsError: null })
+      pairingsFetchedAt = Date.now()
       try {
         const records = await window.api.pairings.deckRecords()
         const byDeck: Record<string, PairingsResult[]> = {}

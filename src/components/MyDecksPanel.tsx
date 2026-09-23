@@ -4,6 +4,7 @@ import { useAppStore, useOrderedGames } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { rulesForFormat } from '../shared/games/rules'
 import { checkDeckLegality } from '../shared/legality'
+import { summarizeRecord } from '../shared/pairingsRecord'
 import { resolveDeckIcon } from '../shared/deckIcon'
 import { sortDecks } from '../shared/deckOrder'
 import type { Card, Deck, GameId } from '../shared/types'
@@ -19,6 +20,19 @@ function updatedLabel(iso: string): string {
   if (hours < 24) return `${hours}h ago`
   const days = Math.round(hours / 24)
   return days < 60 ? `${days}d ago` : new Date(iso).toLocaleDateString()
+}
+
+/** The deck's tournament record from Pairings, when it has any (see PairingsRecordStrip for the full view). */
+function PairingsBadge({ deckId }: { deckId: string }) {
+  const results = useAppStore((s) => s.pairingsRecords?.[deckId])
+  const summary = useMemo(() => (results?.length ? summarizeRecord(results) : null), [results])
+  if (!summary) return null
+  const record = `${summary.wins}-${summary.losses}${summary.draws ? `-${summary.draws}` : ''}`
+  return (
+    <span className="md-record" title={`Tournament record from Pairings: ${summary.events} event${summary.events === 1 ? '' : 's'}${summary.winRate != null ? `, ${summary.winRate}% wins` : ''}`}>
+      🏆 {record}
+    </span>
+  )
 }
 
 function DeckCard({ deck, cardsById }: { deck: Deck; cardsById: Map<string, Card> | undefined }) {
@@ -76,6 +90,7 @@ function DeckCard({ deck, cardsById }: { deck: Deck; cardsById: Map<string, Card
               legality unchecked
             </span>
           )}
+          <PairingsBadge deckId={deck.id} />
           <span className="text-dim">{updatedLabel(deck.updatedAt)}</span>
         </div>
       </div>

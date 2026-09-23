@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
@@ -24,11 +24,16 @@ export function PawmodoroAccountModal({ onClose }: Props) {
   // Only show the project fields expanded if this install already points somewhere other than the shared project.
   const customProject = pawmodoroConfig.url !== DEFAULT_PAWMODORO_URL || pawmodoroConfig.anonKey !== DEFAULT_PAWMODORO_ANON_KEY
 
-  useEffect(() => {
+  // When the saved account changes (connect/disconnect), reset the fields to it - adjusted during
+  // render rather than in an effect, which would render once with the stale values first.
+  const configKey = `${pawmodoroConfig.url}\n${pawmodoroConfig.anonKey}\n${pawmodoroConfig.email}`
+  const [shownConfigKey, setShownConfigKey] = useState(configKey)
+  if (shownConfigKey !== configKey) {
+    setShownConfigKey(configKey)
     setUrl(pawmodoroConfig.url)
     setAnonKey(pawmodoroConfig.anonKey)
     setEmail(pawmodoroConfig.email)
-  }, [pawmodoroConfig.url, pawmodoroConfig.anonKey, pawmodoroConfig.email])
+  }
 
   async function handleConnect(signUp: boolean) {
     setConnecting(true)

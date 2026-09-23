@@ -2059,3 +2059,16 @@
 .pr-event {
   font-weight: 600;
 }
+
+.pr-matchups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-top: 6px;
+}
+
+/* A deck's Pairings record on its My Decks card (MyDecksPanel's PairingsBadge). */
+.md-record {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
