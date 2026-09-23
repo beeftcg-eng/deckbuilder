@@ -1,12 +1,12 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Collection, Deck, GameId, WishlistEntry } from '../../src/shared/types'
+import type { Binder, Collection, Deck, GameId, WishlistEntry } from '../../src/shared/types'
 import { SyncEngine, type SyncStatus } from '../../src/shared/sync/engine'
 import type { PulledState, SyncOp } from '../../src/shared/sync/ops'
 import { NodeSyncStore } from '../lib/nodeSyncStore'
 import { cardsCacheDir } from '../lib/paths'
-import { readForTrade, readWishlist, withDataLock, writeCollection, writeDecks, writeForTrade, writeWishlist } from '../lib/dataFiles'
+import { readForTrade, readWishlist, withDataLock, writeBinders, writeCollection, writeDecks, writeForTrade, writeWishlist } from '../lib/dataFiles'
 
 const store = new NodeSyncStore()
 let engine: SyncEngine | null = null
@@ -19,6 +19,12 @@ async function applyPulledState(state: PulledState): Promise<void> {
   await withDataLock(async () => {
     const decks: Deck[] = state.decks.map((d) => ({ ...d.data, id: d.id, gameId: d.game_id as GameId }))
     await writeDecks(decks)
+
+    // A pull against a not-yet-redeployed schema (before deckbuilder_binders existed server-side)
+    // omits this key entirely rather than sending an empty array - tolerate that transitional
+    // shape instead of crashing, same as an old client talking to a newer schema already does.
+    const binders: Binder[] = (state.binders ?? []).map((b) => ({ ...b.data, id: b.id }))
+    await writeBinders(binders)
 
     const collection: Collection = {}
     const forTrade: string[] = []

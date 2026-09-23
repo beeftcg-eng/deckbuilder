@@ -48,6 +48,13 @@ export interface Card {
    * still find the card without the app carrying every individual printing as its own entry.
    */
   flavorNames?: string[]
+  /**
+   * Other official artworks YGOPRODeck lists for this card (Yu-Gi-Oh-only currently). Every
+   * printing of a card shares one `imageUrl` because the source API doesn't say which set/rarity
+   * uses which artwork (see yugioh.ts's normalizeCard doc comment) - this is purely "these other
+   * arts exist for this card," shown for browsing, not a claim about which printing has which art.
+   */
+  altImageUrlsSmall?: string[]
 }
 
 /** 'restricted' = one copy (Vintage's restricted list, Yu-Gi-Oh!'s Limited); 'semi-restricted' = two copies (Yu-Gi-Oh!'s Semi-Limited). */
@@ -121,6 +128,21 @@ export interface Deck {
   /** zoneId -> entries. Most zones use DeckCardEntry[]; freeText zones use DeckFreeTextEntry[]. */
   zones: Record<string, DeckCardEntry[]>
   freeTextZones: Record<string, DeckFreeTextEntry[]>
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * A named, user-organized group of owned cards - separate from the single flat `Collection` (see
+ * below), which has no concept of sub-groups. Unlike a Deck, a Binder isn't tied to one game: its
+ * `cards` map can hold any game's card ids side by side, since a physical binder (a trade binder,
+ * an art binder) doesn't care what game a card is from.
+ */
+export interface Binder {
+  id: string
+  name: string
+  /** Cards in this binder, keyed by Card.id -> copies. */
+  cards: Record<string, number>
   createdAt: string
   updatedAt: string
 }

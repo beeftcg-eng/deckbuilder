@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { create } from 'zustand'
 import type {
   AppSettings,
+  Binder,
   Card,
   CardCacheMeta,
   Collection,
@@ -24,7 +25,7 @@ import type { ParsedDeck } from '../shared/importDeck'
 import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import type { UpdateStatus } from '../shared/updateStatus'
 import { currentDeckFor } from '../shared/decks'
-import { applyVisibleOrder, type DeckSortMode } from '../shared/deckOrder'
+import { applyVisibleOrder, reorderByDrop, type DeckSortMode } from '../shared/deckOrder'
 import { orderGames } from '../shared/gameOrder'
 import { applyTheme } from '../lib/theme'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
@@ -124,12 +125,29 @@ interface AppState {
   setFreeTextQuantity: (zoneId: string, label: string, quantity: number) => Promise<void>
   /** Moves one copy of a card between two zones of the open deck (e.g. main deck → sideboard), as one undoable edit. */
   moveCard: (fromZoneId: string, toZone: { id: string; label: string }, card: Card) => Promise<void>
+  /** Reorders cards within one zone of the open deck (a drag-and-drop), as one undoable edit. */
+  reorderDeckEntries: (zoneId: string, dragCardId: string, targetCardId: string, position: 'before' | 'after') => Promise<void>
   undo: () => Promise<void>
   setDeckSort: (sort: DeckSortMode) => void
   /** Saves a new order for the decks on screen (one game's list) and switches the list to that custom order. */
   reorderDecks: (visibleIds: string[]) => void
   showMyDecks: boolean
   setShowMyDecks: (show: boolean) => void
+
+  /** Named, cross-game groups of owned cards (see shared/types.ts's Binder) - separate from the single flat `collection`. */
+  binders: Binder[]
+  /** The binder quick-add steppers on card tiles target, if any - set by opening/creating a binder in the Binders panel. */
+  currentBinderId: string | null
+  showBinders: boolean
+  setShowBinders: (show: boolean) => void
+  loadBinders: () => Promise<void>
+  createBinder: (name?: string) => Promise<void>
+  duplicateBinder: (binderId: string) => Promise<void>
+  renameBinder: (binderId: string, name: string) => Promise<void>
+  deleteBinder: (binderId: string) => Promise<void>
+  /** Sets the active binder for quick-add steppers, or null to stop targeting one. */
+  selectBinder: (binderId: string | null) => void
+  setBinderCardQuantity: (binderId: string, cardId: string, quantity: number) => Promise<void>
   /** Whether the open deck is shown as the read-only full view (the default when a deck is selected) rather than in the editor. */
   deckViewing: boolean
   setDeckViewing: (viewing: boolean) => void
@@ -236,6 +254,7 @@ export const useAppStore = create<AppState>((set, get) => {
       showCollection: false,
       showMyDecks: false,
       showTrade: false,
+      showBinders: false,
       deckViewing: viewing,
     }))
     pushUndo({ kind: 'create', label: undoLabel, deckId: saved.id })
@@ -250,6 +269,9 @@ export const useAppStore = create<AppState>((set, get) => {
     formats: {},
     decks: [],
     currentDeckId: null,
+    binders: [],
+    currentBinderId: null,
+    showBinders: false,
     showWishlist: false,
     showCollection: false,
     showMyDecks: false,
@@ -284,6 +306,7 @@ export const useAppStore = create<AppState>((set, get) => {
           get().loadWishlist(),
           get().loadCollection(),
           get().loadForTrade(),
+          get().loadBinders(),
           ...GAME_LIST.map((adapter) => get().loadMeta(adapter.id)),
           ...GAME_LIST.map((adapter) => get().loadFormats(adapter.id)),
         ])
@@ -379,6 +402,63 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
 
+    setShowBinders: (show) => set(show ? { showBinders: true, showWishlist: false, showCollection: false, showMyDecks: false, showTrade: false } : { showBinders: false }),
+
+    loadBinders: async () => {
+      const binders = await window.api.binders.list()
+      set({ binders })
+    },
+
+    createBinder: async (name) => {
+      const now = new Date().toISOString()
+      const binder: Binder = { id: crypto.randomUUID(), name: name?.trim() || 'New binder', cards: {}, createdAt: now, updatedAt: now }
+      const saved = await window.api.binders.save(binder)
+      set((s) => ({ binders: [...s.binders, saved], currentBinderId: saved.id }))
+    },
+
+    duplicateBinder: async (binderId) => {
+      const source = get().binders.find((b) => b.id === binderId)
+      if (!source) return
+      const now = new Date().toISOString()
+      const copy: Binder = { ...structuredClone(source), id: crypto.randomUUID(), name: `${source.name} (copy)`, createdAt: now, updatedAt: now }
+      const saved = await window.api.binders.save(copy)
+      set((s) => ({ binders: [...s.binders, saved], currentBinderId: saved.id }))
+    },
+
+    renameBinder: async (binderId, name) => {
+      const binder = get().binders.find((b) => b.id === binderId)
+      const trimmed = name.trim()
+      if (!binder || !trimmed || trimmed === binder.name) return
+      const saved = await window.api.binders.save({ ...binder, name: trimmed })
+      set((s) => ({ binders: s.binders.map((b) => (b.id === saved.id ? saved : b)) }))
+    },
+
+    deleteBinder: async (binderId) => {
+      const binder = get().binders.find((b) => b.id === binderId)
+      if (!binder) return
+      set((s) => ({
+        binders: s.binders.filter((b) => b.id !== binderId),
+        currentBinderId: s.currentBinderId === binderId ? null : s.currentBinderId,
+      }))
+      try {
+        await window.api.binders.delete(binderId)
+      } catch (err) {
+        set((s) => ({ binders: [...s.binders, binder], error: `Couldn't delete "${binder.name}": ${errorMessage(err)}` }))
+      }
+    },
+
+    selectBinder: (binderId) => set({ currentBinderId: binderId }),
+
+    setBinderCardQuantity: async (binderId, cardId, quantity) => {
+      const binder = get().binders.find((b) => b.id === binderId)
+      if (!binder) return
+      const cards = { ...binder.cards }
+      if (quantity > 0) cards[cardId] = quantity
+      else delete cards[cardId]
+      const saved = await window.api.binders.save({ ...binder, cards })
+      set((s) => ({ binders: s.binders.map((b) => (b.id === saved.id ? saved : b)) }))
+    },
+
     updateDeck: async (updater, undoLabel = 'Edit deck') => {
       const { currentDeckId, currentGameId, decks } = get()
       const current = currentDeckFor(decks, currentDeckId, currentGameId)
@@ -412,6 +492,17 @@ export const useAppStore = create<AppState>((set, get) => {
       await get().updateDeck((d) => moveOneCopy(d, fromZoneId, toZone.id, card.id), `Move ${card.name} to ${toZone.label}`)
     },
 
+    reorderDeckEntries: async (zoneId, dragCardId, targetCardId, position) => {
+      await get().updateDeck((d) => {
+        const entries = d.zones[zoneId] ?? []
+        const ids = entries.map((e) => e.cardId)
+        const nextIds = reorderByDrop(ids, dragCardId, targetCardId, position)
+        if (nextIds.join('|') === ids.join('|')) return d
+        const byId = new Map(entries.map((e) => [e.cardId, e]))
+        return { ...d, zones: { ...d.zones, [zoneId]: nextIds.map((id) => byId.get(id)!) } }
+      }, 'Reorder cards')
+    },
+
     setFreeTextQuantity: async (zoneId, label, quantity) => {
       await get().updateDeck(
         (d) => {
@@ -437,7 +528,7 @@ export const useAppStore = create<AppState>((set, get) => {
         set((s) => ({ decks: s.decks.map((d) => (d.id === entry.before.id ? { ...entry.before } : d)) }))
         await persistDeck(entry.before)
       } else if (entry.kind === 'delete') {
-        set((s) => ({ decks: [...s.decks, entry.deck], currentDeckId: entry.deck.id, currentGameId: entry.deck.gameId, showWishlist: false, showCollection: false, showMyDecks: false, showTrade: false }))
+        set((s) => ({ decks: [...s.decks, entry.deck], currentDeckId: entry.deck.id, currentGameId: entry.deck.gameId, showWishlist: false, showCollection: false, showMyDecks: false, showTrade: false, showBinders: false }))
         await persistDeck(entry.deck)
       } else {
         set((s) => ({
@@ -483,11 +574,12 @@ export const useAppStore = create<AppState>((set, get) => {
         if (fallback) get().setGame(fallback.id)
       }
     },
-    setShowMyDecks: (show) => set(show ? { showMyDecks: true, showWishlist: false, showCollection: false, showTrade: false } : { showMyDecks: false }),
+    setShowMyDecks: (show) =>
+      set(show ? { showMyDecks: true, showWishlist: false, showCollection: false, showTrade: false, showBinders: false } : { showMyDecks: false }),
     openDeck: (deckId) => {
       const deck = get().decks.find((d) => d.id === deckId)
       if (!deck) return
-      set({ currentGameId: deck.gameId, currentDeckId: deckId, showMyDecks: false, showWishlist: false, showCollection: false, showTrade: false, deckViewing: true })
+      set({ currentGameId: deck.gameId, currentDeckId: deckId, showMyDecks: false, showWishlist: false, showCollection: false, showTrade: false, showBinders: false, deckViewing: true })
       persistSettings({ lastGameId: deck.gameId, lastDeckId: deckId })
     },
     setDeckViewMode: (mode) => persistSettings({ deckViewMode: mode }),
@@ -506,9 +598,12 @@ export const useAppStore = create<AppState>((set, get) => {
 
     applySyncProgress: (progress) => set((s) => ({ syncProgress: { ...s.syncProgress, [progress.gameId]: progress } })),
 
-    setShowWishlist: (show) => set(show ? { showWishlist: true, showCollection: false, showMyDecks: false, showTrade: false } : { showWishlist: false }),
-    setShowCollection: (show) => set(show ? { showCollection: true, showWishlist: false, showMyDecks: false, showTrade: false } : { showCollection: false }),
-    setShowTrade: (show) => set(show ? { showTrade: true, showWishlist: false, showCollection: false, showMyDecks: false } : { showTrade: false }),
+    setShowWishlist: (show) =>
+      set(show ? { showWishlist: true, showCollection: false, showMyDecks: false, showTrade: false, showBinders: false } : { showWishlist: false }),
+    setShowCollection: (show) =>
+      set(show ? { showCollection: true, showWishlist: false, showMyDecks: false, showTrade: false, showBinders: false } : { showCollection: false }),
+    setShowTrade: (show) =>
+      set(show ? { showTrade: true, showWishlist: false, showCollection: false, showMyDecks: false, showBinders: false } : { showTrade: false }),
 
     loadWishlist: async () => {
       const wishlist = await window.api.wishlist.list()

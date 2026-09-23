@@ -46,6 +46,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const setCardQuantity = useAppStore((s) => s.setCardQuantity)
   const setFreeTextQuantity = useAppStore((s) => s.setFreeTextQuantity)
   const moveCard = useAppStore((s) => s.moveCard)
+  const reorderDeckEntries = useAppStore((s) => s.reorderDeckEntries)
   const setDeckIcon = useAppStore((s) => s.setDeckIcon)
   const setDeckViewing = useAppStore((s) => s.setDeckViewing)
   const addDeckToWishlist = useAppStore((s) => s.addDeckToWishlist)
@@ -63,6 +64,8 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const [showBanList, setShowBanList] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [dragEntry, setDragEntry] = useState<{ zoneId: string; cardId: string } | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ zoneId: string; cardId: string; position: 'before' | 'after' } | null>(null)
 
   const locked = Boolean(deck.locked)
   const adapter = getAdapter(deck.gameId)
@@ -177,7 +180,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
         />
       )}
 
-      <DeckStats stats={stats} toBuy={tracking ? totalPrice(missing) : null} gameHasPrices={adapter.hasPrices} />
+      <DeckStats stats={stats} toBuy={tracking ? totalPrice(missing) : null} gameHasPrices={adapter.hasPrices} showSubtypeStats={Boolean(adapter.showSubtypeStats)} />
 
       <div className="deck-zones">
         {zones.map((zone) => {
@@ -229,8 +232,42 @@ function DeckEditor({ deck }: { deck: Deck }) {
                   const owned = ownedIndex.get(key) ?? 0
                   // Other zones this card could go to (main deck ⇄ sideboard, main deck ⇄ commander).
                   const moveTargets = zones.filter((z) => z.id !== zone.id && !z.freeText && z.match(card))
+                  const dragging = dragEntry?.zoneId === zone.id && dragEntry.cardId === entry.cardId
+                  const dropHere = dropTarget?.zoneId === zone.id && dropTarget.cardId === entry.cardId
                   return (
-                    <div className="deck-entry" key={entry.cardId}>
+                    <div
+                      className={`deck-entry ${dragging ? 'dragging' : ''} ${dropHere ? `drop-${dropTarget.position}` : ''}`}
+                      key={entry.cardId}
+                      draggable={!locked}
+                      title={locked ? undefined : 'Drag to reorder'}
+                      onDragStart={(e) => {
+                        setDragEntry({ zoneId: zone.id, cardId: entry.cardId })
+                        if (e.dataTransfer) {
+                          e.dataTransfer.effectAllowed = 'move'
+                          e.dataTransfer.setData('text/plain', entry.cardId)
+                        }
+                      }}
+                      onDragOver={(e) => {
+                        if (!dragEntry || dragEntry.zoneId !== zone.id || dragEntry.cardId === entry.cardId) return
+                        e.preventDefault()
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+                        if (!dropHere || dropTarget.position !== position) setDropTarget({ zoneId: zone.id, cardId: entry.cardId, position })
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        if (dragEntry && dragEntry.zoneId === zone.id && dragEntry.cardId !== entry.cardId) {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          reorderDeckEntries(zone.id, dragEntry.cardId, entry.cardId, e.clientY < rect.top + rect.height / 2 ? 'before' : 'after')
+                        }
+                        setDragEntry(null)
+                        setDropTarget(null)
+                      }}
+                      onDragEnd={() => {
+                        setDragEntry(null)
+                        setDropTarget(null)
+                      }}
+                    >
                       {card.imageUrlSmall && <img className="deck-entry-thumb" src={card.imageUrlSmall} alt="" loading="lazy" />}
                       <span className="deck-entry-name">{card.name}</span>
                       {tracking && owned < needed && (

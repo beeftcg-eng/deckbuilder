@@ -48,6 +48,13 @@ export interface GameAdapter {
    */
   mainDeckExcludedCategories?: string[]
   /**
+   * Show the deck-stats panel's per-subtype breakdown (`DeckStats.bySubtype`). Off by default:
+   * `card.subtypes` holds creature types for Magic, which would render dozens of noisy one/two-
+   * count chips; Yu-Gi-Oh's subtypes (Normal/Effect/Fusion/Synchro/XYZ/Link/Pendulum/Ritual/race)
+   * are exactly the "what kind of monsters" breakdown players actually look for.
+   */
+  showSubtypeStats?: boolean
+  /**
    * A per-card copy limit that overrides the rule's default: Infinity for cards a deck can
    * hold any number of (basic Energy, basic lands), or a smaller number. null = no override.
    */

@@ -70,18 +70,49 @@ describe('normalizeCard', () => {
     expect(new Set(printings.map((p) => p.sourceId))).toEqual(new Set([String(RAW.normal.id)]))
   })
 
-  it('falls back to the card’s general TCGplayer price when a specific printing has none', () => {
-    const printings = normalizeCard(RAW.spell_forbidden_tcg) // both its set_price entries are "0"
-    expect(printings.every((p) => p.price === 4.28)).toBe(true)
+  it('falls back to the card’s general TCGplayer price only when there is a single printing to be unambiguous about', () => {
+    // single_printing_zero_price has one printing at "0" - the card-wide fallback is safe to use.
+    expect(normalizeCard(RAW.single_printing_zero_price)[0].price).toBe(2.5)
+    // spell_forbidden_tcg has two zero-priced printings of different rarities (Starlight Rare,
+    // Mosaic Rare) - falling back would show both the same borrowed price, misrepresenting
+    // exactly the kind of premium-rarity-shows-a-common's-price bug reported by a friend.
+    const printings = normalizeCard(RAW.spell_forbidden_tcg)
+    expect(printings.every((p) => p.price === null)).toBe(true)
   })
 
   it('gives an OCG-only card (no card_sets at all) one placeholder printing', () => {
     expect(normalizeCard(RAW.ocg_only)).toHaveLength(1) // shape of that placeholder is checked above ("lists an unsetted OCG card...")
   })
 
-  it('skips Tokens and Skill Cards, which are not deck cards', () => {
-    expect(normalizeCard(RAW.token)).toEqual([])
+  it('skips Skill Cards, which are not deck cards, but keeps Tokens for collection/wishlist tracking', () => {
     expect(normalizeCard(RAW.skill)).toEqual([])
+    const [tokenCard] = normalizeCard(RAW.token)
+    expect(tokenCard).toMatchObject({ name: 'Ancient Gear Token', category: 'Token' })
+    expect(tokenCard.text).toContain('Token · Machine') // still gets its race/attribute/ATK-DEF facts like a monster
+  })
+
+  it('rejects a rarity string that is just a number, upstream data noise rather than a real rarity', () => {
+    expect(normalizeCard(RAW.bad_rarity)[0].rarity).toBeNull()
+  })
+
+  it('collapses a duplicate (set code, rarity) row in card_sets into one printing', () => {
+    expect(normalizeCard(RAW.duplicate_printing)).toHaveLength(1)
+  })
+
+  it('lists other known artworks separately from the printing image, when the card has more than one', () => {
+    expect(card('normal').altImageUrlsSmall).toBeUndefined() // fixture only has one card_images entry
+    expect(card('multi_art').altImageUrlsSmall).toEqual(['dbimg://ygo/small/44556678.jpg', 'dbimg://ygo/small/44556679.jpg'])
+  })
+})
+
+describe('Yu-Gi-Oh! Tokens stay out of every deck zone', () => {
+  it('excludes Tokens from Main, Extra and Side Deck matching', () => {
+    const [tokenCard] = normalizeCard(RAW.token)
+    for (const zone of yugiohAdapter.deckRules.zones) expect(zone.match(tokenCard), zone.id).toBe(false)
+  })
+
+  it('hides Tokens from the default browse view via mainDeckExcludedCategories', () => {
+    expect(yugiohAdapter.mainDeckExcludedCategories).toContain('Token')
   })
 })
 

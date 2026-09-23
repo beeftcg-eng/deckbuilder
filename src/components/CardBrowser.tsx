@@ -6,6 +6,7 @@ import { poolKey } from '../shared/collection'
 import { currentDeckFor } from '../shared/decks'
 import { rulesForFormat } from '../shared/games/rules'
 import { identityColors } from '../shared/cardColors'
+import { matchRank } from '../shared/cardSearch'
 import type { Card, DeckRules } from '../shared/types'
 import { CardTile } from './CardTile'
 import { CardDetailModal } from './CardDetailModal'
@@ -32,6 +33,7 @@ export function CardBrowser() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<string>('all')
   const [setId, setSetId] = useState<string>('all')
+  const [rarity, setRarity] = useState<string>('all')
   const [colors, setColors] = useState<Set<string>>(new Set())
   const [ownedOnly, setOwnedOnly] = useState(false)
   const [showAllDuringStage, setShowAllDuringStage] = useState(false)
@@ -73,6 +75,7 @@ export function CardBrowser() {
     setQuery('')
     setCategory('all')
     setSetId('all')
+    setRarity('all')
     setOwnedOnly(false)
     setShowAllDuringStage(false)
     setColors(new Set())
@@ -99,6 +102,11 @@ export function CardBrowser() {
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   }, [catalog, format])
 
+  const rarities = useMemo(() => {
+    if (!catalog) return []
+    return [...new Set(catalog.cards.flatMap((c) => (c.rarity ? [c.rarity] : [])))].sort()
+  }, [catalog])
+
   const allColors = useMemo(() => {
     if (!catalog) return []
     const order = adapter.colorOrder ?? []
@@ -109,7 +117,7 @@ export function CardBrowser() {
   const results = useMemo(() => {
     if (!catalog) return []
     const q = query.trim().toLowerCase()
-    return catalog.cards.filter((c) => {
+    const filtered = catalog.cards.filter((c) => {
       if (format && !isCardLegalInFormat(c, format).legal) return false
       if (stageFilter && !stageFilter(c)) return false
       if (!stageFilter) {
@@ -120,6 +128,7 @@ export function CardBrowser() {
         }
       }
       if (setId !== 'all' && c.setId !== setId) return false
+      if (rarity !== 'all' && c.rarity !== rarity) return false
       if (colors.size > 0) {
         const cardColors = identityColors(c)
         let matches: boolean
@@ -137,15 +146,20 @@ export function CardBrowser() {
         !c.name.toLowerCase().includes(q) &&
         !c.text?.toLowerCase().includes(q) &&
         !c.subtypes.some((s) => s.toLowerCase().includes(q)) &&
-        !c.flavorNames?.some((n) => n.toLowerCase().includes(q))
+        !c.flavorNames?.some((n) => n.toLowerCase().includes(q)) &&
+        !c.sourceId.toLowerCase().includes(q) &&
+        !c.setCode.toLowerCase().includes(q) &&
+        !c.number.toLowerCase().includes(q)
       )
         return false
       return true
     })
-  }, [catalog, query, category, setId, colors, stageFilter, adapter, rules, format, ownedOnly, ownedIndex])
+    if (!q) return filtered
+    return filtered.slice().sort((a, b) => matchRank(a, q) - matchRank(b, q) || a.name.localeCompare(b.name))
+  }, [catalog, query, category, setId, rarity, colors, stageFilter, adapter, rules, format, ownedOnly, ownedIndex])
 
   // "Show more" only applies to the filters it was clicked under; any filter change starts back at one page.
-  const filterKey = [query, category, setId, [...colors].sort().join(','), ownedOnly, currentGameId, stage?.label ?? '', stageFilter ? 1 : 0].join('|')
+  const filterKey = [query, category, setId, rarity, [...colors].sort().join(','), ownedOnly, currentGameId, stage?.label ?? '', stageFilter ? 1 : 0].join('|')
   const [page, setPage] = useState({ key: filterKey, count: PAGE_SIZE })
   const visibleCount = page.key === filterKey ? page.count : PAGE_SIZE
 
@@ -209,6 +223,16 @@ export function CardBrowser() {
             </option>
           ))}
         </select>
+        {rarities.length > 0 && (
+          <select value={rarity} onChange={(e) => setRarity(e.target.value)}>
+            <option value="all">All rarities</option>
+            {rarities.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {deck?.locked && (

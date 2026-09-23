@@ -364,6 +364,34 @@
   font-size: 12px;
 }
 
+/* Rarity color tiers (see shared/rarityColor.ts) - text color only, a visual-scanning aid, not a
+   foil/shader effect on the card art. */
+.rarity-color-none,
+.rarity-color-common {
+  color: var(--text-dim);
+}
+
+.rarity-color-uncommon {
+  color: var(--success);
+}
+
+.rarity-color-mid {
+  color: var(--accent);
+}
+
+.rarity-color-upper-mid {
+  color: #b98cff;
+}
+
+.rarity-color-high {
+  color: var(--warning);
+}
+
+.rarity-color-top {
+  color: #ffd54a;
+  font-weight: 600;
+}
+
 .card-tile-controls {
   display: flex;
   align-items: center;
@@ -486,6 +514,19 @@
   padding: 4px 6px;
   border-radius: 6px;
   background: var(--bg-elevated);
+}
+
+/* Re-ordering cards within a deck zone (same pattern as .deck-row's own re-ordering above). */
+.deck-entry.dragging {
+  opacity: 0.4;
+}
+
+.deck-entry.drop-before {
+  box-shadow: 0 -2px 0 var(--accent);
+}
+
+.deck-entry.drop-after {
+  box-shadow: 0 2px 0 var(--accent);
 }
 
 .deck-entry-thumb {
@@ -656,6 +697,25 @@
   width: 100%;
   height: auto;
   display: block;
+}
+
+.card-detail-alt-arts {
+  padding: 8px;
+}
+
+.card-detail-alt-arts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.card-detail-alt-arts-row img {
+  width: 40px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
 }
 
 .card-detail-info {

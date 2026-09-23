@@ -11,6 +11,7 @@
  */
 import type {
   AppSettings,
+  Binder,
   Card,
   CardCacheMeta,
   Collection,
@@ -113,6 +114,13 @@ async function applyPulledState(state: PulledState): Promise<void> {
     'decks',
     state.decks.map((d) => [d.id, { ...d.data, id: d.id, gameId: d.game_id as GameId }]),
   )
+  await idbReplaceAll(
+    'binders',
+    // A pull against a not-yet-redeployed schema (before deckbuilder_binders existed server-side)
+    // omits this key entirely rather than sending an empty array - tolerate that transitional
+    // shape instead of crashing, same as an old client talking to a newer schema already does.
+    (state.binders ?? []).map((b) => [b.id, { ...b.data, id: b.id }]),
+  )
   const collection: Collection = {}
   const forTrade: string[] = []
   for (const row of state.collection) {
@@ -174,6 +182,26 @@ const decks = {
     await idbDelete('decks', deckId)
     ensureSyncEngine()
     void syncEngine!.enqueue({ type: 'delete_deck', id: deckId })
+  },
+}
+
+const binders = {
+  list: async (): Promise<Binder[]> => idbGetAll<Binder>('binders'),
+  save: async (binder: Binder): Promise<Binder> => {
+    const now = new Date().toISOString()
+    const existing = await idbGet<Binder>('binders', binder.id)
+    const saved: Binder = existing
+      ? { ...binder, createdAt: existing.createdAt, updatedAt: now }
+      : { ...binder, id: binder.id || crypto.randomUUID(), createdAt: binder.createdAt || now, updatedAt: now }
+    await idbSet('binders', saved.id, saved)
+    ensureSyncEngine()
+    void syncEngine!.enqueue({ type: 'save_binder', id: saved.id, data: saved })
+    return saved
+  },
+  delete: async (binderId: string): Promise<void> => {
+    await idbDelete('binders', binderId)
+    ensureSyncEngine()
+    void syncEngine!.enqueue({ type: 'delete_binder', id: binderId })
   },
 }
 
@@ -449,14 +477,15 @@ const pawmodoro = {
 // ---------- backup (browser download/upload, no filesystem access) ----------
 
 async function snapshotBlob(): Promise<Blob> {
-  const [d, c, ft, w, s] = await Promise.all([
+  const [d, b, c, ft, w, s] = await Promise.all([
     idbGetAll<Deck>('decks'),
+    idbGetAll<Binder>('binders'),
     idbGet<Collection>('settings', 'collection'),
     idbGet<string[]>('settings', 'forTrade'),
     idbGet<WishlistEntry[]>('settings', 'wishlist'),
     idbGet<AppSettings>('settings', 'app'),
   ])
-  const payload = { decks: d, collection: c ?? {}, forTrade: ft ?? [], wishlist: w ?? [], settings: s ?? {} }
+  const payload = { decks: d, binders: b, collection: c ?? {}, forTrade: ft ?? [], wishlist: w ?? [], settings: s ?? {} }
   return new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
 }
 
@@ -481,6 +510,7 @@ const backup = {
         try {
           const data = JSON.parse(await file.text())
           if (Array.isArray(data.decks)) await idbReplaceAll('decks', data.decks.map((d: Deck) => [d.id, d]))
+          if (Array.isArray(data.binders)) await idbReplaceAll('binders', data.binders.map((b: Binder) => [b.id, b]))
           if (data.collection) await idbSet('settings', 'collection', data.collection)
           if (data.forTrade) await idbSet('settings', 'forTrade', data.forTrade)
           if (data.wishlist) await idbSet('settings', 'wishlist', data.wishlist)
@@ -584,6 +614,7 @@ const clipboardApi = {
 export const webApi = {
   cards,
   decks,
+  binders,
   formats,
   collection,
   settings: settingsApi,

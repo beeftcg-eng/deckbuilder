@@ -1,6 +1,7 @@
 import type { Card } from '../shared/types'
 import { useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
+import { rarityColorClass } from '../shared/rarityColor'
 
 interface Props {
   card: Card
@@ -22,6 +23,10 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
   const removeFromWishlist = useAppStore((s) => s.removeFromWishlist)
   const wishlistEntryId = useAppStore((s) => s.wishlist.find((e) => e.cardId === card.id)?.id)
   const onWishlist = wishlistEntryId != null
+  const currentBinderId = useAppStore((s) => s.currentBinderId)
+  const currentBinder = useAppStore((s) => s.binders.find((b) => b.id === currentBinderId))
+  const setBinderCardQuantity = useAppStore((s) => s.setBinderCardQuantity)
+  const inBinder = currentBinder?.cards[card.id] ?? 0
 
   return (
     <div className={`card-tile ${quantity > 0 ? 'in-deck' : ''}`}>
@@ -61,7 +66,14 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
         </div>
         <div className="card-tile-meta text-dim">
           {card.setCode} · {card.number}
-          {card.rarity ? ` · ${card.rarity}` : ''}
+          {card.rarity ? (
+            <>
+              {' · '}
+              <span className={rarityColorClass(card.rarity)}>{card.rarity}</span>
+            </>
+          ) : (
+            ''
+          )}
           {card.price != null ? ` · ${formatPrice(card.price)}` : ''}
         </div>
         {card.flavorNames && card.flavorNames.length > 0 && (
@@ -97,6 +109,18 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
         </button>
         {ownedTotal > owned && <span className="text-dim">({ownedTotal} total)</span>}
       </div>
+      {currentBinder && (
+        <div className="card-tile-owned" title={`Copies of this printing in "${currentBinder.name}"`}>
+          <span className="text-dim">{currentBinder.name}</span>
+          <button className="btn stepper-btn stepper-mini" disabled={inBinder <= 0} onClick={() => setBinderCardQuantity(currentBinder.id, card.id, inBinder - 1)}>
+            −
+          </button>
+          <span className="stepper-value">{inBinder}</span>
+          <button className="btn stepper-btn stepper-mini" onClick={() => setBinderCardQuantity(currentBinder.id, card.id, inBinder + 1)}>
+            +
+          </button>
+        </div>
+      )}
     </div>
   )
 }

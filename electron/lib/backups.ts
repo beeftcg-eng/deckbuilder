@@ -1,24 +1,26 @@
 import { mkdir, readdir, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { backupsDir, collectionFile, decksFile, wishlistFile } from './paths'
+import { backupsDir, bindersFile, collectionFile, decksFile, wishlistFile } from './paths'
 import { isPlainObject, readJsonFile, writeJsonAtomic } from './jsonStore'
 
 export interface BackupBundle {
-  version: 2
+  version: 3
   exportedAt: string
   decks: unknown[]
+  binders: unknown[]
   wishlist: unknown[]
   collection: Record<string, number>
 }
 
-/** Reads the three user-authored data files as they are on disk right now. */
+/** Reads the user-authored data files as they are on disk right now. */
 export async function readBundle(): Promise<BackupBundle> {
-  const [decks, wishlist, collection] = await Promise.all([
+  const [decks, binders, wishlist, collection] = await Promise.all([
     readJsonFile<unknown[]>(decksFile(), [], Array.isArray),
+    readJsonFile<unknown[]>(bindersFile(), [], Array.isArray),
     readJsonFile<unknown[]>(wishlistFile(), [], Array.isArray),
     readJsonFile<Record<string, number>>(collectionFile(), {}, isPlainObject),
   ])
-  return { version: 2, exportedAt: new Date().toISOString(), decks, wishlist, collection }
+  return { version: 3, exportedAt: new Date().toISOString(), decks, binders, wishlist, collection }
 }
 
 export type SnapshotKind = 'auto' | 'pre-restore'
@@ -31,8 +33,8 @@ const SNAPSHOT_NAME = /^(auto|pre-restore)-.+\.json$/
 
 let lastSnapshotAt = 0
 
-function fingerprint(bundle: Pick<BackupBundle, 'decks' | 'wishlist' | 'collection'>): string {
-  return JSON.stringify({ decks: bundle.decks, wishlist: bundle.wishlist, collection: bundle.collection })
+function fingerprint(bundle: Pick<BackupBundle, 'decks' | 'binders' | 'wishlist' | 'collection'>): string {
+  return JSON.stringify({ decks: bundle.decks, binders: bundle.binders, wishlist: bundle.wishlist, collection: bundle.collection })
 }
 
 /**
@@ -44,7 +46,7 @@ function fingerprint(bundle: Pick<BackupBundle, 'decks' | 'wishlist' | 'collecti
 export async function snapshot(kind: SnapshotKind): Promise<string | null> {
   lastSnapshotAt = Date.now()
   const bundle = await readBundle()
-  if (bundle.decks.length === 0 && bundle.wishlist.length === 0 && Object.keys(bundle.collection).length === 0) return null
+  if (bundle.decks.length === 0 && bundle.binders.length === 0 && bundle.wishlist.length === 0 && Object.keys(bundle.collection).length === 0) return null
 
   const dir = backupsDir()
   await mkdir(dir, { recursive: true })

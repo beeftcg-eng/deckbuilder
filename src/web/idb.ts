@@ -6,9 +6,11 @@
  */
 
 const DB_NAME = 'deckbuilder'
-const DB_VERSION = 1
+// Bumped for the 'binders' store - onupgradeneeded only fires on a version increase, so an
+// existing database (version 1) needs this bump to ever get the new object store created.
+const DB_VERSION = 2
 
-export const STORES = ['decks', 'collection', 'forTrade', 'wishlist', 'formats', 'settings', 'sync', 'cards'] as const
+export const STORES = ['decks', 'binders', 'collection', 'forTrade', 'wishlist', 'formats', 'settings', 'sync', 'cards'] as const
 export type StoreName = (typeof STORES)[number]
 
 let dbPromise: Promise<IDBDatabase> | null = null

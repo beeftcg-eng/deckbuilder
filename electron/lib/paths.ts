@@ -14,6 +14,10 @@ export function decksFile(): string {
   return join(userDataDir(), 'decks.json')
 }
 
+export function bindersFile(): string {
+  return join(userDataDir(), 'binders.json')
+}
+
 export function formatsFile(): string {
   return join(userDataDir(), 'formats.json')
 }

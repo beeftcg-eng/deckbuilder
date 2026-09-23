@@ -838,5 +838,152 @@ export const RAW = {
         ]
       }
     ]
+  },
+  "single_printing_zero_price": {
+    "id": 12345678,
+    "name": "Test Card With One Zero-Priced Printing",
+    "type": "Spell Card",
+    "humanReadableCardType": "Normal Spell",
+    "frameType": "spell",
+    "race": "Normal",
+    "desc": "Test only.",
+    "card_sets": [
+      {
+        "set_name": "Test Set",
+        "set_code": "TEST-EN001",
+        "set_rarity": "Common",
+        "set_rarity_code": "(C)",
+        "set_price": "0"
+      }
+    ],
+    "card_images": [
+      {
+        "id": 12345678
+      }
+    ],
+    "card_prices": [
+      {
+        "cardmarket_price": "1.00",
+        "tcgplayer_price": "2.50",
+        "ebay_price": "3.00",
+        "amazon_price": "4.00",
+        "coolstuffinc_price": "1.50"
+      }
+    ],
+    "misc_info": [
+      {
+        "formats": [
+          "TCG"
+        ]
+      }
+    ]
+  },
+  "bad_rarity": {
+    "id": 22334455,
+    "name": "Test Card With A Garbage Rarity",
+    "type": "Spell Card",
+    "humanReadableCardType": "Normal Spell",
+    "frameType": "spell",
+    "race": "Normal",
+    "desc": "Test only - reproduces a structure-deck reprint reporting a bare digit for set_rarity.",
+    "card_sets": [
+      {
+        "set_name": "Test Structure Deck",
+        "set_code": "TEST-EN002",
+        "set_rarity": "2",
+        "set_price": "1.00"
+      }
+    ],
+    "card_images": [
+      {
+        "id": 22334455
+      }
+    ],
+    "card_prices": [
+      {
+        "tcgplayer_price": "1.00"
+      }
+    ],
+    "misc_info": [
+      {
+        "formats": [
+          "TCG"
+        ]
+      }
+    ]
+  },
+  "duplicate_printing": {
+    "id": 33445566,
+    "name": "Test Card With A Duplicate Printing Row",
+    "type": "Spell Card",
+    "humanReadableCardType": "Normal Spell",
+    "frameType": "spell",
+    "race": "Normal",
+    "desc": "Test only - reproduces YGOPRODeck listing the exact same (set code, rarity) twice.",
+    "card_sets": [
+      {
+        "set_name": "Test Set",
+        "set_code": "TEST-EN003",
+        "set_rarity": "Common",
+        "set_price": "1.00"
+      },
+      {
+        "set_name": "Test Set",
+        "set_code": "TEST-EN003",
+        "set_rarity": "Common",
+        "set_price": "1.00"
+      }
+    ],
+    "card_images": [
+      {
+        "id": 33445566
+      }
+    ],
+    "card_prices": [
+      {
+        "tcgplayer_price": "1.00"
+      }
+    ],
+    "misc_info": [
+      {
+        "formats": [
+          "TCG"
+        ]
+      }
+    ]
+  },
+  "multi_art": {
+    "id": 44556677,
+    "name": "Test Card With Multiple Known Artworks",
+    "type": "Spell Card",
+    "humanReadableCardType": "Normal Spell",
+    "frameType": "spell",
+    "race": "Normal",
+    "desc": "Test only.",
+    "card_sets": [
+      {
+        "set_name": "Test Set",
+        "set_code": "TEST-EN004",
+        "set_rarity": "Common",
+        "set_price": "1.00"
+      }
+    ],
+    "card_images": [
+      { "id": 44556677 },
+      { "id": 44556678 },
+      { "id": 44556679 }
+    ],
+    "card_prices": [
+      {
+        "tcgplayer_price": "1.00"
+      }
+    ],
+    "misc_info": [
+      {
+        "formats": [
+          "TCG"
+        ]
+      }
+    ]
   }
 } as unknown as Record<string, YgoCard>

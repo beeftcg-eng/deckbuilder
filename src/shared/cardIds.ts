@@ -76,7 +76,17 @@ export function uniquifyCardIds(cards: Card[]): Card[] {
       if (index === owner) continue
       const card = cards[index]
       const stem = imageStem(card)
-      const base = stem && stem !== plain ? `${card.gameId}:${stem}` : `${id}~${card.setId}`
+      // Yu-Gi-Oh folds rarity into the fallback key alongside the set, not just as a last-resort
+      // `~2`/`~3` counter: two real printings that share a set code but differ only by rarity (rare
+      // but it happens) get a stable, rarity-qualified id instead of an arbitrary numeric suffix.
+      // Scoped to Yu-Gi-Oh only - changing this for other games would change ids their existing
+      // saved decks/collections/wishlists already point at.
+      const base =
+        stem && stem !== plain
+          ? `${card.gameId}:${stem}`
+          : card.gameId === 'yugioh'
+            ? `${id}~${card.setId}~${card.rarity ?? 'none'}`
+            : `${id}~${card.setId}`
       let candidate = base
       for (let n = 2; taken.has(candidate); n++) candidate = `${base}~${n}`
       taken.add(candidate)

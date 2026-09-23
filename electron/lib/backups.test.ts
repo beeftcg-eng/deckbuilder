@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({ dir: '' }))
 vi.mock('./paths', () => ({
   backupsDir: () => `${state.dir}/backups`,
   decksFile: () => `${state.dir}/decks.json`,
+  bindersFile: () => `${state.dir}/binders.json`,
   wishlistFile: () => `${state.dir}/wishlist.json`,
   collectionFile: () => `${state.dir}/collection.json`,
 }))
@@ -30,13 +31,20 @@ describe('snapshot', () => {
     expect(await backupFiles()).toEqual([])
   })
 
-  it('writes a v2 bundle with decks, wishlist and collection', async () => {
+  it('writes a v3 bundle with decks, binders, wishlist and collection', async () => {
     await writeJsonAtomic(join(state.dir, 'decks.json'), [{ id: 'd1' }])
+    await writeJsonAtomic(join(state.dir, 'binders.json'), [{ id: 'b1' }])
     await writeJsonAtomic(join(state.dir, 'collection.json'), { 'pokemon:x': 2 })
     const name = await snapshot('auto')
     expect(name).toMatch(/^auto-.*\.json$/)
     const saved = JSON.parse(await (await import('node:fs/promises')).readFile(join(state.dir, 'backups', name!), 'utf-8'))
-    expect(saved).toMatchObject({ version: 2, decks: [{ id: 'd1' }], wishlist: [], collection: { 'pokemon:x': 2 } })
+    expect(saved).toMatchObject({ version: 3, decks: [{ id: 'd1' }], binders: [{ id: 'b1' }], wishlist: [], collection: { 'pokemon:x': 2 } })
+  })
+
+  it('protects data that only exists as a binder (no decks/wishlist/collection at all)', async () => {
+    await writeJsonAtomic(join(state.dir, 'binders.json'), [{ id: 'b1' }])
+    const name = await snapshot('auto')
+    expect(name).not.toBeNull()
   })
 
   it('skips a snapshot identical to the newest one', async () => {

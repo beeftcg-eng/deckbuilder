@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, clipboard } from 'electron'
 import type {
   AppSettings,
+  Binder,
   Card,
   CardCacheMeta,
   Collection,
@@ -36,6 +37,11 @@ const api = {
     list: (): Promise<Deck[]> => ipcRenderer.invoke('decks:list'),
     save: (deck: Deck, options?: { keepUpdatedAt?: boolean }): Promise<Deck> => ipcRenderer.invoke('decks:save', deck, options),
     delete: (deckId: string): Promise<void> => ipcRenderer.invoke('decks:delete', deckId),
+  },
+  binders: {
+    list: (): Promise<Binder[]> => ipcRenderer.invoke('binders:list'),
+    save: (binder: Binder): Promise<Binder> => ipcRenderer.invoke('binders:save', binder),
+    delete: (binderId: string): Promise<void> => ipcRenderer.invoke('binders:delete', binderId),
   },
   formats: {
     list: (gameId: GameId): Promise<Format[]> => ipcRenderer.invoke('formats:list', gameId),

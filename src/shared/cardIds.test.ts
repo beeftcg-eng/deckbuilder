@@ -91,8 +91,25 @@ describe('uniquifyCardIds', () => {
     const ultra = ygo('46986414', 'SDY', 'Ultra Rare')
     const fixed = uniquifyCardIds([secret, common, ultra])
     expect(catalogOf(fixed).get('yugioh:46986414')?.rarity).toBe('Common')
-    // no per-printing image to derive a fresh id from, so the fallback keys off the id and set instead
-    expect(fixed.map((c) => c.id)).toEqual(['yugioh:46986414~CT14', 'yugioh:46986414', 'yugioh:46986414~SDY'])
+    // no per-printing image to derive a fresh id from, so the fallback keys off the id, set and rarity instead
+    expect(fixed.map((c) => c.id)).toEqual(['yugioh:46986414~CT14~Secret Rare', 'yugioh:46986414', 'yugioh:46986414~SDY~Ultra Rare'])
+  })
+
+  it('gives two Yu-Gi-Oh printings that share a set code but differ only by rarity their own stable ids, not an arbitrary ~2/~3 counter', () => {
+    const commonPrint = ygo('12345678', 'ABC1', 'Common')
+    const rarePrint = ygo('12345678', 'ABC1', 'Rare')
+    const fixed = uniquifyCardIds([commonPrint, rarePrint])
+    expect(fixed.map((c) => c.id)).toEqual(['yugioh:12345678', 'yugioh:12345678~ABC1~Rare'])
+  })
+
+  it('still produces two distinct, stable ids for two rows with identical set and rarity, though normalizeCard is what actually prevents this case', () => {
+    const dup1 = ygo('12345678', 'ABC1', 'Common')
+    const dup2 = ygo('12345678', 'ABC1', 'Common')
+    const fixed = uniquifyCardIds([dup1, dup2])
+    // uniquifyCardIds itself doesn't dedupe (that's normalizeCard's job, tested in yugioh.test.ts) -
+    // it still needs to produce two distinct ids for two rows that reach it, without crashing.
+    expect(new Set(fixed.map((c) => c.id)).size).toBe(2)
+    expect(fixed.every((c) => c.id.startsWith('yugioh:12345678'))).toBe(true)
   })
 
   it('does not mutate its input', () => {

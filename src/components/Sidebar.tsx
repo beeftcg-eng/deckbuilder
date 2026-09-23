@@ -63,6 +63,9 @@ export function Sidebar() {
   const setShowCollection = useAppStore((s) => s.setShowCollection)
   const showTrade = useAppStore((s) => s.showTrade)
   const setShowTrade = useAppStore((s) => s.setShowTrade)
+  const showBinders = useAppStore((s) => s.showBinders)
+  const setShowBinders = useAppStore((s) => s.setShowBinders)
+  const binders = useAppStore((s) => s.binders)
   const collectionCopies = useAppStore((s) => Object.values(s.collection).reduce((n, q) => n + q, 0))
   const wishlist = useAppStore((s) => s.wishlist)
   const exportBackup = useAppStore((s) => s.exportBackup)
@@ -177,6 +180,10 @@ export function Sidebar() {
         🔀 Trade
       </button>
 
+      <button className={`wishlist-nav-btn ${showBinders ? 'active' : ''}`} onClick={() => setShowBinders(!showBinders)}>
+        📚 Binders{binders.length > 0 ? ` (${binders.length})` : ''}
+      </button>
+
       <nav className="game-tabs">
         {visibleGames.map((adapter) => (
           <button
@@ -277,6 +284,7 @@ export function Sidebar() {
             onClick={() => {
               setShowWishlist(false)
               setShowCollection(false)
+              setShowBinders(false)
               createDeck(currentGameId)
             }}
           >
@@ -342,6 +350,7 @@ export function Sidebar() {
               setShowWishlist(false)
               setShowCollection(false)
               setShowMyDecks(false)
+              setShowBinders(false)
               selectDeck(deck.id)
             }}
           >

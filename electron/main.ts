@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { join, dirname } from 'node:path'
 import { registerCardDataIpc } from './ipc/cardData'
 import { registerDecksIpc } from './ipc/decks'
+import { registerBindersIpc } from './ipc/binders'
 import { registerFormatsIpc } from './ipc/formats'
 import { registerExportIpc } from './ipc/exportPaste'
 import { registerImagesIpc } from './ipc/images'
@@ -66,6 +67,7 @@ function createWindow() {
 
 registerCardDataIpc()
 registerDecksIpc()
+registerBindersIpc()
 registerFormatsIpc()
 registerExportIpc()
 registerImageSchemePrivileges()

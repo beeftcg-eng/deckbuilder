@@ -7,6 +7,7 @@ import { WishlistPanel } from './components/WishlistPanel'
 import { CollectionPanel } from './components/CollectionPanel'
 import { MyDecksPanel } from './components/MyDecksPanel'
 import { TradePanel } from './components/TradePanel'
+import { BinderPanel } from './components/BinderPanel'
 import { DeckViewPage } from './components/DeckViewPage'
 import { useAppStore } from './state/useAppStore'
 import { useSyncProgressListener } from './state/syncProgress'
@@ -27,16 +28,17 @@ export default function App() {
   const showCollection = useAppStore((s) => s.showCollection)
   const showMyDecks = useAppStore((s) => s.showMyDecks)
   const showTrade = useAppStore((s) => s.showTrade)
+  const showBinders = useAppStore((s) => s.showBinders)
   const deckViewing = useAppStore((s) => s.deckViewing)
   const catalogs = useAppStore((s) => s.catalogs)
   const syncMeta = useAppStore((s) => s.syncMeta)
 
-  const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist && !showTrade
+  const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist && !showTrade && !showBinders
   // On mobile (app.css), a side panel takes the whole screen instead of squeezing next to the
   // card browser - there's no room for both, and the browser being visible above a panel just
   // buries it below however many cards happen to be loaded. Desktop is unaffected: this class
   // only does anything inside the mobile media query.
-  const hasSidePanel = viewingDeck || showMyDecks || showCollection || showWishlist || showTrade
+  const hasSidePanel = viewingDeck || showMyDecks || showCollection || showWishlist || showTrade || showBinders
   // Only meaningful below the mobile breakpoint (app.css) - the sidebar is always visible on
   // desktop regardless of this. Any navigation inside the sidebar (picking a game/deck, opening
   // a panel) closes it so the tap that navigated also gets you to the content.
@@ -67,7 +69,7 @@ export default function App() {
   // tap that navigated also gets you to the content instead of leaving the drawer open over it.
   useEffect(() => {
     setMobileSidebarOpen(false)
-  }, [currentGameId, currentDeckId, showMyDecks, showCollection, showWishlist, showTrade])
+  }, [currentGameId, currentDeckId, showMyDecks, showCollection, showWishlist, showTrade, showBinders])
 
   useEffect(() => {
     const meta = syncMeta[currentGameId]
@@ -110,6 +112,8 @@ export default function App() {
           <WishlistPanel />
         ) : showTrade ? (
           <TradePanel />
+        ) : showBinders ? (
+          <BinderPanel />
         ) : hasCurrentDeck ? (
           deckViewing ? <DeckViewPage /> : <DeckPanel />
         ) : (

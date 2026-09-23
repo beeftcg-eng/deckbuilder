@@ -7,13 +7,15 @@ interface Props {
   toBuy: PriceTotal | null
   /** This game has prices in its data source. */
   gameHasPrices: boolean
+  /** Show the per-subtype breakdown (see GameAdapter.showSubtypeStats for why it's opt-in). */
+  showSubtypeStats: boolean
 }
 
 function priceNote(price: PriceTotal): string {
   return price.unpricedCopies > 0 ? ` (${price.unpricedCopies} card${price.unpricedCopies === 1 ? '' : 's'} unpriced)` : ''
 }
 
-export function DeckStats({ stats, toBuy, gameHasPrices }: Props) {
+export function DeckStats({ stats, toBuy, gameHasPrices, showSubtypeStats }: Props) {
   const maxCurve = Math.max(1, ...stats.curve.map((c) => c.count))
   const anyPriced = stats.totalCards > stats.price.unpricedCopies
 
@@ -47,6 +49,12 @@ export function DeckStats({ stats, toBuy, gameHasPrices }: Props) {
             {color} <b>{count}</b>
           </span>
         ))}
+        {showSubtypeStats &&
+          stats.bySubtype.map(([subtype, count]) => (
+            <span className="stat-chip stat-chip-subtype" key={subtype}>
+              {subtype} <b>{count}</b>
+            </span>
+          ))}
       </div>
 
       {anyPriced && (

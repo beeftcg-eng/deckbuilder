@@ -40,8 +40,8 @@ export interface YgoCard {
   misc_info?: { formats?: string[] }[]
 }
 
-/** Cards that aren't part of a deck: Tokens, and Skill Cards (a Speed Duel / Duel Links mechanic). */
-const NON_DECK_TYPES = new Set(['Token', 'Skill Card'])
+/** Skill Cards (a Speed Duel / Duel Links mechanic) aren't part of a deck and have no collection use case. */
+const NON_DECK_TYPES = new Set(['Skill Card'])
 
 /** Fusion, Synchro, XYZ and Link monsters (Pendulum versions too) live in the Extra Deck. */
 export function isExtraDeckType(type: string): boolean {
@@ -53,9 +53,16 @@ export const isExtraDeckCard = (card: Card): boolean => card.subtypes.includes('
 const titleCase = (word: string) => word.charAt(0) + word.slice(1).toLowerCase()
 
 function categoryOf(type: string): string {
+  if (type === 'Token') return 'Token'
   if (type === 'Spell Card') return 'Spell'
   if (type === 'Trap Card') return 'Trap'
   return 'Monster'
+}
+
+/** Real rarity names are always text ("Common", "Quarter Century Secret Rare"...) - a bare number
+ * (seen for some structure-deck reprints in YGOPRODeck's own data) is upstream noise, not a rarity. */
+function isPlausibleRarity(value: string): boolean {
+  return /[A-Za-z]/.test(value)
 }
 
 function banStatus(value: string | undefined): CardLegalityStatus {
@@ -69,7 +76,7 @@ function describe(raw: YgoCard): string {
   const lines: string[] = []
   const kind = raw.humanReadableCardType ?? raw.type
   const facts: string[] = []
-  if (categoryOf(raw.type) === 'Monster') {
+  if (raw.type !== 'Spell Card' && raw.type !== 'Trap Card') {
     if (raw.race) facts.push(raw.race)
     if (raw.attribute) facts.push(titleCase(raw.attribute))
     if (raw.linkval != null) facts.push(`Link-${raw.linkval}`)
@@ -106,13 +113,26 @@ export function normalizeCard(raw: YgoCard): Card[] {
 
   const extra = isExtraDeckType(raw.type)
   const artId = raw.card_images[0].id
+  const altImageUrlsSmall = raw.card_images.length > 1 ? raw.card_images.slice(1).map((img) => `dbimg://ygo/small/${img.id}.jpg`) : undefined
   const text = describe(raw)
   const fallbackPrice = Number(raw.card_prices?.[0]?.tcgplayer_price)
-  const printings = raw.card_sets?.length ? raw.card_sets : [undefined]
+  const rawPrintings = raw.card_sets?.length ? raw.card_sets : [undefined]
+  // YGOPRODeck's card_sets occasionally lists the exact same (set code, rarity) printing twice - a
+  // real data-quality duplicate, not two distinct cards. Left alone, uniquifyCardIds (cardIds.ts)
+  // has no way to tell them apart and arbitrarily splits them into separate ids, which is why
+  // three copies of what looks like one printing could show as three separate deck-list lines.
+  const seenPrintingKeys = new Set<string>()
+  const printings = rawPrintings.filter((printing) => {
+    const key = `${printing?.set_code ?? ''}|${printing?.set_rarity ?? ''}`
+    if (seenPrintingKeys.has(key)) return false
+    seenPrintingKeys.add(key)
+    return true
+  })
 
   return printings.map((printing): Card => {
     const [setCode = '', ...numberParts] = (printing?.set_code ?? '').split('-')
     const price = Number(printing?.set_price)
+    const rawRarity = printing?.set_rarity ?? null
     return {
       id: `yugioh:${raw.id}`,
       gameId: 'yugioh',
@@ -120,20 +140,29 @@ export function normalizeCard(raw: YgoCard): Card[] {
       name: raw.name,
       imageUrl: `dbimg://ygo/full/${artId}.jpg`,
       imageUrlSmall: `dbimg://ygo/small/${artId}.jpg`,
+      altImageUrlsSmall,
       orientation: 'portrait',
       setId: setCode || 'none',
       setName: printing?.set_name ?? 'No set listed',
       setCode: setCode || '—',
       number: numberParts.join('-'),
-      rarity: printing?.set_rarity ?? null,
+      rarity: rawRarity && isPlausibleRarity(rawRarity) ? rawRarity : null,
       category: categoryOf(raw.type),
       subtypes: [...(raw.typeline ?? (raw.race ? [raw.race] : [])), ...(extra ? ['Extra Deck'] : [])],
       colors: raw.attribute ? [titleCase(raw.attribute)] : [],
       cost: raw.level != null ? String(raw.level) : null,
       text,
       legality,
-      // This printing's own market price when YGOPRODeck has one, else the card's general TCGplayer price.
-      price: Number.isFinite(price) && price > 0 ? price : Number.isFinite(fallbackPrice) && fallbackPrice > 0 ? fallbackPrice : null,
+      // This printing's own market price when YGOPRODeck has one. The card-wide fallback is only
+      // safe when there's exactly one printing - with several, a zero/missing price on one rarity
+      // (common for high rarities in YGOPRODeck's data) would otherwise silently borrow a different
+      // rarity's price, e.g. a Quarter Century Secret Rare showing the same $0.22 as its Common.
+      price:
+        Number.isFinite(price) && price > 0
+          ? price
+          : printings.length === 1 && Number.isFinite(fallbackPrice) && fallbackPrice > 0
+            ? fallbackPrice
+            : null,
     }
   })
 }
@@ -147,13 +176,17 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
   return cards
 }
 
+// Tokens (category 'Token') are synced for collection/wishlist tracking only - they were never
+// part of a real deck and have no zone to go in, so every zone explicitly excludes them.
+const isToken = (card: Card) => card.category === 'Token'
+
 const deckRules: DeckRules = {
   defaultMaxCopiesPerCard: 3, // by name, across the Main, Extra and Side Decks together
   colorLocked: false,
   zones: [
-    { id: 'main', label: 'Main Deck', match: (card) => !isExtraDeckCard(card), minCount: 40, maxCount: 60 },
-    { id: 'extra', label: 'Extra Deck', match: isExtraDeckCard, maxCount: 15 },
-    { id: 'sideboard', label: 'Side Deck', match: () => true, maxCount: 15, manualOnly: true },
+    { id: 'main', label: 'Main Deck', match: (card) => !isExtraDeckCard(card) && !isToken(card), minCount: 40, maxCount: 60 },
+    { id: 'extra', label: 'Extra Deck', match: (card) => isExtraDeckCard(card) && !isToken(card), maxCount: 15 },
+    { id: 'sideboard', label: 'Side Deck', match: (card) => !isToken(card), maxCount: 15, manualOnly: true },
   ],
 }
 
@@ -189,6 +222,8 @@ export const yugiohAdapter: GameAdapter = {
   name: 'Yu-Gi-Oh! Trading Card Game',
   shortName: 'Yu-Gi-Oh!',
   deckRules,
+  mainDeckExcludedCategories: ['Token'],
+  showSubtypeStats: true,
   defaultFormats,
   legalitySource: 'api',
   hasPrices: true,

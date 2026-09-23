@@ -7,6 +7,7 @@ import { useAppStore } from './useAppStore'
  * web/webApi.ts for the two platforms' sides of firing this. */
 export function useDeckbuilderSyncListener() {
   const loadDecks = useAppStore((s) => s.loadDecks)
+  const loadBinders = useAppStore((s) => s.loadBinders)
   const loadWishlist = useAppStore((s) => s.loadWishlist)
   const loadCollection = useAppStore((s) => s.loadCollection)
   const loadForTrade = useAppStore((s) => s.loadForTrade)
@@ -14,9 +15,10 @@ export function useDeckbuilderSyncListener() {
   useEffect(() => {
     return window.api.pawmodoro.onSyncPulled(() => {
       void loadDecks()
+      void loadBinders()
       void loadWishlist()
       void loadCollection()
       void loadForTrade()
     })
-  }, [loadDecks, loadWishlist, loadCollection, loadForTrade])
+  }, [loadDecks, loadBinders, loadWishlist, loadCollection, loadForTrade])
 }

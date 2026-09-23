@@ -1,17 +1,18 @@
-import type { Collection, Deck, WishlistEntry } from '../../src/shared/types'
-import { collectionFile, decksFile, forTradeFile, wishlistFile } from './paths'
+import type { Binder, Collection, Deck, WishlistEntry } from '../../src/shared/types'
+import { bindersFile, collectionFile, decksFile, forTradeFile, wishlistFile } from './paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from './jsonStore'
 import { maybeSnapshot } from './backups'
 
 /**
- * decks.json, wishlist.json and collection.json share one queue: backup
- * restore rewrites all three and should never interleave with a normal save.
+ * decks.json, binders.json, wishlist.json and collection.json share one queue: backup
+ * restore rewrites all of them and should never interleave with a normal save.
  */
 export function withDataLock<T>(task: () => Promise<T>): Promise<T> {
   return withLock('data', task)
 }
 
 export const readDecks = () => readJsonFile<Deck[]>(decksFile(), [], Array.isArray)
+export const readBinders = () => readJsonFile<Binder[]>(bindersFile(), [], Array.isArray)
 export const readWishlist = () => readJsonFile<WishlistEntry[]>(wishlistFile(), [], Array.isArray)
 export const readCollection = () => readJsonFile<Collection>(collectionFile(), {}, isPlainObject)
 export const readForTrade = () => readJsonFile<string[]>(forTradeFile(), [], Array.isArray)
@@ -19,6 +20,11 @@ export const readForTrade = () => readJsonFile<string[]>(forTradeFile(), [], Arr
 export async function writeDecks(decks: Deck[]): Promise<void> {
   await maybeSnapshot()
   await writeJsonAtomic(decksFile(), decks)
+}
+
+export async function writeBinders(binders: Binder[]): Promise<void> {
+  await maybeSnapshot()
+  await writeJsonAtomic(bindersFile(), binders)
 }
 
 export async function writeWishlist(entries: WishlistEntry[]): Promise<void> {
