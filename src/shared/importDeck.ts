@@ -131,6 +131,12 @@ const HEADER_ALIASES: Record<string, string> = {
   maindeck: 'main',
   mainboard: 'main',
   main: 'main',
+  // Several Riftbound sites (Piltover Archive, Riftbound Zone, Magical Meta) break Champions out
+  // under their own heading even though there's no separate Champion zone in this app's data
+  // model - a Champion card is just a Unit that lives in the Main Deck like any other. Explicit
+  // here rather than relying on the same card-category fallback that placed it there anyway (see
+  // placeCard), since that's implicit and this makes the intent traceable.
+  champion: 'main',
   sideboard: 'sideboard',
   side: 'sideboard',
   sidedeck: 'sideboard',
@@ -292,10 +298,17 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
       const quantity = Number(cardLine[1])
       const rest = cardLine[2]
 
-      if (!tagZone && currentZone?.freeText) {
-        const option = matchFreeTextOption(currentZone.freeText.options, rest)
-        if (option) {
-          addFreeText(currentZone.id, option, quantity)
+      // Checked before card-name resolution, and across every freeText zone regardless of the
+      // current heading - some sites (RiftMana's "Card Names" export) have no section headers at
+      // all, so a rune pick can never rely on being "under" a Runes heading. Safe to prioritize
+      // over a real card of the same name (Riftbound's own catalog has both a "Calm Rune" pick
+      // and a literal "Calm Rune" card): the option vocabulary is a small, fixed set of domain
+      // names with no real non-Rune card sharing one, checked once against the live card data.
+      if (!tagZone) {
+        const freeZone = zoneRules.find((z) => z.freeText && matchFreeTextOption(z.freeText.options, rest))
+        const option = freeZone?.freeText ? matchFreeTextOption(freeZone.freeText.options, rest) : undefined
+        if (freeZone && option) {
+          addFreeText(freeZone.id, option, quantity)
           continue
         }
       }
@@ -306,11 +319,7 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
         continue
       }
 
-      // Not a card — maybe a rune/resource line that arrived without its header.
-      const freeZone = zoneRules.find((z) => z.freeText && matchFreeTextOption(z.freeText.options, rest))
-      const option = freeZone?.freeText ? matchFreeTextOption(freeZone.freeText.options, rest) : undefined
-      if (freeZone && option) addFreeText(freeZone.id, option, quantity)
-      else result.unmatched.push(rawLine)
+      result.unmatched.push(rawLine)
       continue
     }
 

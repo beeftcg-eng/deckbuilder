@@ -143,6 +143,33 @@ describe('parseDecklistText', () => {
       ])
       expect(parsed.unmatched).toEqual([])
     })
+
+    // RiftMana's "Card Names" export (checked live against the site) has no section headers at
+    // all - just "<qty> <name>" lines, one per line, relying entirely on card type to sort them.
+    it('sorts a fully headerless export (RiftMana-style) by card type alone, including runes', () => {
+      const text = ['1 Irelia - Blade Dancer', '1 Vi, Champion', '3 Brawler', '1 Arena One', '6 Calm Rune', '6 Chaos Rune', '2 Side Spell'].join('\n')
+      const parsed = parseDecklistText(text, riftboundAdapter, runeCatalog)
+      expect(parsed.zones.legend).toEqual([{ cardId: dashLegend.id, quantity: 1 }])
+      expect(parsed.zones.main).toEqual(expect.arrayContaining([{ cardId: champion.id, quantity: 1 }, { cardId: unit.id, quantity: 3 }]))
+      expect(parsed.zones.battlefields).toEqual([{ cardId: bf1.id, quantity: 1 }])
+      expect(parsed.freeTextZones.runes).toEqual([
+        { label: 'Calm', quantity: 6 },
+        { label: 'Chaos', quantity: 6 },
+      ])
+      // No heading ever said "Sideboard", so this app has no way to know these 2 copies of a card
+      // already in Main belong in the optional 10-card Sideboard instead - they just add to Main.
+      expect(parsed.zones.sideboard ?? []).toEqual([])
+    })
+
+    // Piltover Archive, Riftbound Zone and Magical Meta (checked live) all break Champions out
+    // under their own heading, even though this app has no separate Champion zone - a Champion is
+    // just a Unit that lives in the Main Deck.
+    it('recognizes a "Champion:" heading as the Main Deck, matching sites that break it out separately', () => {
+      const text = 'Champion:\n1 Vi, Champion'
+      const parsed = parseDecklistText(text, riftboundAdapter, catalog)
+      expect(parsed.zones.main).toEqual([{ cardId: champion.id, quantity: 1 }])
+      expect(parsed.unmatched).toEqual([])
+    })
   })
 
   describe('Pokémon', () => {
