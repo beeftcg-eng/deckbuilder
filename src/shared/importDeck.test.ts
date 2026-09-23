@@ -44,6 +44,15 @@ describe('parseDecklistText', () => {
       expect(parsed.zones.main).toEqual([{ cardId: perona.id, quantity: 3 }])
       expect(parsed.unmatched).toEqual(['2 Nobody Real'])
     })
+
+    // Magical Meta's One Piece export appends a "[OP01-006]"-style set-code suffix per card line
+    // (confirmed against its real export template) - stripping it requires stripPrintingSuffix,
+    // which onepieceAdapter didn't opt into before.
+    it('strips a "[SET-NUM]" suffix (Magical Meta-style) once the whole line fails to match as written', () => {
+      const parsed = parseDecklistText('3 Perona [OP01-077]', onepieceAdapter, catalog)
+      expect(parsed.zones.main).toEqual([{ cardId: perona.id, quantity: 3 }])
+      expect(parsed.unmatched).toEqual([])
+    })
   })
 
   describe('Riftbound', () => {
@@ -311,5 +320,34 @@ describe('parseDecklistText: Magic', () => {
     // …but for Pokémon that shape means nothing, and a name that really ends in parentheses still matches as written.
     expect(parseDecklistText('2 Xerneas (XY) 95', pokemonAdapter, pokemonCatalog).unmatched).toEqual(['2 Xerneas (XY) 95'])
     expect(parseDecklistText("2 Boss's Orders (Cyrus)", pokemonAdapter, pokemonCatalog).zones.main).toEqual([{ cardId: cyrus.id, quantity: 2 }])
+  })
+
+  // Deckstats.net's own export prefixes each section heading with "//" (confirmed against its
+  // real export format), which neither heading regex previously allowed (both required the line
+  // to start with a letter).
+  it('reads Deckstats.net-style "//Mainboard" / "//Sideboard" headings', () => {
+    const text = '//Mainboard\n4 Lightning Bolt\n\n//Sideboard\n2 Negate'
+    const parsed = parseDecklistText(text, mtgAdapter, catalog, 'modern')
+    expect(parsed.zones.main).toEqual([q(bolt, 4)])
+    expect(parsed.zones.sideboard).toEqual([q(negate, 2)])
+  })
+
+  // "Maybeboard" is a real board type (Moxfield's own deck API has a dedicated `maybeboard` board
+  // alongside mainboard/sideboard/commanders, and Deckstats.net's own import explicitly leaves its
+  // Maybeboard cards out of the real deck) - cards under it must not land in Main Deck by accident.
+  it('leaves Maybeboard cards out of the deck entirely, rather than misfiling them into Main Deck', () => {
+    const text = 'Deck\n4 Lightning Bolt\n\nMaybeboard\n2 Sol Ring\n\nSideboard\n1 Negate'
+    const parsed = parseDecklistText(text, mtgAdapter, catalog, 'modern')
+    expect(parsed.zones.main).toEqual([q(bolt, 4)])
+    expect(parsed.zones.sideboard).toEqual([q(negate, 1)])
+    expect(parsed.zones.main).not.toEqual(expect.arrayContaining([q(solRing, 2)]))
+    expect(parsed.unmatched).toEqual([]) // not reported as garbage either - it's a recognized, intentional exclusion
+    expect(parsed.matchedCopies).toBe(5) // 4 Bolt + 1 Negate; the 2 Sol Ring never counted
+  })
+
+  it('also recognizes a bare "Maybeboard" heading (no colon), and resumes normal parsing after it', () => {
+    const text = 'Deck\n4 Lightning Bolt\n\nMaybeboard\n2 Sol Ring\n\nDeck\n1 Forest'
+    const parsed = parseDecklistText(text, mtgAdapter, catalog, 'modern')
+    expect(parsed.zones.main).toEqual([q(bolt, 4), q(forest, 1)])
   })
 })

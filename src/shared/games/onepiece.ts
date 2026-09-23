@@ -274,4 +274,8 @@ export const onepieceAdapter: GameAdapter = {
   formatDecklistText,
   getGuidedStage,
   mainDeckExcludedCategories: ['Leader', 'DON!!'],
+  // Magical Meta's One Piece export appends a "[OP01-006]"-style set-code suffix per line - the
+  // shared PRINTING_SUFFIXES stripper in importDeck.ts already handles that bracket form, it just
+  // needs this game to opt in the way mtg.ts already does.
+  importOptions: { stripPrintingSuffix: true },
 }

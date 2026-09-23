@@ -145,6 +145,20 @@ const HEADER_ALIASES: Record<string, string> = {
   extradeck: 'extra',
 }
 
+// "Maybeboard" (Moxfield's own board type, and Deckstats.net's explicit "Maybeboard:" section,
+// which its own import deliberately leaves out of the real deck) - cards someone is considering,
+// not part of the deck. Recognized so its cards are skipped outright rather than falling through
+// to the generic zone-fallback and silently landing in Main Deck as if they'd been playing them.
+function isMaybeboardHeading(label: string): boolean {
+  const wanted = normalizeName(label).replace(/\s+/g, '')
+  return wanted === 'maybeboard' || wanted === 'maybe'
+}
+
+function classifyHeader(label: string, zones: DeckZoneRule[]): { zone: DeckZoneRule | null; maybeboard: boolean } {
+  if (isMaybeboardHeading(label)) return { zone: null, maybeboard: true }
+  return { zone: zoneForHeader(label, zones), maybeboard: false }
+}
+
 function zoneForHeader(label: string, zones: DeckZoneRule[]): DeckZoneRule | null {
   const wanted = normalizeName(label)
   if (!wanted) return null
@@ -159,12 +173,12 @@ function zoneForHeader(label: string, zones: DeckZoneRule[]): DeckZoneRule | nul
   )
 }
 
-// "Main Deck (50/50):", "Pokémon: 12", "Total Cards: 60"
-const HEADER_LINE = /^([\p{L}][\p{L}\s!]*?)\s*(?:\([^)]*\))?\s*:\s*(\d+)?$/u
+// "Main Deck (50/50):", "Pokémon: 12", "Total Cards: 60", "//Mainboard" (Deckstats.net's own prefix).
+const HEADER_LINE = /^(?:\/\/\s*)?([\p{L}][\p{L}\s!]*?)\s*(?:\([^)]*\))?\s*:\s*(\d+)?$/u
 // "#main", "#extra", "!side": the headings of a .ydk file.
 const YDK_HEADING = /^[#!](main|extra|side)$/i
-// "Deck", "Sideboard", "Commander": a heading with no colon or count (Arena, MTGO, Moxfield).
-const BARE_HEADER_LINE = /^([\p{L}][\p{L} ]{0,24})$/u
+// "Deck", "Sideboard", "Commander", "//Sideboard": a heading with no colon or count (Arena, MTGO, Moxfield, Deckstats.net).
+const BARE_HEADER_LINE = /^(?:\/\/\s*)?([\p{L}][\p{L} ]{0,24})$/u
 // "SB: 2 Negate": one sideboard card, tagged on its own line (MTGO, Moxfield).
 const SIDEBOARD_PREFIX = /^SB:\s*(\S.*)$/i
 // "Leader: OP01-001 Roronoa Zoro", "Legend: unl-229*-219 Vi ..." — a zone header with its single card inline.
@@ -245,6 +259,8 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
   }
 
   let currentZone: DeckZoneRule | null = null
+  // Set by a "Maybeboard" heading, cleared by any other recognized heading - see isMaybeboardHeading.
+  let ignoringSection = false
 
   // MTGO-style lists mark no sideboard at all: the blank line after the main deck starts it. Only
   // trusted when the list has no headings or "SB:" tags of its own, which are then the better signal.
@@ -295,6 +311,8 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
 
     const cardLine = CARD_LINE.exec(line)
     if (cardLine) {
+      if (ignoringSection) continue // a Maybeboard card - intentionally not part of the deck
+
       const quantity = Number(cardLine[1])
       const rest = cardLine[2]
 
@@ -325,13 +343,18 @@ export function parseDecklistText(text: string, adapter: GameAdapter, cardsById:
 
     const header = HEADER_LINE.exec(line)
     if (header) {
-      currentZone = zoneForHeader(header[1], zoneRules)
+      const classified = classifyHeader(header[1], zoneRules)
+      currentZone = classified.zone
+      ignoringSection = classified.maybeboard
       continue
     }
     // A bare heading ("Sideboard") only ever switches zones; other loose text is ignored rather than ending the current zone.
     const bare = BARE_HEADER_LINE.exec(line)
-    const bareZone = bare ? zoneForHeader(bare[1], zoneRules) : null
-    if (bareZone) currentZone = bareZone
+    const bareClassified = bare ? classifyHeader(bare[1], zoneRules) : null
+    if (bareClassified && (bareClassified.zone || bareClassified.maybeboard)) {
+      currentZone = bareClassified.zone
+      ignoringSection = bareClassified.maybeboard
+    }
   }
 
   return result
