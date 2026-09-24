@@ -409,24 +409,28 @@ export const useAppStore = create<AppState>((set, get) => {
       // Card ids saved against older card data (Yu-Gi-Oh's changed in v0.12.0) are pointed at the current
       // cards, so decks, binders, the collection and the wishlist don't lose them - see cardIdRepair.ts.
       if (gameId === 'yugioh') {
-        const { decks, binders, collection, wishlist } = get()
-        const repairs = staleIdRepairs(storedCardIds({ decks, binders, collection, wishlist }), cards)
-        if (repairs.size > 0) {
-          try {
+        try {
+          // Read from the saved files, not the store: at startup this can run before binders, the
+          // collection and the wishlist have been loaded into it, and their stale ids would be missed.
+          const [decks, binders, collection, wishlist] = await Promise.all([
+            window.api.decks.list(),
+            window.api.binders.list(),
+            window.api.collection.get(),
+            window.api.wishlist.list(),
+          ])
+          const repairs = staleIdRepairs(storedCardIds({ decks, binders, collection, wishlist }), cards)
+          if (repairs.size > 0) {
             const fixed = await window.api.repairCardIds([...repairs])
             if (fixed.repaired > 0) {
+              // Reload from the repaired files, so a startup load that read them earlier can't leave old ids on screen.
+              await Promise.all([get().loadDecks(), get().loadBinders(), get().loadCollection(), get().loadForTrade(), get().loadWishlist()])
               set({
-                decks: fixed.decks,
-                binders: fixed.binders,
-                collection: fixed.collection,
-                forTrade: new Set(fixed.forTrade),
-                wishlist: fixed.wishlist,
                 notice: `Restored ${fixed.repaired} Yu-Gi-Oh! card${fixed.repaired === 1 ? '' : 's'} in your decks, binders, collection and wishlist that the updated card data had renamed.`,
               })
             }
-          } catch (err) {
-            set({ error: `Couldn't restore Yu-Gi-Oh! cards after the card-data update: ${errorMessage(err)}` })
           }
+        } catch (err) {
+          set({ error: `Couldn't restore Yu-Gi-Oh! cards after the card-data update: ${errorMessage(err)}` })
         }
       }
       // Decks saved before summaries existed get one now, without counting as an edit. Each deck is

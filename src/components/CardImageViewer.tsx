@@ -20,13 +20,13 @@ export function CardImageViewer({ card, onClose }: { card: Card; onClose: () => 
 
   const fileName = `${card.name} ${card.setCode}-${card.number}`.replace(/[\\/:*?"<>|]+/g, ' ').trim()
 
-  async function withImage(action: (dataUrl: string) => Promise<unknown>, done: string) {
+  /** Runs `action` on the picture's data; it returns the message to show (null for none, e.g. a cancelled save). */
+  async function withImage(action: (dataUrl: string) => Promise<string | null>) {
     if (!card.imageUrl) return
     setBusy(true)
     setStatus(null)
     try {
-      await action(await window.api.images.fetchDataUri(card.imageUrl))
-      setStatus(done)
+      setStatus(await action(await window.api.images.fetchDataUri(card.imageUrl)))
     } catch {
       // On the phone app a Yu-Gi-Oh image can't be read back by the page (YGOPRODeck doesn't allow it),
       // but the browser's own long-press menu on the picture still copies and saves it.
@@ -49,10 +49,10 @@ export function CardImageViewer({ card, onClose }: { card: Card; onClose: () => 
       <div className="image-viewer-body" onClick={(e) => e.stopPropagation()}>
         {card.imageUrl ? <img src={card.imageUrl} alt={card.name} /> : <div className="card-tile-placeholder">{card.name}</div>}
         <div className="image-viewer-actions">
-          <button className="btn btn-primary" disabled={busy || !card.imageUrl} onClick={() => withImage((d) => window.api.clipboard.writeImage(d), 'Copied — paste it anywhere.')}>
+          <button className="btn btn-primary" disabled={busy || !card.imageUrl} onClick={() => withImage(async (d) => { await window.api.clipboard.writeImage(d); return 'Copied — paste it anywhere.' })}>
             Copy image
           </button>
-          <button className="btn" disabled={busy || !card.imageUrl} onClick={() => withImage(async (d) => { if (await window.api.exportSaveImage(d, `${fileName}.jpg`)) setStatus('Saved.') }, '')}>
+          <button className="btn" disabled={busy || !card.imageUrl} onClick={() => withImage(async (d) => ((await window.api.exportSaveImage(d, `${fileName}.jpg`)) ? 'Saved.' : null))}>
             Save image…
           </button>
           <button className="btn" onClick={onClose}>
