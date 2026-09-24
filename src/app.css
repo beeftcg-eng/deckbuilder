@@ -226,12 +226,24 @@
 
 .card-browser-controls {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin-bottom: 8px;
 }
 
 .search-input {
-  flex: 1;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+/* A <select> is as wide as its longest option, and Yu-Gi-Oh set names are long: without a cap the
+   set filter alone was wider than the window. Capped and allowed to shrink; the row wraps instead. */
+.card-browser-controls select {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 240px;
+  text-overflow: ellipsis;
 }
 
 .card-browser-count {
@@ -380,15 +392,24 @@
 }
 
 .rarity-color-upper-mid {
-  color: #b98cff;
+  color: var(--rarity-upper-mid, #b98cff);
 }
 
 .rarity-color-high {
   color: var(--warning);
 }
 
-.rarity-color-top {
-  color: #ffd54a;
+/* Secret-family and Yu-Gi-Oh's premium rarities: each its own color (set per theme by applyTheme). */
+.rarity-color-top { color: var(--rarity-top, #ffd54a); }
+.rarity-color-qcsr { color: var(--rarity-qcsr, #ff8fbf); }
+.rarity-color-starlight { color: var(--rarity-starlight, #8fd3ff); }
+.rarity-color-ghost { color: var(--rarity-ghost, #cdeee9); }
+.rarity-color-collector { color: var(--rarity-collector, #4fe0c8); }
+.rarity-color-ultimate { color: var(--rarity-ultimate, #e8a468); }
+.rarity-color-platinum { color: var(--rarity-platinum, #cfd6e6); }
+.rarity-color-gold { color: var(--rarity-gold, #f2a93b); }
+.rarity-color-top, .rarity-color-qcsr, .rarity-color-starlight, .rarity-color-ghost, .rarity-color-collector,
+.rarity-color-ultimate, .rarity-color-platinum, .rarity-color-gold {
   font-weight: 600;
 }
 
@@ -2071,4 +2092,51 @@
 .md-record {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* Good news in the error banner's spot (e.g. cards restored after a card-data change). */
+.error-banner.notice-banner {
+  background: color-mix(in srgb, var(--success) 18%, var(--bg-elevated));
+  border-color: var(--success);
+}
+
+/* Artwork picker in the card details (CardDetailModal, shared/artChoice.ts). */
+.art-choice {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.art-choice:hover {
+  border-color: var(--border-strong);
+}
+
+.art-choice.active {
+  border-color: var(--accent);
+}
+
+.art-choice:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Move copies out of a binder (MoveCardsModal). */
+.move-cards-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.move-cards-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.move-cards-form select,
+.move-cards-form input {
+  max-width: 100%;
 }

@@ -13,6 +13,7 @@ import { userDataDir } from './lib/paths'
 import { registerWishlistIpc } from './ipc/wishlist'
 import { registerPawmodoroIpc } from './ipc/pawmodoro'
 import { registerPairingsIpc } from './ipc/pairings'
+import { registerCardIdRepairIpc } from './ipc/cardIdRepair'
 import { registerBackupIpc } from './ipc/backup'
 import { registerCollectionIpc } from './ipc/collection'
 import { registerSettingsIpc } from './ipc/settings'
@@ -77,6 +78,7 @@ registerImagesIpc(imageFetcher)
 registerWishlistIpc()
 registerPawmodoroIpc()
 registerPairingsIpc()
+registerCardIdRepairIpc()
 registerBackupIpc()
 registerCollectionIpc()
 registerSettingsIpc()

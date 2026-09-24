@@ -20,6 +20,8 @@ export default function App() {
   const initialize = useAppStore((s) => s.initialize)
   const loadCatalog = useAppStore((s) => s.loadCatalog)
   const error = useAppStore((s) => s.error)
+  const notice = useAppStore((s) => s.notice)
+  const setNotice = useAppStore((s) => s.setNotice)
   const setError = useAppStore((s) => s.setError)
   const currentGameId = useAppStore((s) => s.currentGameId)
   const currentDeckId = useAppStore((s) => s.currentDeckId)
@@ -85,6 +87,14 @@ export default function App() {
         <div className="error-banner" role="alert">
           <span>{error}</span>
           <button className="deck-row-delete" title="Dismiss" onClick={() => setError(null)}>
+            ×
+          </button>
+        </div>
+      )}
+      {notice && !error && (
+        <div className="error-banner notice-banner" role="status">
+          <span>{notice}</span>
+          <button className="deck-row-delete" title="Dismiss" onClick={() => setNotice(null)}>
             ×
           </button>
         </div>

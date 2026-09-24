@@ -98,6 +98,9 @@ const api = {
       }
     },
   },
+  // Points saved card ids that no longer exist in the card data at the current cards (shared/cardIdRepair.ts).
+  repairCardIds: (pairs: [string, string][]): Promise<{ decks: Deck[]; binders: Binder[]; collection: Collection; forTrade: string[]; wishlist: WishlistEntry[]; repaired: number }> =>
+    ipcRenderer.invoke('data:repairCardIds', pairs),
   // Your tournament results from Pairings, a separate app and account (see shared/pairingsRecord.ts).
   pairings: {
     getConfig: (): Promise<PairingsConfig> => ipcRenderer.invoke('pairings:getConfig'),

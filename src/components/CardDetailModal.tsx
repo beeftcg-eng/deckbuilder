@@ -3,8 +3,14 @@ import type { Card } from '../shared/types'
 import { useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
 import { rarityColorClass } from '../shared/rarityColor'
+import { artUrl, artworkIds } from '../shared/artChoice'
 
-export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => void }) {
+export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose: () => void }) {
+  // Read the card from the catalog, so picking an artwork below shows up here straight away.
+  const card = useAppStore((s) => s.catalogs[opened.gameId]?.byId.get(opened.id)) ?? opened
+  const setArtChoice = useAppStore((s) => s.setArtChoice)
+  const arts = card.gameId === 'yugioh' ? artworkIds(card) : []
+  const shownArt = arts.find((id) => card.imageUrl === artUrl(card, id, 'full'))
   const addToWishlist = useAppStore((s) => s.addToWishlist)
   const removeFromWishlist = useAppStore((s) => s.removeFromWishlist)
   const wishlistEntryId = useAppStore((s) => s.wishlist.find((e) => e.cardId === card.id)?.id)
@@ -30,15 +36,36 @@ export function CardDetailModal({ card, onClose }: { card: Card; onClose: () => 
           ) : (
             <div className="card-tile-placeholder">{card.name}</div>
           )}
-          {card.altImageUrlsSmall && card.altImageUrlsSmall.length > 0 && (
-            <div className="card-detail-alt-arts" title="Other official artworks for this card (not necessarily this printing — the source data doesn't say which printing uses which art)">
-              <div className="text-dim">Other known artworks:</div>
-              <div className="card-detail-alt-arts-row">
-                {card.altImageUrlsSmall.map((url) => (
-                  <img key={url} src={url} alt="" loading="lazy" />
+          {arts.length > 1 ? (
+            <div className="card-detail-alt-arts">
+              <div className="text-dim" title="The card data lists every official artwork but not which printing uses which, so pick the one your copy has. It's used for this printing everywhere in the app.">
+                Artwork — pick the one on your copy:
+              </div>
+              <div className="card-detail-alt-arts-row" role="group" aria-label="Artwork">
+                {arts.map((id, i) => (
+                  <button
+                    key={id}
+                    className={`art-choice ${id === shownArt ? 'active' : ''}`}
+                    aria-pressed={id === shownArt}
+                    title={i === 0 ? 'Default artwork' : `Artwork ${i + 1}`}
+                    onClick={() => setArtChoice(card, i === 0 ? null : id)}
+                  >
+                    <img src={artUrl(card, id, 'small')} alt={i === 0 ? 'Default artwork' : `Artwork ${i + 1}`} loading="lazy" />
+                  </button>
                 ))}
               </div>
             </div>
+          ) : (
+            card.altImageUrlsSmall && card.altImageUrlsSmall.length > 0 && (
+              <div className="card-detail-alt-arts">
+                <div className="text-dim">Other known artworks:</div>
+                <div className="card-detail-alt-arts-row">
+                  {card.altImageUrlsSmall.map((url) => (
+                    <img key={url} src={url} alt="" loading="lazy" />
+                  ))}
+                </div>
+              </div>
+            )
           )}
         </div>
         <div className="card-detail-info">

@@ -55,6 +55,8 @@ export interface Card {
    * arts exist for this card," shown for browsing, not a claim about which printing has which art.
    */
   altImageUrlsSmall?: string[]
+  /** Set when a chosen artwork (artChoice.ts) replaced imageUrl: the artwork id it showed by default. */
+  defaultArtId?: string
 }
 
 /** 'restricted' = one copy (Vintage's restricted list, Yu-Gi-Oh!'s Limited); 'semi-restricted' = two copies (Yu-Gi-Oh!'s Semi-Limited). */
@@ -234,6 +236,8 @@ export interface AppSettings {
   theme?: string
   /** Local copy of the last trade-profile visibility pushed to the cloud (see shared/types.ts TradeProfile). */
   tradeProfile?: TradeProfile
+  /** Yu-Gi-Oh artwork picked per printing (artChoice.ts printingKey -> artwork id). */
+  artChoices?: Record<string, string>
 }
 
 export interface PawmodoroConfig {

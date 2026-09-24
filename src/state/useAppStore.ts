@@ -31,6 +31,9 @@ import { applyVisibleOrder, reorderByDrop, type DeckSortMode } from '../shared/d
 import { orderGames } from '../shared/gameOrder'
 import { applyTheme } from '../lib/theme'
 import { withSummary } from '../shared/deckSummary'
+import { staleIdRepairs, storedCardIds } from '../shared/cardIdRepair'
+import { applyArtChoices, printingKey, withArtwork } from '../shared/artChoice'
+import { addToBinder, addToDeck, deckMoveProblem, takeFromBinder, zoneForCard } from '../shared/cardMoves'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 
 interface Catalog {
@@ -103,6 +106,11 @@ interface AppState {
   updateStatus: UpdateStatus | null
   /** Last failure worth telling the user about (e.g. a save that didn't go through). */
   error: string | null
+  /** A good-news message (e.g. cards restored after a card-data change), shown until dismissed. */
+  notice: string | null
+  setNotice: (message: string | null) => void
+  /** Shows `artId` for this Yu-Gi-Oh printing everywhere (null = its default artwork) - see artChoice.ts. */
+  setArtChoice: (card: Card, artId: string | null) => void
 
   wishlist: WishlistEntry[]
   collection: Collection
@@ -151,6 +159,10 @@ interface AppState {
   /** Sets the active binder for quick-add steppers, or null to stop targeting one. */
   selectBinder: (binderId: string | null) => void
   setBinderCardQuantity: (binderId: string, cardId: string, quantity: number) => Promise<void>
+  /** Moves copies of a card from one binder to another. */
+  moveBinderCards: (fromBinderId: string, toBinderId: string, cardId: string, quantity: number) => Promise<void>
+  /** Moves copies of a card out of a binder into a deck (the zone the card browser would pick). Returns whether it moved. */
+  moveBinderCardsToDeck: (binderId: string, deckId: string, card: Card, quantity: number) => Promise<boolean>
   /** Whether the open deck is shown as the read-only full view (the default when a deck is selected) rather than in the editor. */
   deckViewing: boolean
   setDeckViewing: (viewing: boolean) => void
@@ -308,6 +320,7 @@ export const useAppStore = create<AppState>((set, get) => {
     settings: {},
     undoStack: [],
     error: null,
+    notice: null,
     updateStatus: null,
 
     wishlist: [],
@@ -363,6 +376,22 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     setError: (message) => set({ error: message }),
+    setNotice: (message) => set({ notice: message }),
+
+    setArtChoice: (card, artId) => {
+      const key = printingKey(card)
+      const choices = { ...(get().settings.artChoices ?? {}) }
+      if (artId) choices[key] = artId
+      else delete choices[key]
+      set((s) => {
+        const catalog = s.catalogs[card.gameId]
+        const settings = { ...s.settings, artChoices: choices }
+        if (!catalog) return { settings }
+        const cards = catalog.cards.map((c) => (c.gameId === 'yugioh' && printingKey(c) === key ? withArtwork(c, artId) : c))
+        return { settings, catalogs: { ...s.catalogs, [card.gameId]: { cards, byId: new Map(cards.map((c) => [c.id, c])) } } }
+      })
+      persistSettings({ artChoices: choices })
+    },
 
     setGame: (gameId) => {
       set({ currentGameId: gameId })
@@ -375,9 +404,32 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     loadCatalog: async (gameId) => {
-      const cards = await window.api.cards.load(gameId)
+      const cards = applyArtChoices(await window.api.cards.load(gameId), get().settings.artChoices)
       const byId = new Map(cards.map((c) => [c.id, c]))
       set((s) => ({ catalogs: { ...s.catalogs, [gameId]: { cards, byId } } }))
+      // Card ids saved against older card data (Yu-Gi-Oh's changed in v0.12.0) are pointed at the current
+      // cards, so decks, binders, the collection and the wishlist don't lose them - see cardIdRepair.ts.
+      if (gameId === 'yugioh') {
+        const { decks, binders, collection, wishlist } = get()
+        const repairs = staleIdRepairs(storedCardIds({ decks, binders, collection, wishlist }), cards)
+        if (repairs.size > 0) {
+          try {
+            const fixed = await window.api.repairCardIds([...repairs])
+            if (fixed.repaired > 0) {
+              set({
+                decks: fixed.decks,
+                binders: fixed.binders,
+                collection: fixed.collection,
+                forTrade: new Set(fixed.forTrade),
+                wishlist: fixed.wishlist,
+                notice: `Restored ${fixed.repaired} Yu-Gi-Oh! card${fixed.repaired === 1 ? '' : 's'} in your decks, binders, collection and wishlist that the updated card data had renamed.`,
+              })
+            }
+          } catch (err) {
+            set({ error: `Couldn't restore Yu-Gi-Oh! cards after the card-data update: ${errorMessage(err)}` })
+          }
+        }
+      }
       // Decks saved before summaries existed get one now, without counting as an edit. Each deck is
       // read from the store right before its save is issued, so this never saves over a newer edit.
       for (const { id } of get().decks.filter((d) => d.gameId === gameId && !d.summary)) {
@@ -511,6 +563,52 @@ export const useAppStore = create<AppState>((set, get) => {
       else delete cards[cardId]
       const saved = await window.api.binders.save({ ...binder, cards })
       set((s) => ({ binders: s.binders.map((b) => (b.id === saved.id ? saved : b)) }))
+    },
+
+    moveBinderCards: async (fromBinderId, toBinderId, cardId, quantity) => {
+      const from = get().binders.find((b) => b.id === fromBinderId)
+      const to = get().binders.find((b) => b.id === toBinderId)
+      if (!from || !to || from.id === to.id || quantity <= 0) return
+      const n = Math.min(quantity, from.cards[cardId] ?? 0)
+      if (n <= 0) return
+      const nextFrom = takeFromBinder(from, cardId, n)
+      const nextTo = addToBinder(to, cardId, n)
+      set((s) => ({ binders: s.binders.map((b) => (b.id === from.id ? nextFrom : b.id === to.id ? nextTo : b)) }))
+      try {
+        const [savedFrom, savedTo] = await Promise.all([window.api.binders.save(nextFrom), window.api.binders.save(nextTo)])
+        set((s) => ({ binders: s.binders.map((b) => (b.id === savedFrom.id ? savedFrom : b.id === savedTo.id ? savedTo : b)) }))
+      } catch (err) {
+        set((s) => ({ binders: s.binders.map((b) => (b.id === from.id ? from : b.id === to.id ? to : b)), error: `Couldn't move the cards: ${errorMessage(err)}` }))
+      }
+    },
+
+    moveBinderCardsToDeck: async (binderId, deckId, card, quantity) => {
+      const binder = get().binders.find((b) => b.id === binderId)
+      const deck = get().decks.find((d) => d.id === deckId)
+      if (!binder || !deck || quantity <= 0) return false
+      const problem = deckMoveProblem(deck, card)
+      if (problem) {
+        set({ error: problem })
+        return false
+      }
+      const n = Math.min(quantity, binder.cards[card.id] ?? 0)
+      if (n <= 0) return false
+      const nextDeck = addToDeck(deck, zoneForCard(deck, card)!.id, card.id, n)
+      const nextBinder = takeFromBinder(binder, card.id, n)
+      set((s) => ({
+        decks: s.decks.map((d) => (d.id === deck.id ? nextDeck : d)),
+        binders: s.binders.map((b) => (b.id === binder.id ? nextBinder : b)),
+      }))
+      // Not on the undo stack: undo only restores decks, so it would drop these copies from the binder
+      // and the deck both. Moving them back is removing them from the deck and adding to the binder.
+      await persistDeck(nextDeck)
+      try {
+        const saved = await window.api.binders.save(nextBinder)
+        set((s) => ({ binders: s.binders.map((b) => (b.id === saved.id ? saved : b)) }))
+      } catch (err) {
+        set({ error: `Added to "${deck.name}", but couldn't update the binder: ${errorMessage(err)}` })
+      }
+      return true
     },
 
     updateDeck: async (updater, undoLabel = 'Edit deck') => {

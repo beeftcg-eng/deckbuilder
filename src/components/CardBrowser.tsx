@@ -6,7 +6,7 @@ import { poolKey } from '../shared/collection'
 import { currentDeckFor } from '../shared/decks'
 import { rulesForFormat } from '../shared/games/rules'
 import { identityColors } from '../shared/cardColors'
-import { matchRank } from '../shared/cardSearch'
+import { matchRank, matchesSearch } from '../shared/cardSearch'
 import type { Card, DeckRules } from '../shared/types'
 import { CardTile } from './CardTile'
 import { CardDetailModal } from './CardDetailModal'
@@ -141,17 +141,7 @@ export function CardBrowser() {
         if (!matches) return false
       }
       if (ownedOnly && !ownedIndex.get(poolKey(c))) return false
-      if (
-        q &&
-        !c.name.toLowerCase().includes(q) &&
-        !c.text?.toLowerCase().includes(q) &&
-        !c.subtypes.some((s) => s.toLowerCase().includes(q)) &&
-        !c.flavorNames?.some((n) => n.toLowerCase().includes(q)) &&
-        !c.sourceId.toLowerCase().includes(q) &&
-        !c.setCode.toLowerCase().includes(q) &&
-        !c.number.toLowerCase().includes(q)
-      )
-        return false
+      if (q && !matchesSearch(c, q)) return false
       return true
     })
     if (!q) return filtered

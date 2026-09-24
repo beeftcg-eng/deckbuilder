@@ -41,6 +41,7 @@ import type { PulledState } from '../shared/sync/ops'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 import { PAIRINGS_ANON_KEY, PAIRINGS_URL } from '../shared/pairingsDefaults'
 import { fetchDeckRecords } from '../shared/pairingsRecord'
+import { applyIdRepairs, type RepairableData } from '../shared/cardIdRepair'
 import { idbGet, idbGetAll, idbSet, idbDelete, idbReplaceAll } from './idb'
 import { WebSyncStore } from './webSyncStore'
 
@@ -57,12 +58,25 @@ async function readCardCache(gameId: GameId): Promise<CardCache> {
   return (await idbGet<CardCache>('cards', gameId)) ?? { cards: [], lastSynced: null }
 }
 
+/** dbimg:// -> the real image URL, for the main image and every alternate artwork. */
+function resolveCardImages(card: Card): Card {
+  if (!card.imageUrl?.startsWith('dbimg:') && !card.altImageUrlsSmall?.some((u) => u.startsWith('dbimg:'))) return card
+  return {
+    ...card,
+    imageUrl: card.imageUrl ? resolveDbImgUrl(card.imageUrl) : card.imageUrl,
+    imageUrlSmall: card.imageUrlSmall ? resolveDbImgUrl(card.imageUrlSmall) : card.imageUrlSmall,
+    altImageUrlsSmall: card.altImageUrlsSmall?.map(resolveDbImgUrl),
+  }
+}
+
 const cards = {
   meta: async (gameId: GameId): Promise<CardCacheMeta> => {
     const cache = await readCardCache(gameId)
     return { gameId, count: cache.cards.length, lastSynced: cache.lastSynced }
   },
-  load: async (gameId: GameId): Promise<Card[]> => (await readCardCache(gameId)).cards,
+  // Also resolves at load time (idempotent), so a cache synced before alternate artworks were
+  // rewritten below shows them too without another "Update card data".
+  load: async (gameId: GameId): Promise<Card[]> => (await readCardCache(gameId)).cards.map(resolveCardImages),
   sync: async (gameId: GameId): Promise<CardCacheMeta> => {
     const adapter = getAdapter(gameId)
     const previous = adapter.keepPricesWhenMissing ? await readCardCache(gameId) : null
@@ -75,11 +89,7 @@ const cards = {
       // protocol handler - in a browser it just fails to load, so every card's image URL is
       // rewritten to the real one here, once, at sync time.
       fetched = uniquifyCardIds(
-        raw.map((card) => ({
-          ...card,
-          imageUrl: card.imageUrl ? resolveDbImgUrl(card.imageUrl) : card.imageUrl,
-          imageUrlSmall: card.imageUrlSmall ? resolveDbImgUrl(card.imageUrlSmall) : card.imageUrlSmall,
-        })),
+        raw.map(resolveCardImages),
       )
     } catch (err) {
       broadcast({ gameId, loaded: 0, total: 0, done: true, error: err instanceof Error ? err.message : String(err) })
@@ -607,6 +617,42 @@ const patchNotes = {
   },
 }
 
+// ---------- card id repair (mirrors electron/ipc/cardIdRepair.ts) ----------
+
+async function repairCardIds(pairs: [string, string][]): Promise<RepairableData & { repaired: number }> {
+  const input: RepairableData = {
+    decks: await idbGetAll<Deck>('decks'),
+    binders: await idbGetAll<Binder>('binders'),
+    collection: (await idbGet<Collection>('settings', 'collection')) ?? {},
+    forTrade: (await idbGet<string[]>('settings', 'forTrade')) ?? [],
+    wishlist: (await idbGet<WishlistEntry[]>('settings', 'wishlist')) ?? [],
+  }
+  const result = applyIdRepairs(input, new Map(pairs))
+  if (result.repaired === 0 && result.forTradeChanges.length === 0) return { ...input, repaired: 0 }
+  const { data } = result
+  ensureSyncEngine()
+  for (const deck of data.decks.filter((d) => result.changedDeckIds.includes(d.id))) {
+    await idbSet('decks', deck.id, deck)
+    void syncEngine!.enqueue({ type: 'save_deck', id: deck.id, gameId: deck.gameId, data: deck })
+  }
+  for (const binder of data.binders.filter((b) => result.changedBinderIds.includes(b.id))) {
+    await idbSet('binders', binder.id, binder)
+    void syncEngine!.enqueue({ type: 'save_binder', id: binder.id, data: binder })
+  }
+  if (result.collectionChanges.length) await idbSet('settings', 'collection', data.collection)
+  if (result.forTradeChanges.length) await idbSet('settings', 'forTrade', data.forTrade)
+  if (result.wishlistChanges.length) await idbSet('settings', 'wishlist', data.wishlist)
+  for (const { cardId, quantity } of result.collectionChanges) {
+    const { name, setCode, gameId } = await cardNameAndSet(cardId)
+    void syncEngine!.enqueue({ type: 'set_collection_quantity', gameId, cardId, cardName: name, setCode, quantity })
+  }
+  for (const { cardId, forTrade } of result.forTradeChanges) {
+    void syncEngine!.enqueue({ type: 'set_for_trade', gameId: cardIdParts(cardId).gameId, cardId, forTrade })
+  }
+  for (const { cardId, quantity } of result.wishlistChanges) await enqueueWishlistSync(cardIdParts(cardId).gameId as GameId, cardId, quantity)
+  return { ...data, repaired: result.repaired }
+}
+
 // ---------- pairings (tournament results; mirrors electron/ipc/pairings.ts) ----------
 
 // A different account from Pawmodoro's, so it gets its own key in the 'sync' store.
@@ -659,6 +705,7 @@ export const webApi = {
   wishlist,
   pawmodoro,
   pairings,
+  repairCardIds,
   backup,
   updater,
   exportPaste,

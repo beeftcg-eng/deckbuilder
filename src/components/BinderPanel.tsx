@@ -1,3 +1,4 @@
+import { MoveCardsModal } from './MoveCardsModal'
 import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
@@ -81,6 +82,7 @@ function OpenBinder({ binderId }: { binderId: string }) {
   const deleteBinder = useAppStore((s) => s.deleteBinder)
   const setBinderCardQuantity = useAppStore((s) => s.setBinderCardQuantity)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const [moving, setMoving] = useState<{ card: Card; quantity: number } | null>(null)
 
   const cardIds = useMemo(() => (binder ? Object.keys(binder.cards) : []), [binder])
 
@@ -190,6 +192,9 @@ function OpenBinder({ binderId }: { binderId: string }) {
                       +
                     </button>
                   </div>
+                  <button className="btn" title="Move copies to another binder or into a deck" onClick={() => setMoving({ card, quantity })}>
+                    Move…
+                  </button>
                   <button className="deck-row-delete" title="Remove from binder" onClick={() => setBinderCardQuantity(binderId, card.id, 0)}>
                     ×
                   </button>
@@ -199,6 +204,7 @@ function OpenBinder({ binderId }: { binderId: string }) {
           )
         })}
       </div>
+      {moving && <MoveCardsModal binderId={binderId} card={moving.card} available={moving.quantity} onClose={() => setMoving(null)} />}
     </div>
   )
 }

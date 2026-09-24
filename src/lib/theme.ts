@@ -1,4 +1,5 @@
 import { DEFAULT_THEME_ID, getTheme, isThemeId, themeVariables } from '../shared/themes'
+import { RARITY_COLORS } from '../shared/rarityColor'
 
 const STORAGE_KEY = 'deckbuilder-theme'
 
@@ -8,6 +9,7 @@ export function applyTheme(id: string | null | undefined): void {
   const root = document.documentElement
   for (const [name, value] of Object.entries(themeVariables(theme))) root.style.setProperty(name, value)
   root.style.setProperty('color-scheme', theme.scheme)
+  for (const [tier, color] of Object.entries(RARITY_COLORS)) root.style.setProperty(`--rarity-${tier}`, color[theme.scheme])
   root.dataset.theme = theme.id
   try {
     localStorage.setItem(STORAGE_KEY, theme.id)

@@ -1,3 +1,4 @@
+import { matchesPrintedCode } from '../shared/cardSearch'
 import { useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
@@ -60,7 +61,7 @@ export function CollectionPanel() {
   const needle = query.trim().toLowerCase()
   const visibleOwned = useMemo(() => {
     const matching = needle
-      ? owned.entries.filter((e) => e.card.name.toLowerCase().includes(needle) || e.card.setName.toLowerCase().includes(needle) || e.card.setCode.toLowerCase() === needle)
+      ? owned.entries.filter((e) => e.card.name.toLowerCase().includes(needle) || e.card.setName.toLowerCase().includes(needle) || e.card.setCode.toLowerCase() === needle || matchesPrintedCode(e.card, needle))
       : owned.entries
     const compare: Record<Sort, (a: OwnedEntry, b: OwnedEntry) => number> = {
       name: (a, b) => a.card.name.localeCompare(b.card.name),
