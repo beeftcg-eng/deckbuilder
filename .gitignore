@@ -25,3 +25,6 @@ release
 *.njsproj
 *.sln
 *.sw?
+
+# scripts/build-ygo-art-map.py progress (resumable)
+.ygo-art-cache.json

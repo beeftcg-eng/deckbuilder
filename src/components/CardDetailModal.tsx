@@ -3,7 +3,7 @@ import type { Card } from '../shared/types'
 import { useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
 import { rarityColorClass } from '../shared/rarityColor'
-import { artUrl, artworkIds } from '../shared/artChoice'
+import { artUrl, artworkIds, knownArtIds } from '../shared/artChoice'
 
 export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose: () => void }) {
   // Read the card from the catalog, so picking an artwork below shows up here straight away.
@@ -39,8 +39,9 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
           {arts.length > 1 ? (
             <div className="card-detail-alt-arts">
               <div className="text-dim" title="The card data lists every official artwork but not which printing uses which, so pick the one your copy has. It's used for this printing everywhere in the app.">
-                Artwork for {card.setCode}-{card.number}
-                {card.rarity ? ` · ${card.rarity}` : ''} — pick the one on your copy:
+                {knownArtIds(card)
+                  ? `Artworks ${card.setCode}-${card.number}${card.rarity ? ` (${card.rarity})` : ''} was printed with — pick the one on your copy:`
+                  : `Artwork for ${card.setCode}-${card.number}${card.rarity ? ` · ${card.rarity}` : ''} — pick the one on your copy:`}
               </div>
               <div className="card-detail-alt-arts-row" role="group" aria-label="Artwork">
                 {arts.map((id, i) => (
