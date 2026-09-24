@@ -42,3 +42,16 @@ export function deckMoveProblem(deck: Deck, card: Card): string | null {
   if (!zoneForCard(deck, card)) return `${card.name} can't go in any of "${deck.name}"'s zones.`
   return null
 }
+
+/** The deck after taking `quantity` copies of `cardId` out of one zone (never below 0). */
+export function takeFromDeck(deck: Deck, zoneId: string, cardId: string, quantity: number): Deck {
+  const entries = (deck.zones[zoneId] ?? []).flatMap((e) => {
+    if (e.cardId !== cardId) return [e]
+    const left = e.quantity - quantity
+    return left > 0 ? [{ ...e, quantity: left }] : []
+  })
+  return { ...deck, zones: { ...deck.zones, [zoneId]: entries } }
+}
+
+/** Where copies move from or to. A deck source names its zone; a deck target uses zoneForCard. */
+export type MoveEnd = { kind: 'binder'; id: string } | { kind: 'deck'; id: string; zoneId?: string }

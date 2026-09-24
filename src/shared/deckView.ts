@@ -1,4 +1,5 @@
 import type { Card, Deck, DeckRules, DeckViewMode } from './types'
+import { poolKey } from './collection'
 
 export const DECK_VIEW_MODES: readonly DeckViewMode[] = ['grid', 'list', 'text']
 
@@ -9,8 +10,11 @@ export function isDeckViewMode(value: unknown): value is DeckViewMode {
 }
 
 export interface DeckViewEntry {
+  /** The first printing in the deck, when several printings of one card were merged. */
   card: Card
   quantity: number
+  /** How many different printings (set/rarity) these copies are; 1 for a single printing. */
+  printings: number
 }
 
 /** Cards of one type within a zone, e.g. the Creatures in a Main Deck. */
@@ -44,8 +48,11 @@ export function compareByCostThenName(a: Card, b: Card): number {
 const sum = (entries: { quantity: number }[]) => entries.reduce((total, e) => total + e.quantity, 0)
 
 /**
- * What the full-screen deck view shows: one section per non-empty zone, in the game's zone
- * order, each split by card type (alphabetical) and sorted by cost then name. Cards missing
+ * What the full-screen deck view shows: one section per non-empty zone, in the game's zone order,
+ * each split by card type. Types and the cards within them come in the order the deck editor has
+ * them (so a deck arranged there looks the same here), and printings of one card - the same card
+ * by the game's own copy-limit rule (collection.ts poolKey: by name, or by card number for One
+ * Piece) - are one entry with their copies added up, not a row per set or rarity. Cards missing
  * from the loaded catalog (its game hasn't been synced) are left out, as in the exported image.
  */
 export function buildDeckView(deck: Deck, rules: DeckRules, cardsById: Map<string, Card>): DeckViewSection[] {
@@ -58,27 +65,36 @@ export function buildDeckView(deck: Deck, rules: DeckRules, cardsById: Map<strin
       continue
     }
 
-    const byCategory = new Map<string, DeckViewEntry[]>()
-    for (const { cardId, quantity } of deck.zones[zone.id] ?? []) {
-      const card = cardsById.get(cardId)
-      if (!card || quantity <= 0) continue
-      const list = byCategory.get(card.category) ?? []
-      list.push({ card, quantity })
-      byCategory.set(card.category, list)
+    const entries = mergePrintings(deck.zones[zone.id] ?? [], cardsById)
+    const byCategory = new Map<string, DeckViewEntry[]>() // Map keeps first-appearance order
+    for (const entry of entries) {
+      const list = byCategory.get(entry.card.category) ?? []
+      list.push(entry)
+      byCategory.set(entry.card.category, list)
     }
     if (byCategory.size === 0) continue
 
-    const groups: DeckViewGroup[] = [...byCategory.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([category, entries]) => ({
-        category,
-        count: sum(entries),
-        entries: entries.sort((a, b) => compareByCostThenName(a.card, b.card)),
-      }))
+    const groups: DeckViewGroup[] = [...byCategory.entries()].map(([category, list]) => ({ category, count: sum(list), entries: list }))
     sections.push({ zoneId: zone.id, label: zone.label, count: groups.reduce((total, g) => total + g.count, 0), groups, chips: [] })
   }
 
   return sections
+}
+
+/** A zone's entries with every printing of one card merged into its first, in the zone's order. */
+export function mergePrintings(entries: { cardId: string; quantity: number }[], cardsById: Map<string, Card>): DeckViewEntry[] {
+  const merged = new Map<string, DeckViewEntry>()
+  for (const { cardId, quantity } of entries) {
+    const card = cardsById.get(cardId)
+    if (!card || quantity <= 0) continue
+    const key = poolKey(card)
+    const existing = merged.get(key)
+    if (existing) {
+      existing.quantity += quantity
+      existing.printings++
+    } else merged.set(key, { card, quantity, printings: 1 })
+  }
+  return [...merged.values()]
 }
 
 /** The plain-text list split into its blank-line-separated blocks, so they can be laid out in columns without splitting one. */

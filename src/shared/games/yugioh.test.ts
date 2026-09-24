@@ -189,6 +189,13 @@ describe('Yu-Gi-Oh! decklists', () => {
     expect(yugiohAdapter.formatDecklistText(deck, catalog)).toBe('Main Deck\n3 Blue-Eyes White Dragon\n\nExtra Deck\n1 Blue-Eyes Ultimate Dragon\n\nSide Deck\n2 Pot of Greed')
   })
 
+  it('lists printings of one card as one line', () => {
+    const be2 = { ...be, id: `${be.id}~SDK~Common`, setId: 'SDK', setCode: 'SDK', rarity: 'Common' }
+    const be3 = { ...be, id: `${be.id}~LC01~Ultra Rare`, setId: 'LC01', setCode: 'LC01', rarity: 'Ultra Rare' }
+    const deck = { ...makeDeck('yugioh', { main: [[be, 1], [be2, 1], [be3, 1]] }), formatId: 'tcg' }
+    expect(yugiohAdapter.formatDecklistText(deck, catalogOf([be, be2, be3]))).toBe('Main Deck\n3 Blue-Eyes White Dragon')
+  })
+
   it('round-trips its own export', () => {
     const deck = { ...makeDeck('yugioh', { main: [[be, 3]], extra: [[ultimate, 1]], sideboard: [[pot, 2]] }), formatId: 'tcg' }
     const parsed = parseDecklistText(buildExportText(deck, yugiohAdapter, 'TCG', catalog), yugiohAdapter, catalog, 'tcg')

@@ -1,3 +1,4 @@
+import { MoveCardsModal } from './MoveCardsModal'
 import { useMemo, useState } from 'react'
 import { useAppStore, useCardsById, useOwnedIndex, wishlistIndexOf } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
@@ -14,7 +15,7 @@ import { DeckLockButton } from './DeckLockButton'
 import { DeckIcon } from './DeckIcon'
 import { currentDeckFor } from '../shared/decks'
 import { resolveDeckIcon } from '../shared/deckIcon'
-import type { Deck, DeckZoneRule, Format } from '../shared/types'
+import type { Card, Deck, DeckZoneRule, Format } from '../shared/types'
 
 /** What a zone's header says about its size, e.g. "/40", ", at least 60", ", up to 15". */
 function zoneCountHint(zone: DeckZoneRule): string {
@@ -60,6 +61,8 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const cardsById = useCardsById(deck.gameId)
 
   const [showExport, setShowExport] = useState(false)
+  const [markingOwned, setMarkingOwned] = useState(false)
+  const [movingOut, setMovingOut] = useState<{ zoneId: string; card: Card; quantity: number } | null>(null)
   const [showSampleHand, setShowSampleHand] = useState(false)
   const [showBanList, setShowBanList] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
@@ -107,13 +110,19 @@ function DeckEditor({ deck }: { deck: Deck }) {
   }
 
   async function handleMarkOwned() {
+    if (markingOwned) return
     if (missingCopies === 0) {
       flash('You already own every card in this deck.')
       return
     }
     if (!confirm(`Add the ${missingCopies} missing card${missingCopies === 1 ? '' : 's'} to your collection as owned?`)) return
-    const count = await markDeckOwned(deck)
-    flash(`✓ Marked ${count} card${count === 1 ? '' : 's'} as owned.`)
+    setMarkingOwned(true)
+    try {
+      const count = await markDeckOwned(deck)
+      flash(`✓ Marked ${count} card${count === 1 ? '' : 's'} as owned.`)
+    } finally {
+      setMarkingOwned(false)
+    }
   }
 
   return (
@@ -158,8 +167,8 @@ function DeckEditor({ deck }: { deck: Deck }) {
         >
           ☆ Wishlist missing{toWishlistCopies > 0 ? ` (${toWishlistCopies})` : ''}
         </button>
-        <button className="btn" onClick={handleMarkOwned} title="Mark every card in this deck as owned">
-          ✓ I own this deck
+        <button className="btn" onClick={handleMarkOwned} disabled={markingOwned} title="Mark every card in this deck as owned">
+          {markingOwned ? 'Marking…' : '✓ I own this deck'}
         </button>
         <button className="btn" onClick={() => setShowSampleHand(true)} title="Shuffle the main deck and draw an opening hand">
           Sample hand
@@ -298,6 +307,14 @@ function DeckEditor({ deck }: { deck: Deck }) {
                           </button>
                         )
                       })}
+                      <button
+                        className="btn move-btn"
+                        disabled={locked}
+                        title={locked ? 'Unlock the deck to move cards out of it' : 'Move copies to a binder or another deck'}
+                        onClick={() => setMovingOut({ zoneId: zone.id, card, quantity: entry.quantity })}
+                      >
+                        Move…
+                      </button>
                       <div className="stepper">
                         <button className="btn stepper-btn" disabled={locked} onClick={() => setCardQuantity(zone.id, card, entry.quantity - 1)}>
                           −
@@ -317,6 +334,14 @@ function DeckEditor({ deck }: { deck: Deck }) {
       </div>
 
       {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}
+      {movingOut && (
+        <MoveCardsModal
+          from={{ kind: 'deck', id: deck.id, zoneId: movingOut.zoneId }}
+          card={movingOut.card}
+          available={movingOut.quantity}
+          onClose={() => setMovingOut(null)}
+        />
+      )}
       {showSampleHand && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowSampleHand(false)} />}
       {showBanList && <BanListEditor gameId={deck.gameId} initialFormatId={deck.formatId} onClose={() => setShowBanList(false)} />}
     </div>

@@ -39,7 +39,8 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
           {arts.length > 1 ? (
             <div className="card-detail-alt-arts">
               <div className="text-dim" title="The card data lists every official artwork but not which printing uses which, so pick the one your copy has. It's used for this printing everywhere in the app.">
-                Artwork — pick the one on your copy:
+                Artwork for {card.setCode}-{card.number}
+                {card.rarity ? ` · ${card.rarity}` : ''} — pick the one on your copy:
               </div>
               <div className="card-detail-alt-arts-row" role="group" aria-label="Artwork">
                 {arts.map((id, i) => (

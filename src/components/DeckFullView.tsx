@@ -78,9 +78,9 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
 
   const priced = stats.totalCards > stats.price.unpricedCopies
 
-  function renderCard({ card, quantity }: DeckViewEntry) {
+  function renderCard({ card, quantity, printings }: DeckViewEntry) {
     return (
-      <button key={card.id} className="fv-card" onClick={() => setDetail(card)} title={`${card.name} — click for details`}>
+      <button key={card.id} className="fv-card" onClick={() => setDetail(card)} title={`${card.name}${printings > 1 ? ` (${printings} printings)` : ''} — click for details`}>
         {card.imageUrl ? (
           <img src={card.imageUrl} alt={card.name} loading="lazy" style={{ aspectRatio: card.orientation === 'landscape' ? '7 / 5' : '5 / 7' }} />
         ) : (
@@ -93,12 +93,15 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
     )
   }
 
-  function renderRow({ card, quantity }: DeckViewEntry) {
+  function renderRow({ card, quantity, printings }: DeckViewEntry) {
     return (
       <button key={card.id} className="fv-row" onClick={() => setDetail(card)}>
         <span className="fv-row-qty">{quantity}×</span>
         {card.imageUrlSmall ? <img className="fv-row-thumb" src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="fv-row-thumb" />}
-        <span className="fv-row-name">{card.name}</span>
+        <span className="fv-row-name">
+          {card.name}
+          {printings > 1 && <span className="text-dim"> · {printings} printings</span>}
+        </span>
         <span className="fv-row-detail text-dim">{card.subtypes.join(' ')}</span>
         <span className="fv-row-cost text-dim">{card.cost ?? ''}</span>
         <span className="fv-row-price text-dim">{card.price != null ? formatPrice(card.price * quantity) : ''}</span>

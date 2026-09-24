@@ -204,7 +204,7 @@ function OpenBinder({ binderId }: { binderId: string }) {
           )
         })}
       </div>
-      {moving && <MoveCardsModal binderId={binderId} card={moving.card} available={moving.quantity} onClose={() => setMoving(null)} />}
+      {moving && <MoveCardsModal from={{ kind: 'binder', id: binderId }} card={moving.card} available={moving.quantity} onClose={() => setMoving(null)} />}
     </div>
   )
 }

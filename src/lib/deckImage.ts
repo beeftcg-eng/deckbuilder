@@ -3,6 +3,7 @@ import type { GameAdapter } from '../shared/games/types'
 import { rulesForFormat } from '../shared/games/rules'
 import { IMAGE_PADDING as PADDING, THUMB_GAP as GAP, THUMB_WIDTH as TARGET_WIDTH, columnsFor, imageWidthFor } from '../shared/exportImage'
 import { encodeUnderLimit } from './encodeImage'
+import { mergePrintings } from '../shared/deckView'
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
   const dataUri = await window.api.images.fetchDataUri(url)
@@ -19,14 +20,17 @@ interface ThumbEntry {
   quantity: number
 }
 
-export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsById: Map<string, Card>): Promise<string> {
+/**
+ * The deck as one picture. A card whose image can't be loaded is drawn as a card-shaped tile with its
+ * name instead of being left out - leaving them out is how a Yu-Gi-Oh deck on the phone app came out
+ * as an empty picture (YGOPRODeck's image server doesn't allow a web page to draw its images; the
+ * desktop app reads them from its own cache and isn't affected). `missingImages` says how many.
+ */
+export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsById: Map<string, Card>): Promise<{ dataUrl: string; missingImages: number }> {
   // Gather every card image we'll need, de-duplicated, and load them all up front.
   const neededCards = new Map<string, Card>()
   for (const entries of Object.values<DeckCardEntry[]>(deck.zones)) {
-    for (const entry of entries) {
-      const card = cardsById.get(entry.cardId)
-      if (card?.imageUrl) neededCards.set(card.id, card)
-    }
+    for (const { card } of mergePrintings(entries, cardsById)) neededCards.set(card.id, card)
   }
 
   const imageCache = new Map<string, HTMLImageElement>()
@@ -42,7 +46,8 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
   )
 
   // How many cards go in a row depends on how many different cards there are, so the whole deck fits in one look.
-  const thumbCount = [...neededCards.keys()].filter((id) => imageCache.has(id)).length
+  const thumbCount = neededCards.size
+  const missingImages = [...neededCards.keys()].filter((id) => !imageCache.has(id)).length
   const canvasWidth = imageWidthFor(columnsFor(thumbCount))
   const totalCards = Object.values<DeckCardEntry[]>(deck.zones).reduce((sum, entries) => sum + entries.reduce((n, e) => n + e.quantity, 0), 0)
 
@@ -84,9 +89,8 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
 
       for (const { card, quantity } of entries) {
         const img = imageCache.get(card.id)
-        if (!img) continue
-        const w = Math.min(TARGET_WIDTH, img.naturalWidth)
-        const h = Math.round(w * (img.naturalHeight / img.naturalWidth))
+        const w = img ? Math.min(TARGET_WIDTH, img.naturalWidth) : TARGET_WIDTH
+        const h = img ? Math.round(w * (img.naturalHeight / img.naturalWidth)) : Math.round(w * (card.orientation === 'landscape' ? 5 / 7 : 7 / 5))
 
         if (x + w > maxX) {
           x = PADDING
@@ -94,7 +98,8 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
           rowHeight = 0
         }
 
-        ctx.drawImage(img, x, y, w, h)
+        if (img) ctx.drawImage(img, x, y, w, h)
+        else drawNameTile(card, x, y, w, h)
         if (quantity > 1) {
           const r = Math.max(14, Math.round(w * 0.08))
           ctx.fillStyle = '#7c9eff'
@@ -115,6 +120,38 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
       }
 
       y += rowHeight + GAP + 10
+    }
+
+    /** A card-shaped tile with the card's name, for a card whose image couldn't be loaded. */
+    function drawNameTile(card: Card, x: number, top: number, w: number, h: number) {
+      ctx.fillStyle = '#242631'
+      ctx.beginPath()
+      ctx.roundRect(x, top, w, h, 10)
+      ctx.fill()
+      ctx.strokeStyle = '#3d4155'
+      ctx.lineWidth = 2
+      ctx.stroke()
+      ctx.fillStyle = '#e8e9ee'
+      ctx.font = '600 15px sans-serif'
+      ctx.textAlign = 'center'
+      const words = card.name.split(/\s+/)
+      const lines: string[] = []
+      for (const word of words) {
+        const last = lines[lines.length - 1]
+        if (last && ctx.measureText(`${last} ${word}`).width <= w - 20) lines[lines.length - 1] = `${last} ${word}`
+        else lines.push(word)
+      }
+      const shown = lines.slice(0, 6)
+      const lineHeight = 19
+      let ly = top + h / 2 - ((shown.length - 1) * lineHeight) / 2
+      for (const line of shown) {
+        ctx.fillText(line, x + w / 2, ly, w - 16)
+        ly += lineHeight
+      }
+      ctx.fillStyle = '#9a9db3'
+      ctx.font = '400 12px sans-serif'
+      ctx.fillText(`${card.setCode} ${card.number}`.trim(), x + w / 2, top + h - 14, w - 16)
+      ctx.textAlign = 'left'
     }
 
     function drawTextChips(labels: { label: string; quantity: number }[]) {
@@ -151,11 +188,8 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
 
       const entries = deck.zones[zone.id] ?? []
       if (entries.length === 0) continue
-      const thumbs: ThumbEntry[] = []
-      for (const entry of entries) {
-        const card = cardsById.get(entry.cardId)
-        if (card) thumbs.push({ card, quantity: entry.quantity })
-      }
+      // One thumbnail per card with its total, like the deck view (printings of a card merged).
+      const thumbs: ThumbEntry[] = mergePrintings(entries, cardsById).map(({ card, quantity }) => ({ card, quantity }))
       if (thumbs.length === 0) continue
       drawSectionLabel(`${zone.label} (${thumbs.reduce((n, t) => n + t.quantity, 0)})`)
       drawThumbRow(thumbs)
@@ -177,5 +211,5 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
   ctx.fillRect(0, 0, canvasWidth, finalHeight)
   runLayout(ctx)
 
-  return encodeUnderLimit(canvas)
+  return { dataUrl: encodeUnderLimit(canvas), missingImages }
 }

@@ -33,7 +33,7 @@ import { applyTheme } from '../lib/theme'
 import { withSummary } from '../shared/deckSummary'
 import { staleIdRepairs, storedCardIds } from '../shared/cardIdRepair'
 import { applyArtChoices, printingKey, withArtwork } from '../shared/artChoice'
-import { addToBinder, addToDeck, deckMoveProblem, takeFromBinder, zoneForCard } from '../shared/cardMoves'
+import { addToBinder, addToDeck, deckMoveProblem, takeFromBinder, takeFromDeck, zoneForCard, type MoveEnd } from '../shared/cardMoves'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 
 interface Catalog {
@@ -159,10 +159,9 @@ interface AppState {
   /** Sets the active binder for quick-add steppers, or null to stop targeting one. */
   selectBinder: (binderId: string | null) => void
   setBinderCardQuantity: (binderId: string, cardId: string, quantity: number) => Promise<void>
-  /** Moves copies of a card from one binder to another. */
-  moveBinderCards: (fromBinderId: string, toBinderId: string, cardId: string, quantity: number) => Promise<void>
-  /** Moves copies of a card out of a binder into a deck (the zone the card browser would pick). Returns whether it moved. */
-  moveBinderCardsToDeck: (binderId: string, deckId: string, card: Card, quantity: number) => Promise<boolean>
+  /** Moves copies of a card between binders and decks, in any direction (a deck target gets the zone the
+   * card browser would pick). The collection doesn't change. Returns whether anything moved. */
+  moveCards: (from: MoveEnd, to: MoveEnd, card: Card, quantity: number) => Promise<boolean>
   /** Whether the open deck is shown as the read-only full view (the default when a deck is selected) rather than in the editor. */
   deckViewing: boolean
   setDeckViewing: (viewing: boolean) => void
@@ -565,48 +564,53 @@ export const useAppStore = create<AppState>((set, get) => {
       set((s) => ({ binders: s.binders.map((b) => (b.id === saved.id ? saved : b)) }))
     },
 
-    moveBinderCards: async (fromBinderId, toBinderId, cardId, quantity) => {
-      const from = get().binders.find((b) => b.id === fromBinderId)
-      const to = get().binders.find((b) => b.id === toBinderId)
-      if (!from || !to || from.id === to.id || quantity <= 0) return
-      const n = Math.min(quantity, from.cards[cardId] ?? 0)
-      if (n <= 0) return
-      const nextFrom = takeFromBinder(from, cardId, n)
-      const nextTo = addToBinder(to, cardId, n)
-      set((s) => ({ binders: s.binders.map((b) => (b.id === from.id ? nextFrom : b.id === to.id ? nextTo : b)) }))
-      try {
-        const [savedFrom, savedTo] = await Promise.all([window.api.binders.save(nextFrom), window.api.binders.save(nextTo)])
-        set((s) => ({ binders: s.binders.map((b) => (b.id === savedFrom.id ? savedFrom : b.id === savedTo.id ? savedTo : b)) }))
-      } catch (err) {
-        set((s) => ({ binders: s.binders.map((b) => (b.id === from.id ? from : b.id === to.id ? to : b)), error: `Couldn't move the cards: ${errorMessage(err)}` }))
-      }
-    },
-
-    moveBinderCardsToDeck: async (binderId, deckId, card, quantity) => {
-      const binder = get().binders.find((b) => b.id === binderId)
-      const deck = get().decks.find((d) => d.id === deckId)
-      if (!binder || !deck || quantity <= 0) return false
-      const problem = deckMoveProblem(deck, card)
-      if (problem) {
-        set({ error: problem })
+    moveCards: async (from, to, card, quantity) => {
+      const { binders, decks } = get()
+      if (from.kind === to.kind && from.id === to.id) return false
+      const fail = (message: string) => {
+        set({ error: message })
         return false
       }
-      const n = Math.min(quantity, binder.cards[card.id] ?? 0)
+      const fromBinder = from.kind === 'binder' ? binders.find((b) => b.id === from.id) : undefined
+      const fromDeck = from.kind === 'deck' ? decks.find((d) => d.id === from.id) : undefined
+      const toBinder = to.kind === 'binder' ? binders.find((b) => b.id === to.id) : undefined
+      const toDeck = to.kind === 'deck' ? decks.find((d) => d.id === to.id) : undefined
+      if ((!fromBinder && !fromDeck) || (!toBinder && !toDeck)) return false
+      if (fromDeck?.locked) return fail(`"${fromDeck.name}" is locked. Unlock it to move cards out of it.`)
+      if (toDeck) {
+        const problem = deckMoveProblem(toDeck, card)
+        if (problem) return fail(problem)
+      }
+
+      const fromZoneId = from.kind === 'deck' ? from.zoneId : undefined
+      const available = fromBinder
+        ? (fromBinder.cards[card.id] ?? 0)
+        : (fromDeck!.zones[fromZoneId ?? '']?.find((e) => e.cardId === card.id)?.quantity ?? 0)
+      const n = Math.min(Math.floor(quantity), available)
       if (n <= 0) return false
-      const nextDeck = addToDeck(deck, zoneForCard(deck, card)!.id, card.id, n)
-      const nextBinder = takeFromBinder(binder, card.id, n)
+
+      const nextBinders = new Map<string, Binder>()
+      const nextDecks = new Map<string, Deck>()
+      if (fromBinder) nextBinders.set(fromBinder.id, takeFromBinder(fromBinder, card.id, n))
+      if (fromDeck) nextDecks.set(fromDeck.id, takeFromDeck(fromDeck, fromZoneId!, card.id, n))
+      if (toBinder) nextBinders.set(toBinder.id, addToBinder(nextBinders.get(toBinder.id) ?? toBinder, card.id, n))
+      if (toDeck) {
+        const base = nextDecks.get(toDeck.id) ?? toDeck
+        nextDecks.set(toDeck.id, addToDeck(base, zoneForCard(toDeck, card)!.id, card.id, n))
+      }
       set((s) => ({
-        decks: s.decks.map((d) => (d.id === deck.id ? nextDeck : d)),
-        binders: s.binders.map((b) => (b.id === binder.id ? nextBinder : b)),
+        binders: s.binders.map((b) => nextBinders.get(b.id) ?? b),
+        decks: s.decks.map((d) => nextDecks.get(d.id) ?? d),
       }))
-      // Not on the undo stack: undo only restores decks, so it would drop these copies from the binder
-      // and the deck both. Moving them back is removing them from the deck and adding to the binder.
-      await persistDeck(nextDeck)
+      // Not on the undo stack: undo only restores decks, so it would lose the binder side of a move.
+      for (const deck of nextDecks.values()) await persistDeck(deck)
       try {
-        const saved = await window.api.binders.save(nextBinder)
-        set((s) => ({ binders: s.binders.map((b) => (b.id === saved.id ? saved : b)) }))
+        for (const binder of nextBinders.values()) {
+          const saved = await window.api.binders.save(binder)
+          set((s) => ({ binders: s.binders.map((b) => (b.id === saved.id ? saved : b)) }))
+        }
       } catch (err) {
-        set({ error: `Added to "${deck.name}", but couldn't update the binder: ${errorMessage(err)}` })
+        set({ error: `Couldn't save the binder after moving ${card.name}: ${errorMessage(err)}` })
       }
       return true
     },

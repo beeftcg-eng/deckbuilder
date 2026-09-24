@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addToBinder, addToDeck, deckMoveProblem, takeFromBinder, zoneForCard } from './cardMoves'
+import { addToBinder, addToDeck, deckMoveProblem, takeFromBinder, takeFromDeck, zoneForCard } from './cardMoves'
 import { makeCard, makeDeck } from './testFixtures'
 import type { Binder } from './types'
 
@@ -27,5 +27,15 @@ describe('card moves', () => {
     expect(deckMoveProblem(deck, spell)).toBeNull()
     expect(deckMoveProblem({ ...deck, locked: true }, spell)).toMatch(/locked/)
     expect(deckMoveProblem({ ...makeDeck('riftbound', {}), name: 'Jinx' }, spell)).toMatch(/Riftbound deck/)
+  })
+})
+
+describe('takeFromDeck', () => {
+  it('takes copies out of one zone, dropping the entry at zero', () => {
+    const spell = makeCard('yugioh', { name: 'Pot of Prosperity', category: 'Spell' })
+    const deck = { ...makeDeck('yugioh', { main: [[spell, 3]], sideboard: [[spell, 1]] }), formatId: 'tcg' }
+    expect(takeFromDeck(deck, 'main', spell.id, 2).zones.main).toEqual([{ cardId: spell.id, quantity: 1 }])
+    expect(takeFromDeck(deck, 'main', spell.id, 3).zones.main).toEqual([])
+    expect(takeFromDeck(deck, 'main', spell.id, 3).zones.sideboard).toEqual([{ cardId: spell.id, quantity: 1 }])
   })
 })

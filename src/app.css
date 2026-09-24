@@ -408,8 +408,38 @@
 .rarity-color-ultimate { color: var(--rarity-ultimate, #e8a468); }
 .rarity-color-platinum { color: var(--rarity-platinum, #cfd6e6); }
 .rarity-color-gold { color: var(--rarity-gold, #f2a93b); }
-.rarity-color-top, .rarity-color-qcsr, .rarity-color-starlight, .rarity-color-ghost, .rarity-color-collector,
-.rarity-color-ultimate, .rarity-color-platinum, .rarity-color-gold {
+.rarity-color-shatterfoil { color: var(--rarity-shatterfoil); }
+.rarity-color-prismatic { color: var(--rarity-prismatic); }
+.rarity-color-parallel { color: var(--rarity-parallel); }
+.rarity-color-platinum-rare { color: var(--rarity-platinum-rare); }
+.rarity-color-mosaic { color: var(--rarity-mosaic); }
+.rarity-color-starfoil { color: var(--rarity-starfoil); }
+.rarity-color-premium-gold { color: var(--rarity-premium-gold); }
+.rarity-color-gold-secret { color: var(--rarity-gold-secret); }
+.rarity-color-extra-secret { color: var(--rarity-extra-secret); }
+.rarity-color-grand-master { color: var(--rarity-grand-master); }
+.rarity-color-pharaoh { color: var(--rarity-pharaoh); }
+.rarity-color-short-print { color: var(--rarity-short-print); }
+.rarity-color-top,
+.rarity-color-qcsr,
+.rarity-color-starlight,
+.rarity-color-ghost,
+.rarity-color-collector,
+.rarity-color-ultimate,
+.rarity-color-platinum,
+.rarity-color-gold,
+.rarity-color-shatterfoil,
+.rarity-color-prismatic,
+.rarity-color-parallel,
+.rarity-color-platinum-rare,
+.rarity-color-mosaic,
+.rarity-color-starfoil,
+.rarity-color-premium-gold,
+.rarity-color-gold-secret,
+.rarity-color-extra-secret,
+.rarity-color-grand-master,
+.rarity-color-pharaoh,
+.rarity-color-short-print {
   font-weight: 600;
 }
 
@@ -2139,4 +2169,25 @@
 .move-cards-form select,
 .move-cards-form input {
   max-width: 100%;
+}
+
+/* "🎨 N arts" on Yu-Gi-Oh cards with several official artworks (CardTile) - opens the picker. */
+.card-tile-arts {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: #000000cc;
+  border: 1px solid #ffffff40;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.card-tile-arts:hover,
+.card-tile-arts:focus-visible {
+  border-color: var(--accent);
 }

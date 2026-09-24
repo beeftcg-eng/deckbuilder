@@ -13,6 +13,11 @@ interface Props {
   onClose: () => void
 }
 
+/** The Electron app (which can read Yu-Gi-Oh images from its own cache) rather than the phone/web app. */
+function isDesktopApp(): boolean {
+  return typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron')
+}
+
 export function ExportModal({ deck, format, cardsById, onClose }: Props) {
   const adapter = getAdapter(deck.gameId)
   const text = buildExportText(deck, adapter, format.label, cardsById)
@@ -22,6 +27,7 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
   const [copied, setCopied] = useState(false)
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
+  const [imageNote, setImageNote] = useState<string | null>(null)
   const [generatingImage, setGeneratingImage] = useState(false)
 
   async function handleCopy() {
@@ -50,9 +56,16 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
   async function handleGenerateImage() {
     setGeneratingImage(true)
     setImageError(null)
+    setImageNote(null)
     try {
-      const dataUrl = await renderDeckImage(deck, adapter, cardsById)
+      const { dataUrl, missingImages } = await renderDeckImage(deck, adapter, cardsById)
       setImageDataUrl(dataUrl)
+      setImageNote(
+        missingImages === 0
+          ? null
+          : `${missingImages} card image${missingImages === 1 ? '' : 's'} couldn't be loaded, so ${missingImages === 1 ? 'that card is' : 'those cards are'} shown by name.` +
+              (deck.gameId === 'yugioh' && !isDesktopApp() ? " On the phone app Yu-Gi-Oh! images can't be drawn into a picture (YGOPRODeck doesn't allow it); the desktop app includes them." : ''),
+      )
     } catch (err) {
       setImageError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -102,6 +115,7 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
         )}
         {pasteError && <div className="sync-error">Upload failed: {pasteError}</div>}
         {imageError && <div className="sync-error">Image render failed: {imageError}</div>}
+        {imageNote && <div className="text-dim">{imageNote}</div>}
         {imageDataUrl && (
           <div className="image-preview">
             <img src={imageDataUrl} alt={`${deck.name} deck image`} />

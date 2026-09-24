@@ -208,10 +208,13 @@ const DECKLIST_SECTIONS: [heading: string, zoneId: string][] = [
 function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
   const blocks: string[] = []
   for (const [heading, zoneId] of DECKLIST_SECTIONS) {
-    const lines = (deck.zones[zoneId] ?? []).flatMap((entry) => {
+    // A decklist names cards, not printings: three printings of one card are one "3 <name>" line.
+    const byName = new Map<string, number>()
+    for (const entry of deck.zones[zoneId] ?? []) {
       const card = cardsById.get(entry.cardId)
-      return card ? [`${entry.quantity} ${card.name}`] : []
-    })
+      if (card) byName.set(card.name, (byName.get(card.name) ?? 0) + entry.quantity)
+    }
+    const lines = [...byName].map(([name, quantity]) => `${quantity} ${name}`)
     if (lines.length > 0) blocks.push([heading, ...lines].join('\n'))
   }
   return blocks.join('\n\n')

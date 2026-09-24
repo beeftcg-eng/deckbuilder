@@ -98,6 +98,7 @@ const cards = {
     const finalCards = previous ? carryOverPrices(fetched, previous.cards) : fetched
     const cache: CardCache = { cards: finalCards, lastSynced: new Date().toISOString() }
     await idbSet('cards', gameId, cache)
+    nameLookup.delete(gameId) // rebuilt from the new catalog on next use
     broadcast({ gameId, loaded: finalCards.length, total: finalCards.length, done: true })
     return { gameId, count: finalCards.length, lastSynced: cache.lastSynced }
   },
@@ -224,10 +225,19 @@ function clampQuantity(quantity: number): number {
   return Math.min(MAX_OWNED, Math.max(0, Math.floor(Number(quantity) || 0)))
 }
 
+/** Card name/set code per game, built once per synced catalog (keyed by its lastSynced) rather than
+ * reading every card from IndexedDB for each card saved - see electron/ipc/deckbuilderSync.ts. */
+const nameLookup = new Map<string, { lastSynced: string | null; byId: Map<string, { name: string; setCode: string }> }>()
+
 async function cardNameAndSet(cardId: string): Promise<{ name: string; setCode: string; gameId: string }> {
   const { gameId } = cardIdParts(cardId)
-  const cache = await readCardCache(gameId as GameId)
-  const card = cache.cards.find((c) => c.id === cardId)
+  let entry = nameLookup.get(gameId)
+  if (!entry) {
+    const cache = await readCardCache(gameId as GameId)
+    entry = { lastSynced: cache.lastSynced, byId: new Map(cache.cards.map((c) => [c.id, { name: c.name, setCode: c.setCode }])) }
+    nameLookup.set(gameId, entry)
+  }
+  const card = entry.byId.get(cardId)
   return { name: card?.name ?? cardId, setCode: card?.setCode ?? '', gameId }
 }
 

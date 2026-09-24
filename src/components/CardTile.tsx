@@ -2,6 +2,7 @@ import type { Card } from '../shared/types'
 import { useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
 import { rarityColorClass } from '../shared/rarityColor'
+import { artworkIds } from '../shared/artChoice'
 
 interface Props {
   card: Card
@@ -27,6 +28,9 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
   const currentBinder = useAppStore((s) => s.binders.find((b) => b.id === currentBinderId))
   const setBinderCardQuantity = useAppStore((s) => s.setBinderCardQuantity)
   const inBinder = currentBinder?.cards[card.id] ?? 0
+  // Yu-Gi-Oh cards with several official artworks: the data can't say which printing has which, so
+  // a badge points at the picker in the card details (it's easy to miss otherwise).
+  const artCount = card.gameId === 'yugioh' ? artworkIds(card).length : 0
 
   return (
     <div className={`card-tile ${quantity > 0 ? 'in-deck' : ''}`}>
@@ -48,6 +52,18 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
           </div>
         )}
         {quantity > 0 && <div className="card-tile-badge">{quantity}</div>}
+        {artCount > 1 && (
+          <button
+            className="card-tile-arts"
+            title={`${artCount} official artworks — open to pick the one on your copy`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenDetail()
+            }}
+          >
+            🎨 {artCount} arts
+          </button>
+        )}
         <button
           className={`wishlist-toggle ${onWishlist ? 'active' : ''}`}
           title={onWishlist ? 'Remove from wishlist' : 'Add to wishlist'}

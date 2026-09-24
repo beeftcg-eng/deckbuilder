@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildDeckView, compareByCostThenName, isDeckViewMode, textBlocks } from './deckView'
 import { mtgAdapter } from './games/mtg'
 import { riftboundAdapter } from './games/riftbound'
+import { yugiohAdapter } from './games/yugioh'
 import { rulesForFormat } from './games/rules'
 import { catalogOf, makeCard, makeDeck } from './testFixtures'
 
@@ -23,12 +24,25 @@ describe('buildDeckView', () => {
   const cardsById = catalogOf([bolt, elf, ogre, forest, sideCard])
   const rules = rulesForFormat(mtgAdapter, 'modern')
 
-  it('lists non-empty zones in the game’s zone order, split by type alphabetically and sorted by cost', () => {
+  it('lists non-empty zones in the game’s zone order, split by type, in the order the editor has them', () => {
     const deck = makeDeck('mtg', { sideboard: [[sideCard, 2]], main: [[ogre, 2], [forest, 20], [bolt, 4], [elf, 3]] })
     const sections = buildDeckView(deck, rules, cardsById)
     expect(sections.map((s) => [s.zoneId, s.count])).toEqual([['main', 29], ['sideboard', 2]])
-    expect(sections[0].groups.map((g) => [g.category, g.count])).toEqual([['Creature', 5], ['Instant', 4], ['Land', 20]])
-    expect(sections[0].groups[0].entries.map((e) => e.card.name)).toEqual(['Elf', 'Ogre'])
+    expect(sections[0].groups.map((g) => [g.category, g.count])).toEqual([['Creature', 5], ['Land', 20], ['Instant', 4]])
+    expect(sections[0].groups[0].entries.map((e) => e.card.name)).toEqual(['Ogre', 'Elf'])
+  })
+
+  it('merges printings of one card into one entry, keeping the first printing and its place', () => {
+    const lob = makeCard('yugioh', { name: 'Blue-Eyes White Dragon', category: 'Monster', setCode: 'LOB', rarity: 'Ultra Rare' })
+    const sdk = makeCard('yugioh', { name: 'Blue-Eyes White Dragon', category: 'Monster', setCode: 'SDK', rarity: 'Common' })
+    const lc01 = makeCard('yugioh', { name: 'Blue-Eyes White Dragon', category: 'Monster', setCode: 'LC01', rarity: 'Ultra Rare' })
+    const pot = makeCard('yugioh', { name: 'Pot of Prosperity', category: 'Spell' })
+    const deck = { ...makeDeck('yugioh', { main: [[lob, 1], [pot, 2], [sdk, 1], [lc01, 1]] }), formatId: 'tcg' }
+    const sections = buildDeckView(deck, rulesForFormat(yugiohAdapter, 'tcg'), catalogOf([lob, sdk, lc01, pot]))
+    const monsters = sections[0].groups[0]
+    expect(monsters.entries.map((e) => [e.card.setCode, e.quantity, e.printings])).toEqual([['LOB', 3, 3]])
+    expect(sections[0].groups.map((g) => g.category)).toEqual(['Monster', 'Spell'])
+    expect(sections[0].count).toBe(5)
   })
 
   it('leaves out empty zones, zero quantities, and cards missing from the catalog', () => {

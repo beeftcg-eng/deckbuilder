@@ -1,5 +1,5 @@
 import { BrowserWindow, ipcMain } from 'electron'
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Binder, Collection, Deck, GameId, WishlistEntry } from '../../src/shared/types'
 import { SyncEngine, type SyncStatus } from '../../src/shared/sync/engine'
@@ -81,15 +81,26 @@ export function notifyPawmodoroConnectionChanged(): void {
   ensureEngine()
 }
 
+/** Parsed card name/set code per game, kept until that game's cache file changes on disk. */
+const lookupCache = new Map<string, { mtimeMs: number; byId: Map<string, { name: string; setCode: string }> }>()
+
 /** Card name/set code for a collection/wishlist sync op, read from the same per-game cache file
  * cards:sync writes - the main process has no in-memory catalog the way the renderer's Zustand
- * store does. */
+ * store does. The file is parsed once and kept (re-read only when it changes): it's 36 MB for
+ * Yu-Gi-Oh, and parsing it for every card made "I own this deck" take the better part of a minute
+ * while holding the data lock, so it looked like it had done nothing. */
 export async function lookupCardNameAndSet(cardId: string): Promise<{ name: string; setCode: string; gameId: string }> {
   const gameId = cardId.split(':')[0]
   try {
-    const raw = await readFile(join(cardsCacheDir(), `${gameId}.json`), 'utf-8')
-    const cache = JSON.parse(raw) as { cards: { id: string; name: string; setCode: string }[] }
-    const card = cache.cards.find((c) => c.id === cardId)
+    const file = join(cardsCacheDir(), `${gameId}.json`)
+    const { mtimeMs } = await stat(file)
+    let entry = lookupCache.get(gameId)
+    if (!entry || entry.mtimeMs !== mtimeMs) {
+      const cache = JSON.parse(await readFile(file, 'utf-8')) as { cards: { id: string; name: string; setCode: string }[] }
+      entry = { mtimeMs, byId: new Map(cache.cards.map((c) => [c.id, { name: c.name, setCode: c.setCode }])) }
+      lookupCache.set(gameId, entry)
+    }
+    const card = entry.byId.get(cardId)
     return { name: card?.name ?? cardId, setCode: card?.setCode ?? '', gameId }
   } catch {
     return { name: cardId, setCode: '', gameId }
