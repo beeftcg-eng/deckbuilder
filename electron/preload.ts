@@ -142,6 +142,8 @@ const api = {
   },
   clipboard: {
     writeText: (text: string): Promise<void> => clipboard.writeText(text),
+    /** Copies a picture (a data: URL, e.g. from images.fetchDataUri) so it can be pasted into a chat or document. */
+    writeImage: (dataUrl: string): Promise<void> => ipcRenderer.invoke('clipboard:writeImage', dataUrl),
   },
 }
 

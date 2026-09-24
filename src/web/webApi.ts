@@ -701,6 +701,16 @@ const clipboardApi = {
   writeText: async (text: string): Promise<void> => {
     await navigator.clipboard.writeText(text)
   },
+  // Browsers only take PNG on the clipboard, so a JPEG card scan is redrawn as PNG first.
+  writeImage: async (dataUrl: string): Promise<void> => {
+    const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob())
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0)
+    const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Couldn't encode the image"))), 'image/png'))
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+  },
 }
 
 // ---------- assembled API, matching electron/preload.ts's shape exactly ----------

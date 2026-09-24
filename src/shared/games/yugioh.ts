@@ -222,6 +222,8 @@ function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
 
 export const yugiohAdapter: GameAdapter = {
   id: 'yugioh',
+  typeOrder: ['Monster', 'Spell', 'Trap', 'Token'],
+  filterKinds: ['Normal', 'Effect', 'Ritual', 'Fusion', 'Synchro', 'Xyz', 'Link', 'Pendulum', 'Tuner', 'Flip', 'Quick-Play', 'Continuous', 'Field', 'Equip', 'Counter'],
   name: 'Yu-Gi-Oh! Trading Card Game',
   shortName: 'Yu-Gi-Oh!',
   deckRules,

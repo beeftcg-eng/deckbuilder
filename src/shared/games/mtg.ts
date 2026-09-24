@@ -340,6 +340,8 @@ function getGuidedStage(deck: Deck): GuidedStage | null {
 
 export const mtgAdapter: GameAdapter = {
   id: 'mtg',
+  typeOrder: ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Planeswalker', 'Land', 'Battle'],
+  filterKinds: ['Legendary', 'Equipment', 'Aura', 'Saga', 'Vehicle'],
   name: 'Magic: The Gathering',
   shortName: 'Magic',
   deckRules: constructedRules,

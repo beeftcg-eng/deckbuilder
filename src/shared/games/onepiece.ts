@@ -263,6 +263,8 @@ function getGuidedStage(deck: Deck): GuidedStage | null {
 
 export const onepieceAdapter: GameAdapter = {
   id: 'onepiece',
+  typeOrder: ['Leader', 'Character', 'Event', 'Stage', 'DON!!'],
+  filterKinds: [],
   name: 'One Piece Card Game',
   shortName: 'One Piece',
   deckRules,

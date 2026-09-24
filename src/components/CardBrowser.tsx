@@ -7,6 +7,7 @@ import { currentDeckFor } from '../shared/decks'
 import { rulesForFormat } from '../shared/games/rules'
 import { identityColors } from '../shared/cardColors'
 import { matchRank, matchesSearch } from '../shared/cardSearch'
+import { kindOptions, matchesKinds, matchesTypes, typeOptions } from '../shared/cardFilters'
 import type { Card, DeckRules } from '../shared/types'
 import { CardTile } from './CardTile'
 import { CardDetailModal } from './CardDetailModal'
@@ -16,6 +17,14 @@ const PAGE_SIZE = 60
 // Where a plain click puts a card: the first zone that takes it, skipping ones that are only filled deliberately (sideboard, commander).
 function primaryZoneFor(card: Card, rules: DeckRules) {
   return rules.zones.find((z) => !z.freeText && !z.manualOnly && z.match(card))
+}
+
+/** The set with `value` added, or removed if it was there. */
+function toggled(values: Set<string>, value: string): Set<string> {
+  const next = new Set(values)
+  if (next.has(value)) next.delete(value)
+  else next.add(value)
+  return next
 }
 
 export function CardBrowser() {
@@ -31,7 +40,8 @@ export function CardBrowser() {
   const cachedCount = useAppStore((s) => s.syncMeta[currentGameId]?.count ?? 0)
 
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState<string>('all')
+  const [types, setTypes] = useState<Set<string>>(new Set())
+  const [kinds, setKinds] = useState<Set<string>>(new Set())
   const [setId, setSetId] = useState<string>('all')
   const [rarity, setRarity] = useState<string>('all')
   const [colors, setColors] = useState<Set<string>>(new Set())
@@ -73,7 +83,8 @@ export function CardBrowser() {
   if (filterGameId !== currentGameId) {
     setFilterGameId(currentGameId)
     setQuery('')
-    setCategory('all')
+    setTypes(new Set())
+    setKinds(new Set())
     setSetId('all')
     setRarity('all')
     setOwnedOnly(false)
@@ -86,11 +97,10 @@ export function CardBrowser() {
     setColors(new Set(identityCards.flatMap(identityColors)))
   }
 
-  const categories = useMemo(() => {
-    if (!catalog) return []
-    const excluded = new Set(adapter.mainDeckExcludedCategories ?? [])
-    return [...new Set(catalog.cards.map((c) => c.category))].filter((c) => !excluded.has(c)).sort()
-  }, [catalog, adapter])
+  // Every category is offered, including ones hidden from the default view (Riftbound's Legends and
+  // Runes, Yu-Gi-Oh Tokens): picking one shows them.
+  const typeChips = useMemo(() => (catalog ? typeOptions(catalog.cards, adapter.typeOrder) : []), [catalog, adapter])
+  const kindChips = useMemo(() => (catalog ? kindOptions(catalog.cards, adapter.filterKinds) : []), [catalog, adapter])
 
   const sets = useMemo(() => {
     if (!catalog) return []
@@ -121,12 +131,13 @@ export function CardBrowser() {
       if (format && !isCardLegalInFormat(c, format).legal) return false
       if (stageFilter && !stageFilter(c)) return false
       if (!stageFilter) {
-        if (category !== 'all') {
-          if (c.category !== category) return false
+        if (types.size > 0) {
+          if (!matchesTypes(c, types)) return false
         } else if (adapter.mainDeckExcludedCategories?.includes(c.category)) {
           return false
         }
       }
+      if (!matchesKinds(c, kinds)) return false
       if (setId !== 'all' && c.setId !== setId) return false
       if (rarity !== 'all' && c.rarity !== rarity) return false
       if (colors.size > 0) {
@@ -146,10 +157,10 @@ export function CardBrowser() {
     })
     if (!q) return filtered
     return filtered.slice().sort((a, b) => matchRank(a, q) - matchRank(b, q) || a.name.localeCompare(b.name))
-  }, [catalog, query, category, setId, rarity, colors, stageFilter, adapter, rules, format, ownedOnly, ownedIndex])
+  }, [catalog, query, types, kinds, setId, rarity, colors, stageFilter, adapter, rules, format, ownedOnly, ownedIndex])
 
   // "Show more" only applies to the filters it was clicked under; any filter change starts back at one page.
-  const filterKey = [query, category, setId, rarity, [...colors].sort().join(','), ownedOnly, currentGameId, stage?.label ?? '', stageFilter ? 1 : 0].join('|')
+  const filterKey = [query, [...types].sort().join(','), [...kinds].sort().join(','), setId, rarity, [...colors].sort().join(','), ownedOnly, currentGameId, stage?.label ?? '', stageFilter ? 1 : 0].join('|')
   const [page, setPage] = useState({ key: filterKey, count: PAGE_SIZE })
   const visibleCount = page.key === filterKey ? page.count : PAGE_SIZE
 
@@ -191,16 +202,6 @@ export function CardBrowser() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        {!stageFilter && (
-          <select value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="all">All types</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        )}
         <label className="owned-only" title={Object.keys(collection).length === 0 ? 'Mark cards as owned to use this' : 'Only cards you own (any printing)'}>
           <input type="checkbox" checked={ownedOnly} disabled={Object.keys(collection).length === 0} onChange={(e) => setOwnedOnly(e.target.checked)} />
           Owned
@@ -237,6 +238,37 @@ export function CardBrowser() {
               <input type="checkbox" checked={!showAllDuringStage} onChange={(e) => setShowAllDuringStage(!e.target.checked)} />
               {stage.filterLabel}
             </label>
+          )}
+        </div>
+      )}
+
+      {!stageFilter && typeChips.length > 1 && (
+        <div className="color-filter-row" role="group" aria-label="Card type">
+          <span className="filter-row-label text-dim">Type</span>
+          {typeChips.map((t) => (
+            <button key={t} className={`color-chip ${types.has(t) ? 'active' : ''}`} aria-pressed={types.has(t)} onClick={() => setTypes(toggled(types, t))}>
+              {t}
+            </button>
+          ))}
+          {types.size > 0 && (
+            <button className="color-chip clear" onClick={() => setTypes(new Set())}>
+              Clear
+            </button>
+          )}
+        </div>
+      )}
+      {kindChips.length > 0 && (
+        <div className="color-filter-row" role="group" aria-label="Kind">
+          <span className="filter-row-label text-dim">Kind</span>
+          {kindChips.map((k) => (
+            <button key={k} className={`color-chip ${kinds.has(k) ? 'active' : ''}`} aria-pressed={kinds.has(k)} onClick={() => setKinds(toggled(kinds, k))}>
+              {k}
+            </button>
+          ))}
+          {kinds.size > 0 && (
+            <button className="color-chip clear" onClick={() => setKinds(new Set())}>
+              Clear
+            </button>
           )}
         </div>
       )}

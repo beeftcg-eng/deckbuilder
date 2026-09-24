@@ -4,11 +4,14 @@ import { useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
 import { rarityColorClass } from '../shared/rarityColor'
 import { artUrl, artworkIds, knownArtIds } from '../shared/artChoice'
+import { useState } from 'react'
+import { CardImageViewer } from './CardImageViewer'
 
 export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose: () => void }) {
   // Read the card from the catalog, so picking an artwork below shows up here straight away.
   const card = useAppStore((s) => s.catalogs[opened.gameId]?.byId.get(opened.id)) ?? opened
   const setArtChoice = useAppStore((s) => s.setArtChoice)
+  const [enlarged, setEnlarged] = useState(false)
   const arts = card.gameId === 'yugioh' ? artworkIds(card) : []
   const shownArt = arts.find((id) => card.imageUrl === artUrl(card, id, 'full'))
   const addToWishlist = useAppStore((s) => s.addToWishlist)
@@ -27,12 +30,15 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
       <div className="modal card-detail-modal" onClick={(e) => e.stopPropagation()}>
         <div className="card-detail-image">
           {card.imageUrl ? (
-            <img
-              src={card.imageUrl}
-              alt={card.name}
-              width={card.orientation === 'landscape' ? 700 : 500}
-              height={card.orientation === 'landscape' ? 500 : 700}
-            />
+            <button className="card-detail-enlarge" onClick={() => setEnlarged(true)} title="Enlarge (then copy or save the picture)">
+              <img
+                src={card.imageUrl}
+                alt={card.name}
+                width={card.orientation === 'landscape' ? 700 : 500}
+                height={card.orientation === 'landscape' ? 500 : 700}
+              />
+              <span className="card-detail-enlarge-hint">🔍 Enlarge</span>
+            </button>
           ) : (
             <div className="card-tile-placeholder">{card.name}</div>
           )}
@@ -132,6 +138,7 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
           {card.text && <p className="card-detail-text">{card.text}</p>}
         </div>
       </div>
+      {enlarged && <CardImageViewer card={card} onClose={() => setEnlarged(false)} />}
     </div>,
     document.body,
   )

@@ -203,6 +203,8 @@ function getGuidedStage(deck: Deck, cardsById: Map<string, Card>): GuidedStage |
 
 export const riftboundAdapter: GameAdapter = {
   id: 'riftbound',
+  typeOrder: ['Unit', 'Spell', 'Gear', 'Battlefield', 'Legend', 'Rune'],
+  filterKinds: ['Champion', 'Signature'],
   name: 'Riftbound: League of Legends TCG',
   shortName: 'Riftbound',
   deckRules,

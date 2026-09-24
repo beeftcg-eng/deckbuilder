@@ -47,6 +47,10 @@ export interface GameAdapter {
    * explicitly picking that category from the type dropdown.
    */
   mainDeckExcludedCategories?: string[]
+  /** Order of the card browser's Type chips (card categories); others follow alphabetically. */
+  typeOrder?: string[]
+  /** The subtypes offered as Kind chips in the card browser (see cardFilters.ts), e.g. Fusion/Xyz/Link. */
+  filterKinds?: string[]
   /**
    * Show the deck-stats panel's per-subtype breakdown (`DeckStats.bySubtype`). Off by default:
    * `card.subtypes` holds creature types for Magic, which would render dozens of noisy one/two-

@@ -223,6 +223,8 @@ function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
 
 export const pokemonAdapter: GameAdapter = {
   id: 'pokemon',
+  typeOrder: ['Pokémon', 'Trainer', 'Energy'],
+  filterKinds: ['Basic', 'Stage 1', 'Stage 2', 'ex', 'V', 'VSTAR', 'VMAX', 'Item', 'Supporter', 'Stadium', 'Pokémon Tool', 'ACE SPEC', 'Special'],
   name: 'Pokémon Trading Card Game',
   shortName: 'Pokémon',
   deckRules,
