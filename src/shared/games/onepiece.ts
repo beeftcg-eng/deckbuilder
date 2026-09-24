@@ -36,6 +36,14 @@ interface OnePieceSet {
   set_id: string
 }
 
+/**
+ * The set every promo goes in. /allPromos/ reports each promo's set_id as the set its card number comes from
+ * ("OP09" for a promo reprint of OP09-077, "P" for P-084), but a printing belongs to the set it was printed in -
+ * that's how every other reprint here is filed (an OP01 number reprinted in OP-05 has setId "OP-05") and what
+ * set legality checks - so they all share one set.
+ */
+const PROMO_SET_ID = 'P'
+
 function normalizeCard(raw: OnePieceApiCard): Card {
   const number = raw.card_set_id.includes('-')
     ? raw.card_set_id.slice(raw.card_set_id.lastIndexOf('-') + 1)
@@ -83,6 +91,10 @@ function normalizeCard(raw: OnePieceApiCard): Card {
   }
 }
 
+function normalizePromo(raw: OnePieceApiCard): Card {
+  return { ...normalizeCard(raw), setId: PROMO_SET_ID, setCode: PROMO_SET_ID, setName: raw.set_name || 'One Piece Promotion Cards' }
+}
+
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   const sets = await fetchJson<OnePieceSet[]>(`${API_BASE}/allSets/`)
 
@@ -92,7 +104,11 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
   // cards (e.g. ST34-003 Charlotte Brulee) were missing entirely. This one
   // request returns every starter deck card in one shot rather than needing
   // a per-deck fetch, so it's counted as a single extra "set" for progress.
-  const totalSteps = sets.length + 1
+  // Promo cards (P-001..., plus event/tournament reprints of set cards) are the same story under
+  // /allPromos/: without it, promo-only cards like Buggy P-098 were missing and P-084 only showed up as
+  // the SP reprint that OP-17 lists. Each promo printing has its own card_image_id, so no de-dupe;
+  // one that shares an id with a set card is split apart by uniquifyCardIds like any other reprint.
+  const totalSteps = sets.length + 2
 
   // One request per set used to run one at a time, which is what made this
   // sync noticeably slower than the other games — each request is small but
@@ -102,7 +118,9 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
   // to ~2s. Cards are collected per-set-index rather than appended as each
   // request resolves, so set order in the results stays deterministic
   // regardless of which request finishes first.
-  const bySet: Card[][] = new Array(sets.length)
+  // Starter and promo cards get fixed slots after the sets. Promos go last, so one sharing an id with a
+  // set card never takes that id from it on a tie (uniquifyCardIds gives ties to the first listed).
+  const bySet: Card[][] = new Array(sets.length + 2)
   let stepsDone = 0
   await Promise.all([
     ...sets.map(async (set, i) => {
@@ -124,7 +142,13 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
         seen.add(c.card_set_id)
         stCards.push(normalizeCard(c))
       }
-      bySet.push(stCards)
+      bySet[sets.length] = stCards
+      stepsDone += 1
+      onProgress({ loaded: stepsDone, total: totalSteps })
+    })(),
+    (async () => {
+      const raw = await fetchJson<OnePieceApiCard[]>(`${API_BASE}/allPromos/`)
+      bySet[sets.length + 1] = raw.map(normalizePromo)
       stepsDone += 1
       onProgress({ loaded: stepsDone, total: totalSteps })
     })(),
@@ -213,6 +237,9 @@ const defaultFormats: Format[] = [
       'ST-34',
       'ST-35',
       'ST-36',
+      // Promo cards. The data doesn't say which block each promo's icon is, so they're allowed rather
+      // than all flagged illegal; the ban list still applies to them by card number.
+      PROMO_SET_ID,
     ],
     bannedCardIds: ['onepiece:OP06-116', 'onepiece:ST10-001', 'onepiece:OP06-086', 'onepiece:OP03-040', 'onepiece:OP06-047'],
     restrictedCardIds: [],

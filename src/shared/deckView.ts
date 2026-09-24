@@ -15,6 +15,8 @@ export interface DeckViewEntry {
   quantity: number
   /** How many different printings (set/rarity) these copies are; 1 for a single printing. */
   printings: number
+  /** Each printing merged into this entry with its own copies, in the zone's order (`card` is the first). */
+  copies: { card: Card; quantity: number }[]
 }
 
 /** Cards of one type within a zone, e.g. the Creatures in a Main Deck. */
@@ -92,7 +94,8 @@ export function mergePrintings(entries: { cardId: string; quantity: number }[], 
     if (existing) {
       existing.quantity += quantity
       existing.printings++
-    } else merged.set(key, { card, quantity, printings: 1 })
+      existing.copies.push({ card, quantity })
+    } else merged.set(key, { card, quantity, printings: 1, copies: [{ card, quantity }] })
   }
   return [...merged.values()]
 }

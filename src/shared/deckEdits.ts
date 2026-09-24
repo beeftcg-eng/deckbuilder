@@ -1,4 +1,5 @@
-import type { Deck } from './types'
+import type { Card, Deck } from './types'
+import { compareByCostThenName } from './deckView'
 
 /**
  * Returns `entries` with one item's quantity set. An existing item keeps its
@@ -33,4 +34,37 @@ export function moveOneCopy(deck: Deck, fromZoneId: string, toZoneId: string, ca
       [toZoneId]: withQuantity(to, matches, create, already + 1),
     },
   }
+}
+
+export type DeckCardSort = 'type' | 'cost' | 'name'
+
+export const DECK_CARD_SORT_LABELS: Record<DeckCardSort, string> = { type: 'Type, then cost', cost: 'Cost', name: 'Name (A–Z)' }
+
+/**
+ * Re-orders the cards in every zone once (the deck keeps that order afterwards, and can still be dragged).
+ * 'cost' and 'type' break ties by name (compareByCostThenName); 'type' follows the game's own type order, types it
+ * doesn't list going after those that it does, alphabetically. The sort is stable, so printings of one card stay in
+ * the order they were in. Cards missing from the catalog keep their order at the end of their zone. Returns the
+ * deck unchanged if nothing moved.
+ */
+export function sortDeckCards(deck: Deck, sort: DeckCardSort, cardsById: Map<string, Card>, typeOrder: readonly string[] = []): Deck {
+  const typeRank = (card: Card) => {
+    const index = typeOrder.indexOf(card.category)
+    return index === -1 ? typeOrder.length : index
+  }
+  const compare = (a: Card, b: Card): number => {
+    if (sort === 'name') return a.name.localeCompare(b.name)
+    if (sort === 'type') return typeRank(a) - typeRank(b) || a.category.localeCompare(b.category) || compareByCostThenName(a, b)
+    return compareByCostThenName(a, b)
+  }
+  let changed = false
+  const zones: Deck['zones'] = {}
+  for (const [zoneId, entries] of Object.entries(deck.zones)) {
+    const known = entries.filter((e) => cardsById.has(e.cardId))
+    const unknown = entries.filter((e) => !cardsById.has(e.cardId))
+    const sorted = [...known.sort((a, b) => compare(cardsById.get(a.cardId)!, cardsById.get(b.cardId)!)), ...unknown]
+    if (sorted.some((e, i) => e !== entries[i])) changed = true
+    zones[zoneId] = sorted
+  }
+  return changed ? { ...deck, zones } : deck
 }

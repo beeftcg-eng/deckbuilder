@@ -41,6 +41,8 @@ describe('buildDeckView', () => {
     const sections = buildDeckView(deck, rulesForFormat(yugiohAdapter, 'tcg'), catalogOf([lob, sdk, lc01, pot]))
     const monsters = sections[0].groups[0]
     expect(monsters.entries.map((e) => [e.card.setCode, e.quantity, e.printings])).toEqual([['LOB', 3, 3]])
+    // Each printing's own copies, in the deck's order, so the deck view's − can take from the last one.
+    expect(monsters.entries[0].copies.map((c) => [c.card.setCode, c.quantity])).toEqual([['LOB', 1], ['SDK', 1], ['LC01', 1]])
     expect(sections[0].groups.map((g) => g.category)).toEqual(['Monster', 'Spell'])
     expect(sections[0].count).toBe(5)
   })

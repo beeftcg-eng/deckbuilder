@@ -15,6 +15,7 @@ import { DeckLockButton } from './DeckLockButton'
 import { DeckIcon } from './DeckIcon'
 import { currentDeckFor } from '../shared/decks'
 import { resolveDeckIcon } from '../shared/deckIcon'
+import { DECK_CARD_SORT_LABELS, sortDeckCards, type DeckCardSort } from '../shared/deckEdits'
 import type { Card, Deck, DeckZoneRule, Format } from '../shared/types'
 
 /** What a zone's header says about its size, e.g. "/40", ", at least 60", ", up to 15". */
@@ -176,6 +177,24 @@ function DeckEditor({ deck }: { deck: Deck }) {
         <button className="btn" onClick={() => duplicateDeck(deck.id)} title="Make an editable copy of this deck">
           Duplicate
         </button>
+        <select
+          value=""
+          disabled={locked}
+          title="Put the cards in order once (you can still drag them afterwards; Undo puts them back)"
+          onChange={(e) => {
+            const sort = e.target.value as DeckCardSort
+            updateDeck((d) => sortDeckCards(d, sort, cardsById, adapter.typeOrder), `Sort by ${DECK_CARD_SORT_LABELS[sort].toLowerCase()}`)
+          }}
+        >
+          <option value="" disabled>
+            Sort cards…
+          </option>
+          {(Object.keys(DECK_CARD_SORT_LABELS) as DeckCardSort[]).map((sort) => (
+            <option key={sort} value={sort}>
+              {DECK_CARD_SORT_LABELS[sort]}
+            </option>
+          ))}
+        </select>
       </div>
 
       {message && <div className="text-dim">{message}</div>}

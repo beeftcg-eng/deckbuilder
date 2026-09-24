@@ -1419,6 +1419,40 @@
   background: none;
   border-radius: 8px;
   line-height: 0;
+  cursor: pointer;
+}
+
+/* −/+ on a card in the deck view: over the bottom of the card, shown on hover (always, on touch screens). */
+.fv-card .fv-stepper {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  box-shadow: 0 1px 4px #0008;
+  line-height: 1;
+}
+
+@media (hover: hover) {
+  .fv-card .fv-stepper {
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+
+  .fv-card:hover .fv-stepper,
+  .fv-card:focus-within .fv-stepper {
+    opacity: 1;
+  }
+}
+
+.fv-row .fv-stepper {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .fv-card img {
@@ -1471,6 +1505,7 @@
 }
 
 .fv-row {
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 10px;

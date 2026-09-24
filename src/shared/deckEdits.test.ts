@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { moveOneCopy, withQuantity } from './deckEdits'
-import { makeCard, makeDeck } from './testFixtures'
+import { moveOneCopy, sortDeckCards, withQuantity } from './deckEdits'
+import { catalogOf, makeCard, makeDeck } from './testFixtures'
 
 interface Entry {
   cardId: string
@@ -63,5 +63,41 @@ describe('moveOneCopy', () => {
     expect(moveOneCopy(deck, 'sideboard', 'main', a.id)).toBe(deck)
     moveOneCopy(deck, 'main', 'sideboard', a.id)
     expect(deck).toEqual(before)
+  })
+})
+
+describe('sortDeckCards', () => {
+  const op = (name: string, category: string, cost: string | null) => makeCard('onepiece', { name, category, cost })
+  const leader = op('Buggy', 'Leader', null)
+  const zoro = op('Zoro', 'Character', '3')
+  const ace = op('Ace', 'Character', '5')
+  const nami = op('Nami', 'Character', '1')
+  const gum = op('Gum-Gum Pistol', 'Event', '1')
+  const cards = catalogOf([leader, zoro, ace, nami, gum])
+  const deck = makeDeck('onepiece', { leader: [[leader, 1]], main: [[ace, 4], [gum, 2], [zoro, 3], [nami, 4]] })
+  const order = (d: typeof deck) => d.zones.main.map((e) => cards.get(e.cardId)!.name)
+
+  it('sorts by cost, then name', () => {
+    expect(order(sortDeckCards(deck, 'cost', cards))).toEqual(['Gum-Gum Pistol', 'Nami', 'Zoro', 'Ace'])
+  })
+
+  it('sorts by name', () => {
+    expect(order(sortDeckCards(deck, 'name', cards))).toEqual(['Ace', 'Gum-Gum Pistol', 'Nami', 'Zoro'])
+  })
+
+  it("sorts by the game's type order, then cost", () => {
+    expect(order(sortDeckCards(deck, 'type', cards, ['Leader', 'Character', 'Event']))).toEqual(['Nami', 'Zoro', 'Ace', 'Gum-Gum Pistol'])
+  })
+
+  it('keeps quantities and leaves cards missing from the catalog at the end', () => {
+    const withUnknown = { ...deck, zones: { ...deck.zones, main: [{ cardId: 'onepiece:gone', quantity: 2 }, ...deck.zones.main] } }
+    const sorted = sortDeckCards(withUnknown, 'name', cards)
+    expect(sorted.zones.main.at(-1)).toEqual({ cardId: 'onepiece:gone', quantity: 2 })
+    expect(sorted.zones.main.find((e) => e.cardId === ace.id)?.quantity).toBe(4)
+  })
+
+  it('returns the same deck when already in order', () => {
+    const sorted = sortDeckCards(deck, 'name', cards)
+    expect(sortDeckCards(sorted, 'name', cards)).toBe(sorted)
   })
 })

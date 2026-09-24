@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { rulesForFormat } from '../shared/games/rules'
@@ -28,6 +28,8 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
   const adapter = getAdapter(deck.gameId)
   const mode = useAppStore((s) => s.settings.deckViewMode ?? 'grid')
   const setMode = useAppStore((s) => s.setDeckViewMode)
+  const setCardQuantity = useAppStore((s) => s.setCardQuantity)
+  const locked = Boolean(deck.locked)
 
   const [cardWidth, setCardWidth] = useState(200)
   const [detail, setDetail] = useState<Card | null>(null)
@@ -78,9 +80,51 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
 
   const priced = stats.totalCards > stats.price.unpricedCopies
 
-  function renderCard({ card, quantity, printings }: DeckViewEntry) {
+  /**
+   * −/+ for one entry. + adds a copy of the printing shown; − takes one from the last printing merged into it, so
+   * the picture only changes once that printing is gone. Hidden while the deck is locked.
+   */
+  function renderStepper(zoneId: string, { card, quantity, copies }: DeckViewEntry) {
+    if (locked) return null
+    const zone = zones.zones.find((z) => z.id === zoneId)
+    const max = zone?.maxCopiesPerCard ?? adapter.copyLimitFor?.(card) ?? zones.defaultMaxCopiesPerCard
+    const last = copies[copies.length - 1]
     return (
-      <button key={card.id} className="fv-card" onClick={() => setDetail(card)} title={`${card.name}${printings > 1 ? ` (${printings} printings)` : ''} — click for details`}>
+      <span className="fv-stepper" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <button className="btn stepper-btn" title="Remove a copy" onClick={() => setCardQuantity(zoneId, last.card, last.quantity - 1)}>
+          −
+        </button>
+        <button
+          className="btn stepper-btn"
+          title={quantity >= max ? `The most copies this deck can have is ${max}` : 'Add a copy'}
+          disabled={quantity >= max}
+          onClick={() => setCardQuantity(zoneId, card, copies[0].quantity + 1)}
+        >
+          +
+        </button>
+      </span>
+    )
+  }
+
+  /** The card or row opens the card's details; it's a div (not a button) because it holds the −/+ buttons. */
+  function openProps(card: Card) {
+    return {
+      role: 'button',
+      tabIndex: 0,
+      onClick: () => setDetail(card),
+      onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          setDetail(card)
+        }
+      },
+    }
+  }
+
+  function renderCard(zoneId: string, entry: DeckViewEntry) {
+    const { card, quantity, printings } = entry
+    return (
+      <div key={card.id} className="fv-card" {...openProps(card)} title={`${card.name}${printings > 1 ? ` (${printings} printings)` : ''} — click for details`}>
         {card.imageUrl ? (
           <img src={card.imageUrl} alt={card.name} loading="lazy" style={{ aspectRatio: card.orientation === 'landscape' ? '7 / 5' : '5 / 7' }} />
         ) : (
@@ -89,13 +133,15 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
           </div>
         )}
         <span className="fv-qty">×{quantity}</span>
-      </button>
+        {renderStepper(zoneId, entry)}
+      </div>
     )
   }
 
-  function renderRow({ card, quantity, printings }: DeckViewEntry) {
+  function renderRow(zoneId: string, entry: DeckViewEntry) {
+    const { card, quantity, printings } = entry
     return (
-      <button key={card.id} className="fv-row" onClick={() => setDetail(card)}>
+      <div key={card.id} className="fv-row" {...openProps(card)}>
         <span className="fv-row-qty">{quantity}×</span>
         {card.imageUrlSmall ? <img className="fv-row-thumb" src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="fv-row-thumb" />}
         <span className="fv-row-name">
@@ -105,7 +151,8 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
         <span className="fv-row-detail text-dim">{card.subtypes.join(' ')}</span>
         <span className="fv-row-cost text-dim">{card.cost ?? ''}</span>
         <span className="fv-row-price text-dim">{card.price != null ? formatPrice(card.price * quantity) : ''}</span>
-      </button>
+        {renderStepper(zoneId, entry)}
+      </div>
     )
   }
 
@@ -204,7 +251,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
                         </h3>
                       )}
                       <div className="fv-grid" style={{ '--fv-card-w': `${cardWidth}px` } as CSSProperties}>
-                        {group.entries.map(renderCard)}
+                        {group.entries.map((entry) => renderCard(section.zoneId, entry))}
                       </div>
                     </div>
                   ))
@@ -217,7 +264,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
                             {group.category} <span className="text-dim">({group.count})</span>
                           </h3>
                         )}
-                        {group.entries.map(renderRow)}
+                        {group.entries.map((entry) => renderRow(section.zoneId, entry))}
                       </div>
                     ))}
                   </div>
