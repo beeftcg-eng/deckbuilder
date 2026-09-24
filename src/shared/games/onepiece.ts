@@ -1,6 +1,7 @@
 import type { Card, DeckRules, Deck, Format } from '../types'
 import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
+import { PROMO_SET_ID } from './onepiecePromos'
 
 const API_BASE = 'https://www.optcgapi.com/api'
 
@@ -35,14 +36,6 @@ interface OnePieceSet {
   set_name: string
   set_id: string
 }
-
-/**
- * The set every promo goes in. /allPromos/ reports each promo's set_id as the set its card number comes from
- * ("OP09" for a promo reprint of OP09-077, "P" for P-084), but a printing belongs to the set it was printed in -
- * that's how every other reprint here is filed (an OP01 number reprinted in OP-05 has setId "OP-05") and what
- * set legality checks - so they all share one set.
- */
-const PROMO_SET_ID = 'P'
 
 function normalizeCard(raw: OnePieceApiCard): Card {
   const number = raw.card_set_id.includes('-')
@@ -237,9 +230,8 @@ const defaultFormats: Format[] = [
       'ST-34',
       'ST-35',
       'ST-36',
-      // Promo cards. The data doesn't say which block each promo's icon is, so they're allowed rather
-      // than all flagged illegal; the ban list still applies to them by card number.
-      PROMO_SET_ID,
+      // Promo cards (set P) aren't listed: they're legal from Block 2 on whatever this list says - see
+      // isRotationLegalPromo. Ticking P in the ban-list editor would also allow the Block 1 ones.
     ],
     bannedCardIds: ['onepiece:OP06-116', 'onepiece:ST10-001', 'onepiece:OP06-086', 'onepiece:OP03-040', 'onepiece:OP06-047'],
     restrictedCardIds: [],

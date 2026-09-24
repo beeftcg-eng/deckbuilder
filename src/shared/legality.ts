@@ -2,6 +2,7 @@ import type { Card, Deck, DeckZoneRule, Format, LegalityIssue, LegalityResult } 
 import type { GameAdapter } from './games/types'
 import { rulesForFormat } from './games/rules'
 import { identityColors } from './cardColors'
+import { isRotationLegalPromo } from './games/onepiecePromos'
 
 function checkCount(zone: DeckZoneRule, total: number, issues: LegalityIssue[]) {
   if (zone.allowedCounts && !zone.allowedCounts.includes(total)) {
@@ -41,7 +42,8 @@ export function isCardLegalInFormat(card: Card, format: Format): { legal: boolea
     if (status === 'legal' || status === 'restricted' || status === 'semi-restricted') return { legal: true }
     return { legal: false, reason: status === 'banned' ? `is banned in ${format.label}` : `is not legal in ${format.label}` }
   }
-  if (format.legalSetIds && !format.legalSetIds.includes(card.setId)) {
+  // One Piece promos all share one set but rotate by their own block icon, so a Block 2+ promo passes here.
+  if (format.legalSetIds && !format.legalSetIds.includes(card.setId) && !isRotationLegalPromo(card)) {
     return { legal: false, reason: `is from a set not legal in ${format.label}` }
   }
   if (format.bannedCardIds.includes(gameSourceKey(card))) {
