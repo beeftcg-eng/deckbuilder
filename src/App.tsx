@@ -15,6 +15,7 @@ import { useUpdaterListener } from './state/updater'
 import { useDeckbuilderSyncListener } from './state/deckbuilderSync'
 import { currentDeckFor } from './shared/decks'
 import { UpdateBanner } from './components/UpdateBanner'
+import { WelcomeTour } from './components/WelcomeTour'
 import { t } from './shared/i18n'
 
 export default function App() {
@@ -37,6 +38,7 @@ export default function App() {
   const syncMeta = useAppStore((s) => s.syncMeta)
   // Keying the screens on it re-mounts them on a language change, so every string (and memoized legality message) is redone.
   const language = useAppStore((s) => s.language)
+  const showTour = useAppStore((s) => s.showTour)
 
   const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist && !showTrade && !showBinders
   // On mobile (app.css), a side panel takes the whole screen instead of squeezing next to the
@@ -103,6 +105,7 @@ export default function App() {
         </div>
       )}
       <UpdateBanner />
+      {showTour && <WelcomeTour />}
       <button
         className="mobile-menu-btn"
         onClick={() => setMobileSidebarOpen((v) => !v)}

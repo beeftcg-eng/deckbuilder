@@ -723,6 +723,76 @@ export const es: Messages = {
     parchment: 'Pergamino',
   },
 
+  deckStatsModal: {
+    button: '📊 Estadísticas',
+    buttonTitle: 'Estadísticas de torneos de este mazo desde Pairings',
+    title: (name) => `📊 ${name} — estadísticas`,
+    from: 'Resultados que registraste con este mazo en',
+    openPairings: 'Pairings ↗',
+    notConnected:
+      'Registra tus resultados de torneos en Pairings, el registro de torneos, y las estadísticas de este mazo aparecen aquí: porcentaje de victorias, historial, yendo primero o segundo, cada versión y cada enfrentamiento.',
+    version: 'Versión',
+    allVersions: 'Todas las versiones',
+    versionN: (n) => `Versión ${n}`,
+    since: (date) => `desde el ${date}`,
+    first: 'primera versión',
+    noResults: 'Todavía no hay resultados registrados con este mazo en Pairings. Registra uno allá (elige este mazo en el resultado) y aparecerá aquí.',
+    noResultsVersion: 'Todavía no hay resultados registrados con esta versión.',
+    resultsLogged: 'Resultados registrados',
+    winRate: '% de victorias',
+    record: 'Historial',
+    versions: 'Versiones',
+    turnOrder: 'Yendo primero o segundo',
+    goingFirst: '% de victorias yendo primero',
+    goingSecond: '% de victorias yendo segundo',
+    turnOrderHint: 'De las rondas en las que anotaste en Pairings quién empezó.',
+    byVersion: 'Por versión',
+    whatYouBeat: 'A qué le ganas',
+    whatYouLoseTo: 'Contra qué pierdes',
+    againstEach: 'Contra cada mazo',
+    showAll: (n) => `Mostrar los ${n}`,
+    games: (n) => `${n} ${plural(n, 'partida', 'partidas')}`,
+    events: 'Eventos',
+  },
+
+  tour: {
+    replay: '👋 Recorrido de bienvenida',
+    stepOf: (n, total) => `${n} de ${total}`,
+    skip: 'Saltar recorrido',
+    back: 'Atrás',
+    next: 'Siguiente',
+    start: 'Muéstrame',
+    finish: 'Empezar a construir',
+    welcomeTitle: 'Bienvenido a Beef’s Brewhouse 👋',
+    welcomeBody:
+      'Construye mazos de **Riftbound, One Piece, Pokémon, Magic y Yu-Gi-Oh!**, comprueba que sean legales, lleva la cuenta de las cartas que tienes y las que buscas, y llévalo todo a tu teléfono. Aquí tienes un recorrido de un minuto (puedes saltarlo).',
+    gamesTitle: 'Elige un juego',
+    gamesBody: 'Cambia de juego aquí. Arrástralos para ordenarlos a tu gusto, y **Administrar juegos…** oculta los que no juegas.',
+    syncTitle: 'Primero descarga las cartas',
+    syncBody:
+      'La lista de cartas de cada juego se descarga una vez con **Descargar datos de cartas** y después funciona sin conexión. De vez en cuando presiona **Actualizar datos de cartas** para tener las expansiones y precios nuevos.',
+    decksTitle: 'Crea un mazo',
+    decksBody:
+      '**+ Nuevo** empieza un mazo vacío e **Importar** convierte una lista de mazo pegada en uno. Tus mazos de este juego aparecen debajo: haz clic en uno para abrirlo y arrástralos para reordenarlos.',
+    browserTitle: 'Añade cartas',
+    browserBody:
+      'Busca y filtra las cartas aquí. **+** añade una carta al mazo abierto, un clic en la imagen muestra sus detalles, **☆** la pone en tu lista de deseos y **Tengo** cuenta las copias que tienes.',
+    navTitle: 'Todo lo demás',
+    navBody:
+      '**Lista de deseos**: cartas que buscas, para exportar o enviar a Pawmodoro. **Mis mazos**: todos los mazos de todos los juegos. **Colección**: lo que tienes y cuánto llevas de cada expansión. **Intercambio**: encuentra con quién intercambiar. **Carpetas**: agrupa tus cartas como quieras.',
+    accountTitle: 'Llévalo a tu teléfono',
+    accountBody:
+      '**Inicia sesión** (una cuenta gratis, solo correo y contraseña) y tus mazos, colección y lista de deseos se sincronizan con la app del teléfono. La misma cuenta sirve para intercambiar.',
+    pairingsTitle: 'Estadísticas de torneos',
+    pairingsBody:
+      'Registra tus eventos en **Pairings**, el registro de torneos, y conéctalo aquí: cada mazo muestra su historial, y **📊 Estadísticas** en la vista del mazo muestra su porcentaje de victorias, enfrentamientos, cómo le va yendo primero o segundo y cada versión.',
+    settingsTitle: 'Hazla tuya',
+    settingsBody:
+      'Elige un tema de colores y tu idioma. Abajo del todo en la barra lateral, **Copia de seguridad…** guarda todo en un archivo (además se guardan instantáneas automáticas).',
+    doneTitle: '¡Todo listo!',
+    doneBody: 'Ese es el recorrido. Puedes repetirlo cuando quieras desde **👋 Recorrido de bienvenida** abajo en la barra lateral. ¡A construir!',
+  },
+
   zones: {
     Leader: 'Líder',
     Legend: 'Leyenda',

@@ -2352,3 +2352,221 @@
   color: #e8e9ee;
   max-width: 420px;
 }
+
+/* A deck's tournament stats from Pairings (PairingsStatsModal), laid out like Pairings' own deck stats. */
+.ps-modal {
+  width: 640px;
+}
+
+.ps-header-tools {
+  display: flex;
+  gap: 6px;
+}
+
+.ps-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 4px;
+}
+
+.ps-body section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ps-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.ps-empty p {
+  margin: 0;
+}
+
+.ps-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ps-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ps-card {
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ps-card b {
+  font-size: 22px;
+}
+
+.ps-card span {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.ps-label {
+  margin: 4px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.ps-hint {
+  font-size: 12px;
+}
+
+.ps-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--bg-elevated-2);
+}
+
+.ps-row-btn {
+  width: 100%;
+  border: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ps-row-btn:hover,
+.ps-row-btn:focus-visible {
+  border-color: var(--accent);
+}
+
+.ps-row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ps-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ps-row-main .text-dim {
+  font-size: 12px;
+}
+
+.ps-row-rate {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ps-good {
+  color: var(--success);
+}
+
+.ps-bad {
+  color: var(--danger);
+}
+
+.ps-more summary {
+  cursor: pointer;
+  color: var(--accent);
+  padding: 4px 0;
+}
+
+.ps-more .ps-row {
+  margin-top: 4px;
+}
+
+@media (max-width: 760px) {
+  .ps-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Welcome tour (WelcomeTour.tsx): the outlined part of the screen, the rest dimmed, and a card beside it. */
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+}
+
+.tour-dim {
+  position: absolute;
+  inset: 0;
+  background: #000000a6;
+}
+
+.tour-spotlight {
+  position: absolute;
+  border-radius: 10px;
+  outline: 2px solid var(--accent);
+  box-shadow: 0 0 0 9999px #000000a6;
+  transition: left 0.2s ease, top 0.2s ease, width 0.2s ease, height 0.2s ease;
+  pointer-events: none;
+}
+
+.tour-card {
+  position: absolute;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: 0 12px 40px #00000080;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  outline: none;
+}
+
+.tour-card h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.tour-card p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.tour-step {
+  font-size: 12px;
+}
+
+.tour-language {
+  margin-top: 4px;
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.tour-spacer {
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-spotlight {
+    transition: none;
+  }
+}

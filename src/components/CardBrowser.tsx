@@ -177,7 +177,7 @@ export function CardBrowser() {
   if (!catalog && cachedCount > 0) {
     // The card data is on disk and on its way (a big game like Magic takes a moment) — it isn't missing.
     return (
-      <div className="card-browser empty-state">
+      <div className="card-browser empty-state" data-tour="browser">
         <p>{t.browser.loading(adapter.shortName)}</p>
       </div>
     )
@@ -185,7 +185,7 @@ export function CardBrowser() {
 
   if (!catalog || catalog.cards.length === 0) {
     return (
-      <div className="card-browser empty-state">
+      <div className="card-browser empty-state" data-tour="browser">
         <p>{t.browser.noData(adapter.shortName)}</p>
         <p className="text-dim">{t.browser.noDataHelp}</p>
       </div>
@@ -195,7 +195,7 @@ export function CardBrowser() {
   const visible = results.slice(0, visibleCount)
 
   return (
-    <div className="card-browser">
+    <div className="card-browser" data-tour="browser">
       <div className="card-browser-controls">
         <input
           className="search-input"

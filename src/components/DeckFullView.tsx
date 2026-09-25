@@ -12,6 +12,7 @@ import { DeckLockButton } from './DeckLockButton'
 import { ExportModal } from './ExportModal'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
+import { PairingsStatsModal } from './PairingsStatsModal'
 import { t, zoneLabel } from '../shared/i18n'
 import { formatLabel } from '../shared/formatText'
 
@@ -39,6 +40,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
   const [osFullscreen, setOsFullscreen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [showStats, setShowStats] = useState(false)
 
   const zones = useMemo(() => rulesForFormat(adapter, deck.formatId), [adapter, deck.formatId])
   const sections = useMemo(() => buildDeckView(deck, zones, cardsById), [deck, zones, cardsById])
@@ -209,6 +211,9 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
               {t.deckView.export}
             </button>
           )}
+          <button className="btn" onClick={() => setShowStats(true)} title={t.deckStatsModal.buttonTitle}>
+            {t.deckStatsModal.button}
+          </button>
           <button className="btn" onClick={toggleOsFullscreen} title={t.deckView.fullscreenTitle}>
             {osFullscreen ? t.deckView.exitFullscreen : t.deckView.fullscreen}
           </button>
@@ -279,6 +284,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
       </div>
 
       {detail && <CardDetailModal card={detail} onClose={() => setDetail(null)} />}
+      {showStats && <PairingsStatsModal deck={deck} onClose={() => setShowStats(false)} />}
       {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}
     </div>
   )

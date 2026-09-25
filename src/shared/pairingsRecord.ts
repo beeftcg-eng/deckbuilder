@@ -1,5 +1,5 @@
 import { callRpc, refreshAccessToken, type SyncConfig } from './sync/client'
-import type { PairingsDeckRecord, PairingsResult } from './types'
+import type { PairingsDeckRecord, PairingsResult, PairingsVersion } from './types'
 
 /**
  * Tournament results for your decks, read from Pairings (the TCG tournament tracker) - a separate
@@ -107,10 +107,17 @@ export function parseDeckRecords(raw: unknown): PairingsDeckRecord[] {
     const results = (d as { results?: unknown }).results
     const hash = (d as { synced_hash?: unknown }).synced_hash
     const version = Number((d as { version?: unknown }).version)
+    const versions = (d as { versions?: unknown }).versions
     out.push({
       brewhouseDeckId: id,
       syncedHash: typeof hash === 'string' && hash ? hash : null,
       version: Number.isInteger(version) && version > 0 ? version : null,
+      versions: (Array.isArray(versions) ? versions : []).flatMap((v) => {
+        const n = Number(v?.n)
+        if (!Number.isInteger(n) || n < 1) return []
+        const cardCount = Number(v?.card_count)
+        return [{ n, from: str(v?.from), cardCount: v?.card_count != null && Number.isInteger(cardCount) && cardCount > 0 ? cardCount : null, note: str(v?.note) }]
+      }),
       results: (Array.isArray(results) ? results : []).map((r) => ({
         event: str(r?.event),
         date: str(r?.date),
@@ -121,9 +128,14 @@ export function parseDeckRecords(raw: unknown): PairingsDeckRecord[] {
         record: str(r?.record),
         inProgress: r?.in_progress === true,
         deckVersion: Number.isInteger(r?.deck_version) && r.deck_version > 0 ? r.deck_version : null,
-        matches: (Array.isArray(r?.matches) ? r.matches : []).map((m: { opponent?: unknown; outcome?: unknown }) => {
+        matches: (Array.isArray(r?.matches) ? r.matches : []).map((m: { opponent?: unknown; outcome?: unknown; went_first?: unknown }) => {
           const outcome = str(m?.outcome)
-          return { opponent: str(m?.opponent), outcome: outcome === 'W' || outcome === 'L' || outcome === 'D' ? outcome : '' }
+          const wentFirst = str(m?.went_first)
+          return {
+            opponent: str(m?.opponent),
+            outcome: outcome === 'W' || outcome === 'L' || outcome === 'D' ? outcome : '',
+            wentFirst: wentFirst === 'yes' || wentFirst === 'no' ? wentFirst : '',
+          }
         }),
       })),
     })
@@ -136,4 +148,91 @@ export async function fetchDeckRecords(config: SyncConfig): Promise<{ records: P
   const { accessToken, refreshToken } = await refreshAccessToken(config)
   const raw = await callRpc({ ...config, refreshToken }, accessToken, 'brewhouse_deck_records', {})
   return { records: parseDeckRecords(raw), refreshToken }
+}
+
+// ---------- Deck stats: what Pairings' own "Stats & versions" screen shows for one deck ----------
+
+export interface StatLine {
+  wins: number
+  losses: number
+  draws: number
+  games: number
+  /** Wins out of decided games, rounded; null before any decided game. */
+  winRate: number | null
+}
+
+export interface OpponentLine extends StatLine {
+  opponent: string
+}
+
+export interface DeckStatsView {
+  /** Results (events) counted, newest first. */
+  results: PairingsResult[]
+  record: StatLine
+  /** Rounds where "went first" was noted in Pairings; games is 0 for both when it never was. */
+  goingFirst: StatLine
+  goingSecond: StatLine
+  /** Top five by wins / by losses, like Pairings' deck stats (one game is enough there). */
+  best: OpponentLine[]
+  toughest: OpponentLine[]
+  /** Every opponent faced, most-played first. */
+  opponents: OpponentLine[]
+}
+
+function line(wins: number, losses: number, draws: number): StatLine {
+  const decided = wins + losses
+  return { wins, losses, draws, games: decided + draws, winRate: decided > 0 ? Math.round((wins / decided) * 100) : null }
+}
+
+/** The deck's versions, oldest first; a deck without a list is one version (Pairings' deckVersions). */
+export function deckVersionsOf(versions: PairingsVersion[] | undefined): PairingsVersion[] {
+  const list = [...(versions ?? [])].sort((a, b) => a.n - b.n)
+  return list.length ? list : [{ n: 1, from: '', cardCount: null, note: '' }]
+}
+
+/**
+ * The version a result counts toward, as Pairings' resultDeckVersion files it: its stamped version
+ * if the deck has it, else the version its date falls in (a version's `from` is the day it started).
+ */
+export function resultVersion(result: PairingsResult, versions: PairingsVersion[]): number {
+  const list = deckVersionsOf(versions)
+  if (result.deckVersion != null && list.some((v) => v.n === result.deckVersion)) return result.deckVersion
+  let pick = list[0].n
+  for (const v of list) if (!v.from || (result.date && v.from <= result.date)) pick = v.n
+  return pick
+}
+
+/** One deck's tournament stats from its Pairings results, for every version or just `version`. */
+export function deckStatsFor(results: PairingsResult[], versions: PairingsVersion[], version?: number): DeckStatsView {
+  const shown = version == null ? results : results.filter((r) => resultVersion(r, versions) === version)
+  let wins = 0
+  let losses = 0
+  let draws = 0
+  const first = { w: 0, l: 0, d: 0 }
+  const second = { w: 0, l: 0, d: 0 }
+  for (const r of shown) {
+    const rec = parseRecord(r.record)
+    if (rec) {
+      wins += rec.w
+      losses += rec.l
+      draws += rec.d
+    }
+    for (const m of r.matches) {
+      const side = m.wentFirst === 'yes' ? first : m.wentFirst === 'no' ? second : null
+      if (!side || !m.outcome) continue
+      if (m.outcome === 'W') side.w++
+      else if (m.outcome === 'L') side.l++
+      else side.d++
+    }
+  }
+  const opponents: OpponentLine[] = matchupsOf(shown).map((m) => ({ opponent: m.opponent, ...line(m.wins, m.losses, m.draws) }))
+  return {
+    results: [...shown].sort((a, b) => (b.date || '').localeCompare(a.date || '')),
+    record: line(wins, losses, draws),
+    goingFirst: line(first.w, first.l, first.d),
+    goingSecond: line(second.w, second.l, second.d),
+    best: opponents.filter((m) => m.wins > 0).sort((a, b) => b.wins - a.wins || (b.winRate ?? 0) - (a.winRate ?? 0)).slice(0, 5),
+    toughest: opponents.filter((m) => m.losses > 0).sort((a, b) => b.losses - a.losses || (a.winRate ?? 0) - (b.winRate ?? 0)).slice(0, 5),
+    opponents,
+  }
 }

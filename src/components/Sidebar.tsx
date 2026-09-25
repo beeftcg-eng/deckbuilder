@@ -78,6 +78,7 @@ export function Sidebar() {
   const setTheme = useAppStore((s) => s.setTheme)
   const language = useAppStore((s) => s.language)
   const setLanguage = useAppStore((s) => s.setLanguage)
+  const setShowTour = useAppStore((s) => s.setShowTour)
   const cardsById = useCardsById(currentGameId)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [deckFilter, setDeckFilter] = useState('')
@@ -146,7 +147,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-title">Beef’s Brewhouse</div>
-      <label className="theme-row" title={t.sidebar.themeTitle}>
+      <label className="theme-row" data-tour="settings" title={t.sidebar.themeTitle}>
         <span className="text-dim">{t.sidebar.theme}</span>
         <select value={themeId} onChange={(e) => setTheme(e.target.value)}>
           {THEMES.map((theme) => (
@@ -156,7 +157,7 @@ export function Sidebar() {
           ))}
         </select>
       </label>
-      <label className="theme-row" title={t.sidebar.languageTitle}>
+      <label className="theme-row" data-tour="settings" title={t.sidebar.languageTitle}>
         <span className="text-dim">{t.sidebar.language}</span>
         <select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
           {LANGUAGES.map((l) => (
@@ -169,6 +170,7 @@ export function Sidebar() {
 
       <button
         className="wishlist-nav-btn"
+        data-tour="account"
         onClick={() => setShowAccount(true)}
         title={pawmodoroConfig.connected ? t.sidebar.manageAccount : t.sidebar.loginTitle}
       >
@@ -177,6 +179,7 @@ export function Sidebar() {
 
       <button
         className="wishlist-nav-btn"
+        data-tour="pairings"
         onClick={() => setShowPairings(true)}
         title={
           pairingsConfig.connected ? t.sidebar.pairingsConnectedAs(pairingsConfig.email) : t.sidebar.pairingsHowTo
@@ -185,31 +188,31 @@ export function Sidebar() {
         {pairingsConfig.connected ? t.sidebar.pairingsConnected : t.sidebar.connectPairings}
       </button>
 
-      <button className={`wishlist-nav-btn ${showWishlist ? 'active' : ''}`} onClick={() => setShowWishlist(!showWishlist)}>
+      <button data-tour="nav" className={`wishlist-nav-btn ${showWishlist ? 'active' : ''}`} onClick={() => setShowWishlist(!showWishlist)}>
         {t.sidebar.wishlist}
         {wishlist.length > 0 ? ` (${wishlist.reduce((n, e) => n + e.quantity, 0)})` : ''}
       </button>
 
-      <button className={`wishlist-nav-btn ${showMyDecks ? 'active' : ''}`} onClick={() => setShowMyDecks(!showMyDecks)}>
+      <button data-tour="nav" className={`wishlist-nav-btn ${showMyDecks ? 'active' : ''}`} onClick={() => setShowMyDecks(!showMyDecks)}>
         {t.sidebar.myDecks}
         {decks.length > 0 ? ` (${decks.length})` : ''}
       </button>
 
-      <button className={`wishlist-nav-btn ${showCollection ? 'active' : ''}`} onClick={() => setShowCollection(!showCollection)}>
+      <button data-tour="nav" className={`wishlist-nav-btn ${showCollection ? 'active' : ''}`} onClick={() => setShowCollection(!showCollection)}>
         {t.sidebar.collection}
         {collectionCopies > 0 ? ` (${collectionCopies})` : ''}
       </button>
 
-      <button className={`wishlist-nav-btn ${showTrade ? 'active' : ''}`} onClick={() => setShowTrade(!showTrade)}>
+      <button data-tour="nav" className={`wishlist-nav-btn ${showTrade ? 'active' : ''}`} onClick={() => setShowTrade(!showTrade)}>
         {t.sidebar.trade}
       </button>
 
-      <button className={`wishlist-nav-btn ${showBinders ? 'active' : ''}`} onClick={() => setShowBinders(!showBinders)}>
+      <button data-tour="nav" className={`wishlist-nav-btn ${showBinders ? 'active' : ''}`} onClick={() => setShowBinders(!showBinders)}>
         {t.sidebar.binders}
         {binders.length > 0 ? ` (${binders.length})` : ''}
       </button>
 
-      <nav className="game-tabs">
+      <nav className="game-tabs" data-tour="games">
         {visibleGames.map((adapter) => (
           <button
             key={adapter.id}
@@ -279,7 +282,7 @@ export function Sidebar() {
         </div>
       )}
 
-      <div className="sync-box">
+      <div className="sync-box" data-tour="sync">
         <div className="sync-status">
           <span>{t.sidebar.cardsCached(meta?.count ?? 0)}</span>
           <span className="text-dim">{formatRelativeTime(meta?.lastSynced ?? null)}</span>
@@ -298,7 +301,7 @@ export function Sidebar() {
         </button>
       </div>
 
-      <div className="deck-list-header">
+      <div className="deck-list-header" data-tour="decks">
         <span>{t.sidebar.decks}</span>
         <div className="deck-list-header-actions">
           <button className="btn" onClick={() => setShowImport(true)} title={t.sidebar.importTitle}>
@@ -437,7 +440,7 @@ export function Sidebar() {
         ))}
       </div>
 
-      <div className="backup-box">
+      <div className="backup-box" data-tour="backup">
         <div className="backup-box-title">{t.sidebar.backupTitle}</div>
         <div className="backup-actions">
           <button className="btn" onClick={handleBackupExport}>
@@ -467,6 +470,9 @@ export function Sidebar() {
           <div className="version-line">
             <button className="link-btn" onClick={() => setShowPatchNotes(true)}>
               {t.sidebar.patchNotes}
+            </button>
+            <button className="link-btn" data-tour="replay" onClick={() => setShowTour(true)}>
+              {t.tour.replay}
             </button>
             <button
               className="link-btn"

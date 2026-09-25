@@ -179,6 +179,9 @@ interface AppState {
   setDeckViewMode: (mode: DeckViewMode) => void
   setUpdateStatus: (status: UpdateStatus) => void
   setTheme: (id: string) => void
+  /** The welcome tour (WelcomeTour.tsx): opens by itself on a first launch, or from the sidebar. */
+  showTour: boolean
+  setShowTour: (show: boolean) => void
   /** The UI language. Changing it re-mounts the screens (App.tsx) so every string picks it up. */
   language: Language
   setLanguage: (language: Language) => void
@@ -341,6 +344,7 @@ export const useAppStore = create<AppState>((set, get) => {
     pairingsError: null,
     forTrade: new Set(),
     language: getLanguage(),
+    showTour: false,
     tradeSyncing: false,
     browseTraders: [],
     tradeMatches: [],
@@ -350,6 +354,9 @@ export const useAppStore = create<AppState>((set, get) => {
         const [decks, settings] = await Promise.all([window.api.decks.list(), window.api.settings.get()])
         set({ decks, settings })
         applyTheme(settings.theme)
+        // A first launch (no decks, never toured) opens the tour. Someone who already has decks can
+        // start it from the sidebar instead of having it pop up after an update.
+        if (!settings.tourSeen && decks.length === 0) set({ showTour: true })
         if (isLanguage(settings.language) && settings.language !== get().language) {
           applyLanguage(settings.language)
           set({ language: settings.language })
@@ -770,6 +777,14 @@ export const useAppStore = create<AppState>((set, get) => {
       persistSettings({ theme: id })
     },
 
+    setShowTour: (show) => {
+      set({ showTour: show })
+      if (!show && !get().settings.tourSeen) {
+        set((s) => ({ settings: { ...s.settings, tourSeen: true } }))
+        persistSettings({ tourSeen: true })
+      }
+    },
+
     setLanguage: (language) => {
       applyLanguage(language)
       set({ language })
@@ -911,7 +926,7 @@ export const useAppStore = create<AppState>((set, get) => {
         const links: Record<string, PairingsLink> = {}
         for (const r of records) {
           if (r.results.length) byDeck[r.brewhouseDeckId] = [...(byDeck[r.brewhouseDeckId] ?? []), ...r.results]
-          links[r.brewhouseDeckId] = { syncedHash: r.syncedHash, version: r.version }
+          links[r.brewhouseDeckId] = { syncedHash: r.syncedHash, version: r.version, versions: r.versions }
         }
         set({ pairingsRecords: byDeck, pairingsLinks: links })
       } catch (err) {

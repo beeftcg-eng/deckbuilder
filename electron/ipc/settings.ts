@@ -26,6 +26,7 @@ function sanitize(raw: unknown): AppSettings {
   if (isDeckViewMode(source.deckViewMode)) settings.deckViewMode = source.deckViewMode
   if (isThemeId(source.theme)) settings.theme = source.theme
   if (isLanguage(source.language)) settings.language = source.language
+  if (source.tourSeen === true) settings.tourSeen = true
   if (isPlainObject(source.tradeProfile)) {
     const tp = source.tradeProfile as Record<string, unknown>
     if (typeof tp.public === 'boolean' && typeof tp.displayName === 'string') settings.tradeProfile = { public: tp.public, displayName: tp.displayName }

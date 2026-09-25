@@ -238,6 +238,8 @@ export interface AppSettings {
   theme?: string
   /** UI language (see shared/i18n). Unset until picked: the first launch follows the system's language. */
   language?: 'en' | 'es'
+  /** Set once the welcome tour was finished or skipped, so it only opens by itself on a first launch. */
+  tourSeen?: boolean
   /** Local copy of the last trade-profile visibility pushed to the cloud (see shared/types.ts TradeProfile). */
   tradeProfile?: TradeProfile
   /** Yu-Gi-Oh artwork picked per printing (artChoice.ts printingKey -> artwork id). */
@@ -268,7 +270,8 @@ export interface PairingsResult {
   /** As typed in Pairings, e.g. "3-1" or "3-1-1" (wins-losses-draws). */
   record: string
   inProgress: boolean
-  matches: { opponent: string; outcome: 'W' | 'L' | 'D' | '' }[]
+  /** wentFirst: who went first that round, when noted in Pairings ('' when not, or from an older Pairings). */
+  matches: { opponent: string; outcome: 'W' | 'L' | 'D' | ''; wentFirst: 'yes' | 'no' | '' }[]
   /** Which version of the deck (in Pairings) it was logged with; null for results from before versions. */
   deckVersion: number | null
 }
@@ -283,12 +286,23 @@ export interface PairingsDeckRecord {
    */
   syncedHash: string | null
   version: number | null
+  /** The deck's versions in Pairings, oldest first. Empty for a deck with one version, or from an older Pairings. */
+  versions: PairingsVersion[]
+}
+
+/** One version of a deck in Pairings: `from` is the day it started ('' for the first), the note is typed by the player. */
+export interface PairingsVersion {
+  n: number
+  from: string
+  cardCount: number | null
+  note: string
 }
 
 /** A deck linked in Pairings: what it last synced (see PairingsDeckRecord). */
 export interface PairingsLink {
   syncedHash: string | null
   version: number | null
+  versions: PairingsVersion[]
 }
 
 /** Whether your collection/wants are visible to other connected accounts, and the name shown while browsing. */
