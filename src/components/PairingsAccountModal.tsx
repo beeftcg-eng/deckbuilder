@@ -2,6 +2,8 @@ import { useState, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { PAIRINGS_APP_URL } from '../shared/pairingsRecord'
+import { t } from '../shared/i18n'
+import { Rich } from './Rich'
 
 interface Props {
   onClose: () => void
@@ -44,27 +46,23 @@ export function PairingsAccountModal({ onClose }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span>🏆 Connect Pairings</span>
+          <span>{t.pairingsAccount.title}</span>
           <button className="btn" onClick={onClose}>
-            Close
+            {t.common.close}
           </button>
         </div>
         <div className="pawmodoro-box">
-          <div className="text-dim">
-            Pairings is the tournament tracker. Link the two and each deck here shows the record you logged with it there: wins and losses, win rate,
-            and the matchups it beats or loses to.
-          </div>
+          <div className="text-dim">{t.pairingsAccount.intro}</div>
           <ol className="pr-steps">
             <li className={pairingsConfig.connected ? 'done' : ''}>
-              <b>Log in to Pairings here.</b>{' '}
+              <b>{t.pairingsAccount.step1}</b>{' '}
               {pairingsConfig.connected ? (
-                <span className="text-dim">✓ Connected as {pairingsConfig.email}</span>
+                <span className="text-dim">{t.pairingsAccount.connectedAs(pairingsConfig.email)}</span>
               ) : (
                 <span className="text-dim">
-                  Use your Pairings email and password (a separate account from your Pawmodoro login). This only reads your results; it never changes
-                  anything in Pairings. No account yet?{' '}
+                  {t.pairingsAccount.step1Help}{' '}
                   <a href={PAIRINGS_APP_URL} onClick={openPairings}>
-                    Create one in Pairings
+                    {t.pairingsAccount.createOne}
                   </a>
                   .
                 </span>
@@ -77,47 +75,46 @@ export function PairingsAccountModal({ onClose }: Props) {
                     void handleConnect()
                   }}
                 >
-                  <input placeholder="Pairings email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <input placeholder={t.pairingsAccount.email} autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                   <input
                     type="password"
-                    placeholder="Pairings password"
+                    placeholder={t.pairingsAccount.password}
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
                   <button type="submit" className="btn btn-primary" disabled={connecting || !email.trim() || !password}>
-                    {connecting ? 'Connecting…' : 'Connect'}
+                    {connecting ? t.common.connecting : t.common.connect}
                   </button>
                 </form>
               )}
-              {connectError && <div className="sync-error">Couldn't connect: {connectError}</div>}
+              {connectError && <div className="sync-error">{t.common.couldntConnect(connectError)}</div>}
             </li>
             <li>
-              <b>In Pairings, import your decks from Brewhouse.</b>{' '}
+              <b>{t.pairingsAccount.step2}</b>{' '}
               <span className="text-dim">
-                Open <a href={PAIRINGS_APP_URL} onClick={openPairings}>Pairings</a>, go to <b>Stats → 🃏 Manage your decks</b>, and press{' '}
-                <b>Connect Brewhouse</b>. Log in there with <i>this</i> app's account (your Pawmodoro login), then press <b>Import</b> next to each
-                deck you play.
+                {t.pairingsAccount.step2Open}{' '}
+                <a href={PAIRINGS_APP_URL} onClick={openPairings}>
+                  Pairings
+                </a>
+                <Rich text={t.pairingsAccount.step2Help} />
               </span>
             </li>
             <li>
-              <b>Log your results with those decks in Pairings.</b>{' '}
+              <b>{t.pairingsAccount.step3}</b>{' '}
               <span className="text-dim">
-                Pick the deck when you log a result on an event, or use <b>Stats → 📝 Log a result</b> for an event or testing session that isn't on
-                your calendar. Results show up here in each deck's view and in My Decks.
+                <Rich text={t.pairingsAccount.step3Help} />
               </span>
             </li>
           </ol>
           {pairingsConfig.connected && (
             <>
               <div className="text-dim">
-                {decksWithResults > 0
-                  ? `${decksWithResults} of your deck${decksWithResults === 1 ? ' has' : 's have'} results in Pairings.`
-                  : 'No results from Pairings yet. Finish steps 2 and 3 and they appear here.'}
+                {decksWithResults > 0 ? t.pairingsAccount.decksWithResults(decksWithResults) : t.pairingsAccount.noResults}
               </div>
               <div className="wishlist-actions">
                 <button className="btn" onClick={disconnectPairings}>
-                  Disconnect
+                  {t.common.disconnect}
                 </button>
               </div>
             </>

@@ -5,6 +5,7 @@ import { withDataLock, writeBinders, writeCollection, writeDecks, writeWishlist 
 import { readBundle, snapshot } from '../lib/backups'
 import { writeJsonAtomic } from '../lib/jsonStore'
 import { parseBackupBundle } from '../lib/backupBundle'
+import { t } from '../../src/shared/i18n'
 
 export interface ImportResult {
   imported: boolean
@@ -61,7 +62,7 @@ export function registerBackupIpc(): void {
     try {
       bundle = JSON.parse(await readFile(result.filePaths[0], 'utf-8'))
     } catch (err) {
-      return emptyResult({ error: `Couldn't read that file as JSON (${err instanceof Error ? err.message : String(err)}).` })
+      return emptyResult({ error: t.main.notJson(err instanceof Error ? err.message : String(err)) })
     }
     const parsed = parseBackupBundle(bundle)
     if (!parsed.ok) return emptyResult({ error: parsed.error })

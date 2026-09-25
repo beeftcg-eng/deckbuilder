@@ -1,4 +1,5 @@
 import { getAdapter } from './games/registry'
+import { t } from './i18n'
 import { rulesForFormat } from './games/rules'
 import type { Binder, Card, Deck, DeckZoneRule } from './types'
 
@@ -37,9 +38,9 @@ export function addToDeck(deck: Deck, zoneId: string, cardId: string, quantity: 
 
 /** Why a card can't be moved into this deck, or null when it can. */
 export function deckMoveProblem(deck: Deck, card: Card): string | null {
-  if (deck.gameId !== card.gameId) return `"${deck.name}" is a ${getAdapter(deck.gameId).shortName} deck.`
-  if (deck.locked) return `"${deck.name}" is locked. Unlock it to add cards.`
-  if (!zoneForCard(deck, card)) return `${card.name} can't go in any of "${deck.name}"'s zones.`
+  if (deck.gameId !== card.gameId) return t.store.wrongGame(deck.name, getAdapter(deck.gameId).shortName)
+  if (deck.locked) return t.store.lockedNoAdd(deck.name)
+  if (!zoneForCard(deck, card)) return t.store.noZone(card.name, deck.name)
   return null
 }
 

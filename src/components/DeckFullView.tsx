@@ -5,13 +5,15 @@ import { rulesForFormat } from '../shared/games/rules'
 import { checkDeckLegality } from '../shared/legality'
 import { computeDeckStats } from '../shared/deckStats'
 import { formatPrice } from '../shared/collection'
-import { DECK_VIEW_MODES, DECK_VIEW_MODE_LABELS, buildDeckView, textBlocks, type DeckViewEntry } from '../shared/deckView'
+import { DECK_VIEW_MODES, buildDeckView, textBlocks, type DeckViewEntry } from '../shared/deckView'
 import type { Card, Deck, Format } from '../shared/types'
 import { CardDetailModal } from './CardDetailModal'
 import { DeckLockButton } from './DeckLockButton'
 import { ExportModal } from './ExportModal'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
+import { t, zoneLabel } from '../shared/i18n'
+import { formatLabel } from '../shared/formatText'
 
 interface Props {
   deck: Deck
@@ -92,12 +94,12 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
     const last = copies[copies.length - 1]
     return (
       <span className="fv-stepper" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-        <button className="btn stepper-btn" title="Remove a copy" onClick={() => setCardQuantity(zoneId, last.card, last.quantity - 1)}>
+        <button className="btn stepper-btn" title={t.deckView.removeCopy} onClick={() => setCardQuantity(zoneId, last.card, last.quantity - 1)}>
           −
         </button>
         <button
           className="btn stepper-btn"
-          title={quantity >= max ? `The most copies this deck can have is ${max}` : 'Add a copy'}
+          title={quantity >= max ? t.deckView.maxCopies(max) : t.deckView.addCopy}
           disabled={quantity >= max}
           onClick={() => setCardQuantity(zoneId, card, copies[0].quantity + 1)}
         >
@@ -125,7 +127,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
   function renderCard(zoneId: string, entry: DeckViewEntry) {
     const { card, quantity, printings } = entry
     return (
-      <div key={card.id} className="fv-card" {...openProps(card)} title={`${card.name}${printings > 1 ? ` (${printings} printings)` : ''} — click for details`}>
+      <div key={card.id} className="fv-card" {...openProps(card)} title={t.deckView.cardTitle(card.name, printings)}>
         {card.imageUrl ? (
           <img src={card.imageUrl} alt={card.name} loading="lazy" style={{ aspectRatio: card.orientation === 'landscape' ? '7 / 5' : '5 / 7' }} />
         ) : (
@@ -147,7 +149,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
         {card.imageUrlSmall ? <img className="fv-row-thumb" src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="fv-row-thumb" />}
         <span className="fv-row-name">
           {card.name}
-          {printings > 1 && <span className="text-dim"> · {printings} printings</span>}
+          {printings > 1 && <span className="text-dim">{t.deckView.printings(printings)}</span>}
         </span>
         <span className="fv-row-detail text-dim">{card.subtypes.join(' ')}</span>
         <span className="fv-row-cost text-dim">{card.cost ?? ''}</span>
@@ -158,7 +160,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
   }
 
   return (
-    <div className="deck-view" role="dialog" aria-label={`${deck.name} — deck view`}>
+    <div className="deck-view" role="dialog" aria-label={t.deckView.aria(deck.name)}>
       <div className="fv-header">
         <div className="fv-title">
           <strong>
@@ -167,52 +169,52 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
           </strong>
           <span className="text-dim">
             {adapter.shortName}
-            {format ? ` · ${format.label}` : ''}
+            {format ? ` · ${formatLabel(deck.gameId, format)}` : ''}
           </span>
         </div>
         <div className="fv-summary">
-          <span>{stats.totalCards} cards</span>
+          <span>{t.common.cards(stats.totalCards)}</span>
           {priced && <span className="text-dim">≈ {formatPrice(stats.price.total)}</span>}
           {legality && (
             <span
               className={legality.legal ? 'fv-legal' : 'fv-illegal'}
               title={legality.issues.map((i) => i.message).join('\n') || undefined}
             >
-              {legality.legal ? '✓ Legal' : `✗ ${legality.issues.length} issue${legality.issues.length === 1 ? '' : 's'}`}
+              {legality.legal ? t.deckView.legal : t.deckView.issues(legality.issues.length)}
             </span>
           )}
         </div>
 
-        <div className="fv-modes" role="group" aria-label="View">
+        <div className="fv-modes" role="group" aria-label={t.deckView.view}>
           {DECK_VIEW_MODES.map((m) => (
             <button key={m} className={m === mode ? 'btn btn-primary' : 'btn'} aria-pressed={m === mode} onClick={() => setMode(m)}>
-              {DECK_VIEW_MODE_LABELS[m]}
+              {t.deckView.modes[m]}
             </button>
           ))}
         </div>
 
         {mode === 'grid' && (
-          <label className="fv-size" title="Card size">
-            <span className="text-dim">Size</span>
+          <label className="fv-size" title={t.deckView.sizeTitle}>
+            <span className="text-dim">{t.deckView.size}</span>
             <input type="range" min={120} max={380} step={10} value={cardWidth} onChange={(e) => setCardWidth(Number(e.target.value))} />
           </label>
         )}
 
         <div className="fv-actions">
           <button className="btn" onClick={handleCopy}>
-            {copied ? 'Copied!' : 'Copy list'}
+            {copied ? t.common.copied : t.deckView.copyList}
           </button>
           {format && (
-            <button className="btn" onClick={() => setShowExport(true)} title="Save as text or a picture, or get a shareable link">
-              Export
+            <button className="btn" onClick={() => setShowExport(true)} title={t.deckView.exportTitle}>
+              {t.deckView.export}
             </button>
           )}
-          <button className="btn" onClick={toggleOsFullscreen} title="Hide the window frame and fill the screen (Esc to leave)">
-            {osFullscreen ? 'Exit full screen' : '⛶ Full screen'}
+          <button className="btn" onClick={toggleOsFullscreen} title={t.deckView.fullscreenTitle}>
+            {osFullscreen ? t.deckView.exitFullscreen : t.deckView.fullscreen}
           </button>
           <DeckLockButton deck={deck} />
-          <button className="btn btn-primary" onClick={onEdit} title={deck.locked ? 'Open the editor (the deck is locked, so it will be read-only until you unlock it)' : 'Go back to the deck editor'}>
-            ✎ Edit deck
+          <button className="btn btn-primary" onClick={onEdit} title={deck.locked ? t.deckView.editLockedTitle : t.deckView.editTitle}>
+            {t.deckView.edit}
           </button>
         </div>
       </div>
@@ -222,7 +224,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
 
       <div className="fv-body">
         {sections.length === 0 ? (
-          <div className="text-dim fv-empty">This deck has no cards yet.</div>
+          <div className="text-dim fv-empty">{t.deckView.empty}</div>
         ) : mode === 'text' ? (
           <div className="fv-text">
             {blocks.map((block, i) => (
@@ -233,7 +235,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
           sections.map((section) => (
             <section key={section.zoneId} className="fv-section">
               <h2 className="fv-section-title">
-                {section.label} <span className="text-dim">({section.count})</span>
+                {zoneLabel(section.label)} <span className="text-dim">({section.count})</span>
               </h2>
               {section.chips.length > 0 && (
                 <div className="fv-chips">

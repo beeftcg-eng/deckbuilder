@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
+import { t } from '../shared/i18n'
+import { Rich } from './Rich'
 
 /** Shown once a new version has finished downloading: restart to use it now, or carry on (it installs when you close the app). */
 export function UpdateBanner() {
@@ -10,13 +12,13 @@ export function UpdateBanner() {
   return (
     <div className="update-banner" role="status">
       <span>
-        <b>Beef’s Brewhouse {status.newVersion}</b> is ready to install.
+        <Rich text={t.updates.readyBanner(status.newVersion)} />
       </span>
       <button className="btn btn-primary" onClick={() => window.api.updater.install()}>
-        Restart &amp; update
+        {t.updates.restart}
       </button>
-      <button className="btn" onClick={() => setDismissedFor(status.newVersion)} title="It will install the next time you close Beef’s Brewhouse">
-        Later
+      <button className="btn" onClick={() => setDismissedFor(status.newVersion)} title={t.updates.laterTitle}>
+        {t.updates.later}
       </button>
     </div>
   )

@@ -11,6 +11,7 @@ import { kindOptions, matchesKinds, matchesTypes, typeOptions } from '../shared/
 import type { Card, DeckRules } from '../shared/types'
 import { CardTile } from './CardTile'
 import { CardDetailModal } from './CardDetailModal'
+import { t } from '../shared/i18n'
 
 const PAGE_SIZE = 60
 
@@ -177,7 +178,7 @@ export function CardBrowser() {
     // The card data is on disk and on its way (a big game like Magic takes a moment) — it isn't missing.
     return (
       <div className="card-browser empty-state">
-        <p>Loading {adapter.shortName} card data…</p>
+        <p>{t.browser.loading(adapter.shortName)}</p>
       </div>
     )
   }
@@ -185,8 +186,8 @@ export function CardBrowser() {
   if (!catalog || catalog.cards.length === 0) {
     return (
       <div className="card-browser empty-state">
-        <p>No card data cached for {adapter.shortName} yet.</p>
-        <p className="text-dim">Use "Sync card data" in the sidebar to download the card catalog.</p>
+        <p>{t.browser.noData(adapter.shortName)}</p>
+        <p className="text-dim">{t.browser.noDataHelp}</p>
       </div>
     )
   }
@@ -198,16 +199,16 @@ export function CardBrowser() {
       <div className="card-browser-controls">
         <input
           className="search-input"
-          placeholder={`Search ${adapter.shortName} cards…`}
+          placeholder={t.browser.search(adapter.shortName)}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <label className="owned-only" title={Object.keys(collection).length === 0 ? 'Mark cards as owned to use this' : 'Only cards you own (any printing)'}>
+        <label className="owned-only" title={Object.keys(collection).length === 0 ? t.browser.ownedNone : t.browser.ownedTitle}>
           <input type="checkbox" checked={ownedOnly} disabled={Object.keys(collection).length === 0} onChange={(e) => setOwnedOnly(e.target.checked)} />
-          Owned
+          {t.browser.owned}
         </label>
         <select value={setId} onChange={(e) => setSetId(e.target.value)}>
-          <option value="all">All sets</option>
+          <option value="all">{t.browser.allSets}</option>
           {sets.map(([id, name]) => (
             <option key={id} value={id}>
               {name}
@@ -216,7 +217,7 @@ export function CardBrowser() {
         </select>
         {rarities.length > 0 && (
           <select value={rarity} onChange={(e) => setRarity(e.target.value)}>
-            <option value="all">All rarities</option>
+            <option value="all">{t.browser.allRarities}</option>
             {rarities.map((r) => (
               <option key={r} value={r}>
                 {r}
@@ -227,7 +228,7 @@ export function CardBrowser() {
       </div>
 
       {deck?.locked && (
-        <div className="lock-banner">🔒 “{deck.name}” is locked, so cards can’t be added. Unlock it from the deck panel to keep building.</div>
+        <div className="lock-banner">{t.browser.locked(deck.name)}</div>
       )}
 
       {stage && !deck?.locked && (
@@ -243,23 +244,23 @@ export function CardBrowser() {
       )}
 
       {!stageFilter && typeChips.length > 1 && (
-        <div className="color-filter-row" role="group" aria-label="Card type">
-          <span className="filter-row-label text-dim">Type</span>
-          {typeChips.map((t) => (
-            <button key={t} className={`color-chip ${types.has(t) ? 'active' : ''}`} aria-pressed={types.has(t)} onClick={() => setTypes(toggled(types, t))}>
-              {t}
+        <div className="color-filter-row" role="group" aria-label={t.browser.cardType}>
+          <span className="filter-row-label text-dim">{t.browser.type}</span>
+          {typeChips.map((type) => (
+            <button key={type} className={`color-chip ${types.has(type) ? 'active' : ''}`} aria-pressed={types.has(type)} onClick={() => setTypes(toggled(types, type))}>
+              {type}
             </button>
           ))}
           {types.size > 0 && (
             <button className="color-chip clear" onClick={() => setTypes(new Set())}>
-              Clear
+              {t.browser.clear}
             </button>
           )}
         </div>
       )}
       {kindChips.length > 0 && (
-        <div className="color-filter-row" role="group" aria-label="Kind">
-          <span className="filter-row-label text-dim">Kind</span>
+        <div className="color-filter-row" role="group" aria-label={t.browser.kind}>
+          <span className="filter-row-label text-dim">{t.browser.kind}</span>
           {kindChips.map((k) => (
             <button key={k} className={`color-chip ${kinds.has(k) ? 'active' : ''}`} aria-pressed={kinds.has(k)} onClick={() => setKinds(toggled(kinds, k))}>
               {k}
@@ -267,7 +268,7 @@ export function CardBrowser() {
           ))}
           {kinds.size > 0 && (
             <button className="color-chip clear" onClick={() => setKinds(new Set())}>
-              Clear
+              {t.browser.clear}
             </button>
           )}
         </div>
@@ -286,14 +287,14 @@ export function CardBrowser() {
           ))}
           {colors.size > 0 && (
             <button className="color-chip clear" onClick={() => setColors(new Set())}>
-              Clear
+              {t.browser.clear}
             </button>
           )}
         </div>
       )}
 
       <div className="card-browser-count text-dim">
-        {results.length} match{results.length === 1 ? '' : 'es'}
+        {t.browser.matches(results.length)}
       </div>
 
       <div className="card-grid">
@@ -327,7 +328,7 @@ export function CardBrowser() {
 
       {visibleCount < results.length && (
         <button className="btn load-more-btn" onClick={() => setPage({ key: filterKey, count: visibleCount + PAGE_SIZE })}>
-          Show {Math.min(PAGE_SIZE, results.length - visibleCount)} more ({visibleCount}/{results.length})
+          {t.browser.showMore(Math.min(PAGE_SIZE, results.length - visibleCount), visibleCount, results.length)}
         </button>
       )}
 

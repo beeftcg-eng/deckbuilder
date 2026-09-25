@@ -5,6 +5,7 @@ import { getAdapter } from '../shared/games/registry'
 import { buildExportText } from '../shared/export'
 import { renderDeckImage } from '../lib/deckImage'
 import { dataUrlBytes, imageExtension } from '../shared/exportImage'
+import { t } from '../shared/i18n'
 
 interface Props {
   deck: Deck
@@ -63,8 +64,7 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
       setImageNote(
         missingImages === 0
           ? null
-          : `${missingImages} card image${missingImages === 1 ? '' : 's'} couldn't be loaded, so ${missingImages === 1 ? 'that card is' : 'those cards are'} shown by name.` +
-              (deck.gameId === 'yugioh' && !isDesktopApp() ? " On the phone app Yu-Gi-Oh! images can't be drawn into a picture (YGOPRODeck doesn't allow it); the desktop app includes them." : ''),
+          : t.exportDeck.missingImages(missingImages) + (deck.gameId === 'yugioh' && !isDesktopApp() ? t.exportDeck.ygoPhoneNote : ''),
       )
     } catch (err) {
       setImageError(err instanceof Error ? err.message : String(err))
@@ -82,45 +82,45 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal export-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span>Export "{deck.name}"</span>
+          <span>{t.exportDeck.title(deck.name)}</span>
           <button className="btn" onClick={onClose}>
-            Close
+            {t.common.close}
           </button>
         </div>
         <textarea className="export-textarea" readOnly value={text} />
         <div className="export-actions">
           <button className="btn" onClick={handleCopy}>
-            {copied ? 'Copied!' : 'Copy to clipboard'}
+            {copied ? t.common.copied : t.exportCommon.copyToClipboard}
           </button>
           <button className="btn" onClick={handleSaveFile}>
-            Save as .txt
+            {t.exportCommon.saveTxt}
           </button>
           <button className="btn btn-primary" onClick={handlePaste} disabled={pasting}>
-            {pasting ? 'Uploading…' : 'Get shareable paste link'}
+            {pasting ? t.exportCommon.uploading : t.exportCommon.pasteLink}
           </button>
           <button className="btn" onClick={handleGenerateImage} disabled={generatingImage}>
-            {generatingImage ? 'Rendering image…' : 'Export as image'}
+            {generatingImage ? t.exportCommon.rendering : t.exportCommon.exportImage}
           </button>
         </div>
         {pasteUrl && (
           <div className="paste-result">
             <input readOnly value={pasteUrl} onFocus={(e) => e.currentTarget.select()} />
             <button className="btn" onClick={() => window.api.clipboard.writeText(pasteUrl)}>
-              Copy link
+              {t.common.copyLink}
             </button>
             <button className="btn" onClick={() => window.api.system.openExternal(pasteUrl)}>
-              Open
+              {t.common.open}
             </button>
           </div>
         )}
-        {pasteError && <div className="sync-error">Upload failed: {pasteError}</div>}
-        {imageError && <div className="sync-error">Image render failed: {imageError}</div>}
+        {pasteError && <div className="sync-error">{t.exportCommon.uploadFailed(pasteError)}</div>}
+        {imageError && <div className="sync-error">{t.exportCommon.imageFailed(imageError)}</div>}
         {imageNote && <div className="text-dim">{imageNote}</div>}
         {imageDataUrl && (
           <div className="image-preview">
-            <img src={imageDataUrl} alt={`${deck.name} deck image`} />
+            <img src={imageDataUrl} alt={t.exportDeck.imageAlt(deck.name)} />
             <button className="btn btn-primary" onClick={handleSaveImage}>
-              Save image (.jpg, {(dataUrlBytes(imageDataUrl) / 1048576).toFixed(1)} MB)
+              {t.exportCommon.saveImage((dataUrlBytes(imageDataUrl) / 1048576).toFixed(1))}
             </button>
           </div>
         )}

@@ -38,7 +38,7 @@ export function moveOneCopy(deck: Deck, fromZoneId: string, toZoneId: string, ca
 
 export type DeckCardSort = 'type' | 'cost' | 'name'
 
-export const DECK_CARD_SORT_LABELS: Record<DeckCardSort, string> = { type: 'Type, then cost', cost: 'Cost', name: 'Name (A–Z)' }
+export const DECK_CARD_SORTS: readonly DeckCardSort[] = ['type', 'cost', 'name']
 
 /**
  * Re-orders the cards in every zone once (the deck keeps that order afterwards, and can still be dragged).

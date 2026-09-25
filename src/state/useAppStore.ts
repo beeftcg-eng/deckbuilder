@@ -36,6 +36,8 @@ import { staleIdRepairs, storedCardIds } from '../shared/cardIdRepair'
 import { applyArtChoices, printingKey, withArtwork } from '../shared/artChoice'
 import { addToBinder, addToDeck, deckMoveProblem, takeFromBinder, takeFromDeck, zoneForCard, type MoveEnd } from '../shared/cardMoves'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
+import { getLanguage, isLanguage, t, zoneLabel, type Language } from '../shared/i18n'
+import { applyLanguage } from '../lib/language'
 
 interface Catalog {
   cards: Card[]
@@ -59,7 +61,7 @@ function emptyDeck(gameId: GameId, formatId: string): Deck {
   return {
     id: crypto.randomUUID(),
     gameId,
-    name: 'New Deck',
+    name: t.store.newDeck,
     formatId,
     zones: {},
     freeTextZones: {},
@@ -177,6 +179,9 @@ interface AppState {
   setDeckViewMode: (mode: DeckViewMode) => void
   setUpdateStatus: (status: UpdateStatus) => void
   setTheme: (id: string) => void
+  /** The UI language. Changing it re-mounts the screens (App.tsx) so every string picks it up. */
+  language: Language
+  setLanguage: (language: Language) => void
   /** Picks (or, with null, clears) the open deck's icon card. */
   setDeckIcon: (cardId: string | null) => Promise<void>
   applySyncProgress: (progress: SyncProgress) => void
@@ -278,7 +283,7 @@ export const useAppStore = create<AppState>((set, get) => {
         ),
       }))
     } catch (err) {
-      set({ error: `Couldn't save "${deck.name}": ${errorMessage(err)}` })
+      set({ error: t.store.saveFailed(deck.name, errorMessage(err)) })
     }
   }
 
@@ -335,6 +340,7 @@ export const useAppStore = create<AppState>((set, get) => {
     pairingsLoading: false,
     pairingsError: null,
     forTrade: new Set(),
+    language: getLanguage(),
     tradeSyncing: false,
     browseTraders: [],
     tradeMatches: [],
@@ -344,6 +350,10 @@ export const useAppStore = create<AppState>((set, get) => {
         const [decks, settings] = await Promise.all([window.api.decks.list(), window.api.settings.get()])
         set({ decks, settings })
         applyTheme(settings.theme)
+        if (isLanguage(settings.language) && settings.language !== get().language) {
+          applyLanguage(settings.language)
+          set({ language: settings.language })
+        }
 
         // Open the deck a link names (Pairings' "Open in Brewhouse" goes to the phone app with ?deck=<id>),
         // else reopen where you left off: the last deck (which also implies its game), else the last game.
@@ -374,7 +384,7 @@ export const useAppStore = create<AppState>((set, get) => {
         window.addEventListener('focus', refreshPairings)
         document.addEventListener('visibilitychange', refreshPairings)
       } catch (err) {
-        set({ error: `Couldn't load your data: ${errorMessage(err)}` })
+        set({ error: t.store.loadFailed(errorMessage(err)) })
       }
     },
 
@@ -429,12 +439,12 @@ export const useAppStore = create<AppState>((set, get) => {
               // Reload from the repaired files, so a startup load that read them earlier can't leave old ids on screen.
               await Promise.all([get().loadDecks(), get().loadBinders(), get().loadCollection(), get().loadForTrade(), get().loadWishlist()])
               set({
-                notice: `Restored ${fixed.repaired} Yu-Gi-Oh! card${fixed.repaired === 1 ? '' : 's'} in your decks, binders, collection and wishlist that the updated card data had renamed.`,
+                notice: t.store.ygoRestored(fixed.repaired),
               })
             }
           }
         } catch (err) {
-          set({ error: `Couldn't restore Yu-Gi-Oh! cards after the card-data update: ${errorMessage(err)}` })
+          set({ error: t.store.ygoRestoreFailed(errorMessage(err)) })
         }
       }
       // Decks saved before summaries existed get one now, without counting as an edit. Each deck is
@@ -474,7 +484,7 @@ export const useAppStore = create<AppState>((set, get) => {
         formats = get().formats[gameId]
       }
       const formatId = formats?.[0]?.id ?? getAdapter(gameId).defaultFormats[0].id
-      await addAndSelectDeck(emptyDeck(gameId, formatId), 'Create deck')
+      await addAndSelectDeck(emptyDeck(gameId, formatId), t.store.createDeck)
     },
 
     duplicateDeck: async (deckId) => {
@@ -500,18 +510,18 @@ export const useAppStore = create<AppState>((set, get) => {
       const deck = get().decks.find((d) => d.id === deckId)
       if (!deck) return
       if (deck.locked) {
-        set({ error: `"${deck.name}" is locked. Unlock it to delete it.` })
+        set({ error: t.store.lockedNoDelete(deck.name) })
         return
       }
       set((s) => ({
         decks: s.decks.filter((d) => d.id !== deckId),
         currentDeckId: s.currentDeckId === deckId ? null : s.currentDeckId,
       }))
-      pushUndo({ kind: 'delete', label: `Delete "${deck.name}"`, deck })
+      pushUndo({ kind: 'delete', label: t.store.deleteDeck(deck.name), deck })
       try {
         await window.api.decks.delete(deckId)
       } catch (err) {
-        set((s) => ({ decks: [...s.decks, deck], error: `Couldn't delete "${deck.name}": ${errorMessage(err)}` }))
+        set((s) => ({ decks: [...s.decks, deck], error: t.store.deleteFailed(deck.name, errorMessage(err)) }))
       }
     },
 
@@ -524,7 +534,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
     createBinder: async (name) => {
       const now = new Date().toISOString()
-      const binder: Binder = { id: crypto.randomUUID(), name: name?.trim() || 'New binder', cards: {}, createdAt: now, updatedAt: now }
+      const binder: Binder = { id: crypto.randomUUID(), name: name?.trim() || t.binders.defaultName, cards: {}, createdAt: now, updatedAt: now }
       const saved = await window.api.binders.save(binder)
       set((s) => ({ binders: [...s.binders, saved], currentBinderId: saved.id }))
     },
@@ -556,7 +566,7 @@ export const useAppStore = create<AppState>((set, get) => {
       try {
         await window.api.binders.delete(binderId)
       } catch (err) {
-        set((s) => ({ binders: [...s.binders, binder], error: `Couldn't delete "${binder.name}": ${errorMessage(err)}` }))
+        set((s) => ({ binders: [...s.binders, binder], error: t.store.deleteFailed(binder.name, errorMessage(err)) }))
       }
     },
 
@@ -584,7 +594,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const toBinder = to.kind === 'binder' ? binders.find((b) => b.id === to.id) : undefined
       const toDeck = to.kind === 'deck' ? decks.find((d) => d.id === to.id) : undefined
       if ((!fromBinder && !fromDeck) || (!toBinder && !toDeck)) return false
-      if (fromDeck?.locked) return fail(`"${fromDeck.name}" is locked. Unlock it to move cards out of it.`)
+      if (fromDeck?.locked) return fail(t.store.lockedNoMoveOut(fromDeck.name))
       if (toDeck) {
         const problem = deckMoveProblem(toDeck, card)
         if (problem) return fail(problem)
@@ -618,17 +628,17 @@ export const useAppStore = create<AppState>((set, get) => {
           set((s) => ({ binders: s.binders.map((b) => (b.id === saved.id ? saved : b)) }))
         }
       } catch (err) {
-        set({ error: `Couldn't save the binder after moving ${card.name}: ${errorMessage(err)}` })
+        set({ error: t.store.binderSaveFailed(card.name, errorMessage(err)) })
       }
       return true
     },
 
-    updateDeck: async (updater, undoLabel = 'Edit deck') => {
+    updateDeck: async (updater, undoLabel = t.store.editDeck) => {
       const { currentDeckId, currentGameId, decks } = get()
       const current = currentDeckFor(decks, currentDeckId, currentGameId)
       if (!current) return
       if (current.locked) {
-        set({ error: `"${current.name}" is locked. Unlock it to make changes.` })
+        set({ error: t.store.lockedNoChange(current.name) })
         return
       }
       const next = updater(current)
@@ -648,12 +658,12 @@ export const useAppStore = create<AppState>((set, get) => {
           const nextEntries = withQuantity<DeckCardEntry>(d.zones[zoneId] ?? [], (e) => e.cardId === card.id, () => ({ cardId: card.id, quantity }), quantity)
           return { ...d, zones: { ...d.zones, [zoneId]: nextEntries } }
         },
-        `${quantity > previous ? 'Add' : 'Remove'} ${card.name}`,
+        quantity > previous ? t.store.addCard(card.name) : t.store.removeCard(card.name),
       )
     },
 
     moveCard: async (fromZoneId, toZone, card) => {
-      await get().updateDeck((d) => moveOneCopy(d, fromZoneId, toZone.id, card.id), `Move ${card.name} to ${toZone.label}`)
+      await get().updateDeck((d) => moveOneCopy(d, fromZoneId, toZone.id, card.id), t.store.moveCard(card.name, zoneLabel(toZone.label)))
     },
 
     reorderDeckEntries: async (zoneId, dragCardId, targetCardId, position) => {
@@ -664,7 +674,7 @@ export const useAppStore = create<AppState>((set, get) => {
         if (nextIds.join('|') === ids.join('|')) return d
         const byId = new Map(entries.map((e) => [e.cardId, e]))
         return { ...d, zones: { ...d.zones, [zoneId]: nextIds.map((id) => byId.get(id)!) } }
-      }, 'Reorder cards')
+      }, t.store.reorderCards)
     },
 
     setFreeTextQuantity: async (zoneId, label, quantity) => {
@@ -673,7 +683,7 @@ export const useAppStore = create<AppState>((set, get) => {
           const nextEntries = withQuantity<DeckFreeTextEntry>(d.freeTextZones[zoneId] ?? [], (e) => e.label === label, () => ({ label, quantity }), quantity)
           return { ...d, freeTextZones: { ...d.freeTextZones, [zoneId]: nextEntries } }
         },
-        `Change ${label}`,
+        t.store.change(label),
       )
     },
 
@@ -683,7 +693,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const lockedNow = entry.kind === 'edit' ? get().decks.find((d) => d.id === entry.before.id)?.locked : entry.kind === 'create' ? get().decks.find((d) => d.id === entry.deckId)?.locked : false
       if (lockedNow) {
         // Leave the entry on the stack: unlocking the deck makes it undoable again.
-        set({ error: 'That deck is locked, so the change was left alone. Unlock it first.' })
+        set({ error: t.store.lockedUndo })
         return
       }
       set((s) => ({ undoStack: s.undoStack.slice(0, -1) }))
@@ -702,7 +712,7 @@ export const useAppStore = create<AppState>((set, get) => {
         try {
           await window.api.decks.delete(entry.deckId)
         } catch (err) {
-          set({ error: `Couldn't undo: ${errorMessage(err)}` })
+          set({ error: t.store.undoFailed(errorMessage(err)) })
         }
       }
     },
@@ -752,12 +762,18 @@ export const useAppStore = create<AppState>((set, get) => {
       await get().updateDeck((d) => {
         const { iconCardId: _previous, ...rest } = d
         return cardId ? { ...rest, iconCardId: cardId } : rest
-      }, cardId ? 'Set deck icon' : 'Clear deck icon')
+      }, cardId ? t.store.setIcon : t.store.clearIcon)
     },
 
     setTheme: (id) => {
       applyTheme(id) // instant; the saved copy follows
       persistSettings({ theme: id })
+    },
+
+    setLanguage: (language) => {
+      applyLanguage(language)
+      set({ language })
+      persistSettings({ language })
     },
 
     applySyncProgress: (progress) => set((s) => ({ syncProgress: { ...s.syncProgress, [progress.gameId]: progress } })),

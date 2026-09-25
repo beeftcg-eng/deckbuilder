@@ -1,6 +1,7 @@
 import type { Card, DeckRules, Deck, Format } from '../types'
 import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
+import { t } from '../i18n'
 import { PROMO_SET_ID } from './onepiecePromos'
 
 const API_BASE = 'https://www.optcgapi.com/api'
@@ -275,7 +276,7 @@ function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
 function getGuidedStage(deck: Deck): GuidedStage | null {
   const hasLeader = (deck.zones.leader ?? []).length > 0
   if (!hasLeader) {
-    return { label: 'Pick your Leader', filter: (card) => card.category === 'Leader', targetZoneId: 'leader' }
+    return { label: t.stages.pickLeader, filter: (card) => card.category === 'Leader', targetZoneId: 'leader' }
   }
   return null
 }

@@ -8,6 +8,7 @@ import {
 } from '../lib/pawmodoroConfig'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../../src/shared/pawmodoroDefaults'
 import { notifyPawmodoroConnectionChanged } from './deckbuilderSync'
+import { t } from '../../src/shared/i18n'
 
 type StoredConfig = StoredPawmodoroConfig
 const readConfig = readPawmodoroConfig
@@ -55,7 +56,7 @@ async function refreshAccessToken(config: StoredConfig): Promise<{ accessToken: 
 // the refresh token on every use, same as pushWishlist below, so it's persisted after every call.
 async function authorizedConfig(): Promise<{ config: StoredConfig; accessToken: string }> {
   const config = await readConfig()
-  if (!config) throw new PawmodoroError('Not connected to Pawmodoro')
+  if (!config) throw new PawmodoroError(t.store.notConnectedPawmodoro)
   const { accessToken, refreshToken } = await refreshAccessToken(config)
   if (refreshToken !== config.refreshToken) await writeConfig({ ...config, refreshToken })
   return { config, accessToken }
@@ -80,7 +81,7 @@ export function registerPawmodoroIpc(): void {
         // confirmation on, Supabase answers with a user but no session.
         result = (await request(cleanUrl, key, '/auth/v1/signup', credentials)) as { refresh_token?: string }
         if (!result?.refresh_token) {
-          throw new PawmodoroError('Account created — check your email to confirm it, then press Log in.')
+          throw new PawmodoroError(t.store.confirmEmail)
         }
       } else {
         result = (await request(cleanUrl, key, '/auth/v1/token?grant_type=password', credentials)) as { refresh_token?: string }

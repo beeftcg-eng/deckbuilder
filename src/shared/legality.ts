@@ -3,26 +3,27 @@ import type { GameAdapter } from './games/types'
 import { rulesForFormat } from './games/rules'
 import { identityColors } from './cardColors'
 import { isRotationLegalPromo } from './games/onepiecePromos'
+import { t, zoneLabel } from './i18n'
 
 function checkCount(zone: DeckZoneRule, total: number, issues: LegalityIssue[]) {
   if (zone.allowedCounts && !zone.allowedCounts.includes(total)) {
     issues.push({
       severity: 'error',
-      message: `${zone.label} must have ${zone.allowedCounts.join(' or ')} cards (currently ${total}).`,
+      message: t.legality.mustHaveOneOf(zoneLabel(zone.label), zone.allowedCounts.join(t.legality.or), total),
     })
     return
   }
   if (zone.exactCount != null && total !== zone.exactCount) {
     issues.push({
       severity: 'error',
-      message: `${zone.label} must have exactly ${zone.exactCount} cards (currently ${total}).`,
+      message: t.legality.mustHaveExactly(zoneLabel(zone.label), zone.exactCount, total),
     })
   }
   if (zone.minCount != null && total < zone.minCount) {
-    issues.push({ severity: 'error', message: `${zone.label} must have at least ${zone.minCount} cards (currently ${total}).` })
+    issues.push({ severity: 'error', message: t.legality.mustHaveAtLeast(zoneLabel(zone.label), zone.minCount, total) })
   }
   if (zone.maxCount != null && total > zone.maxCount) {
-    issues.push({ severity: 'error', message: `${zone.label} must have at most ${zone.maxCount} cards (currently ${total}).` })
+    issues.push({ severity: 'error', message: t.legality.mustHaveAtMost(zoneLabel(zone.label), zone.maxCount, total) })
   }
 }
 
@@ -40,14 +41,14 @@ export function isCardLegalInFormat(card: Card, format: Format): { legal: boolea
   if (card.legality) {
     const status = card.legality[format.id]
     if (status === 'legal' || status === 'restricted' || status === 'semi-restricted') return { legal: true }
-    return { legal: false, reason: status === 'banned' ? `is banned in ${format.label}` : `is not legal in ${format.label}` }
+    return { legal: false, reason: status === 'banned' ? t.legality.isBannedIn(format.label) : t.legality.notLegalIn(format.label) }
   }
   // One Piece promos all share one set but rotate by their own block icon, so a Block 2+ promo passes here.
   if (format.legalSetIds && !format.legalSetIds.includes(card.setId) && !isRotationLegalPromo(card)) {
-    return { legal: false, reason: `is from a set not legal in ${format.label}` }
+    return { legal: false, reason: t.legality.setNotLegalIn(format.label) }
   }
   if (format.bannedCardIds.includes(gameSourceKey(card))) {
-    return { legal: false, reason: 'is banned' }
+    return { legal: false, reason: t.legality.isBanned }
   }
   return { legal: true }
 }
@@ -69,7 +70,7 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
       checkCount(zone, total, issues)
       for (const entry of entries) {
         if (!zone.freeText.options.includes(entry.label)) {
-          issues.push({ severity: 'error', message: `"${entry.label}" is not a valid option for ${zone.label}.` })
+          issues.push({ severity: 'error', message: t.legality.invalidOption(entry.label, zoneLabel(zone.label)) })
         }
       }
       continue
@@ -83,16 +84,16 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
     for (const entry of entries) {
       const card = cardsById.get(entry.cardId)
       if (!card) {
-        issues.push({ severity: 'error', message: `Unknown card in ${zone.label} (${entry.cardId}).` })
+        issues.push({ severity: 'error', message: t.legality.unknownCard(zoneLabel(zone.label), entry.cardId) })
         continue
       }
       if (!zone.match(card)) {
-        issues.push({ severity: 'error', message: `${card.name} does not belong in ${zone.label}.` })
+        issues.push({ severity: 'error', message: t.legality.doesNotBelong(card.name, zoneLabel(zone.label)) })
       }
 
       if (zone.uniqueNames) {
         if (namesSeen.has(card.name)) {
-          issues.push({ severity: 'error', message: `${zone.label} cards must have unique names (duplicate: ${card.name}).` })
+          issues.push({ severity: 'error', message: t.legality.uniqueNames(zoneLabel(zone.label), card.name) })
         }
         namesSeen.add(card.name)
       }
@@ -100,7 +101,7 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
       const zoneMaxCopies = zone.maxCopiesPerCard
       if (zoneMaxCopies != null) {
         if (entry.quantity > zoneMaxCopies) {
-          issues.push({ severity: 'error', message: `${card.name}: only ${zoneMaxCopies} allowed in ${zone.label}.` })
+          issues.push({ severity: 'error', message: t.legality.onlyNInZone(card.name, zoneMaxCopies, zoneLabel(zone.label)) })
         }
       } else {
         const poolKey = poolKeyFor(card)
@@ -110,10 +111,10 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
 
       const legality = isCardLegalInFormat(card, format)
       if (!legality.legal) {
-        issues.push({ severity: 'error', message: `${card.name} ${legality.reason}.` })
+        issues.push({ severity: 'error', message: t.legality.cardReason(card.name, legality.reason ?? '') })
       }
       if (format.restrictedCardIds.includes(gameSourceKey(card)) && entry.quantity > 1) {
-        issues.push({ severity: 'error', message: `${card.name} is restricted to 1 copy in ${format.label}.` })
+        issues.push({ severity: 'error', message: t.legality.restrictedTo1(card.name, format.label) })
       }
     }
   }
@@ -125,7 +126,7 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
       total += (deck.zones[zone.id] ?? []).reduce((sum, e) => sum + e.quantity, 0)
     }
     if (total !== rules.totalCount) {
-      issues.push({ severity: 'error', message: `The deck must have exactly ${rules.totalCount} cards in total (currently ${total}).` })
+      issues.push({ severity: 'error', message: t.legality.totalExactly(rules.totalCount, total) })
     }
   }
 
@@ -134,15 +135,15 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
     if (!card) continue
     const limit = adapter.copyLimitFor?.(card) ?? rules.defaultMaxCopiesPerCard
     if (count > limit) {
-      issues.push({ severity: 'error', message: `${card.name}: ${count} copies exceeds the ${limit}-copy limit.` })
+      issues.push({ severity: 'error', message: t.legality.copyLimit(card.name, count, limit) })
     }
     // Vintage's restricted list / Yu-Gi-Oh!'s Limited: legal, but a single copy across every zone.
     if (card.legality?.[format.id] === 'restricted' && count > 1) {
-      issues.push({ severity: 'error', message: `${card.name} is restricted to 1 copy in ${format.label}.` })
+      issues.push({ severity: 'error', message: t.legality.restrictedTo1(card.name, format.label) })
     }
     // Yu-Gi-Oh!'s Semi-Limited: two copies.
     if (card.legality?.[format.id] === 'semi-restricted' && count > 2) {
-      issues.push({ severity: 'error', message: `${card.name} is limited to 2 copies in ${format.label}.` })
+      issues.push({ severity: 'error', message: t.legality.limitedTo2(card.name, format.label) })
     }
   }
 
@@ -159,7 +160,7 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
       if (includedSourceKeys.has(a) && includedSourceKeys.has(b)) {
         const cardA = nameForSourceKey(a)
         const cardB = nameForSourceKey(b)
-        issues.push({ severity: 'error', message: `${cardA} and ${cardB} cannot be in the same deck together (banned pair).` })
+        issues.push({ severity: 'error', message: t.legality.bannedPair(cardA, cardB) })
       }
     }
   }
@@ -181,14 +182,14 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
           const cardColors = identityColors(card)
           const outOfColor = cardColors.length > 0 && cardColors.some((c) => c !== 'Colorless' && !identityColorSet.has(c))
           if (outOfColor) {
-            issues.push({ severity: 'error', message: `${card.name} (${cardColors.join('/')}) doesn't match your ${identityNames} colors.` })
+            issues.push({ severity: 'error', message: t.legality.offColor(card.name, cardColors.join('/'), identityNames) })
           }
         }
       }
       for (const [zoneId, entries] of Object.entries(deck.freeTextZones)) {
         for (const entry of entries) {
           if (!identityColorSet.has(entry.label)) {
-            issues.push({ severity: 'error', message: `"${entry.label}" in ${zoneId} doesn't match your ${identityNames} domains.` })
+            issues.push({ severity: 'error', message: t.legality.offDomain(entry.label, zoneId, identityNames) })
           }
         }
       }
@@ -198,7 +199,7 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
   if (adapter.id === 'riftbound') {
     const hasChampion = (deck.zones.main ?? []).some((e) => cardsById.get(e.cardId)?.subtypes.includes('Champion'))
     if (!hasChampion) {
-      issues.push({ severity: 'error', message: 'Main Deck must include exactly 1 chosen Champion.' })
+      issues.push({ severity: 'error', message: t.legality.needsChampion })
     }
   }
 

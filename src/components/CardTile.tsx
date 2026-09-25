@@ -3,6 +3,7 @@ import { useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
 import { rarityColorClass } from '../shared/rarityColor'
 import { artworkIds } from '../shared/artChoice'
+import { t } from '../shared/i18n'
 
 interface Props {
   card: Card
@@ -55,18 +56,18 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
         {artCount > 1 && (
           <button
             className="card-tile-arts"
-            title={`${artCount} official artworks — open to pick the one on your copy`}
+            title={t.cardTile.artsTitle(artCount)}
             onClick={(e) => {
               e.stopPropagation()
               onOpenDetail()
             }}
           >
-            🎨 {artCount} arts
+            {t.cardTile.arts(artCount)}
           </button>
         )}
         <button
           className={`wishlist-toggle ${onWishlist ? 'active' : ''}`}
-          title={onWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+          title={onWishlist ? t.cardTile.removeWishlist : t.cardTile.addWishlist}
           onClick={(e) => {
             e.stopPropagation()
             if (wishlistEntryId != null) removeFromWishlist(wishlistEntryId)
@@ -93,8 +94,8 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
           {card.price != null ? ` · ${formatPrice(card.price)}` : ''}
         </div>
         {card.flavorNames && card.flavorNames.length > 0 && (
-          <div className="card-tile-meta text-dim" title={`Also printed as: ${card.flavorNames.join(', ')}`}>
-            aka {card.flavorNames.join(', ')}
+          <div className="card-tile-meta text-dim" title={t.cardTile.alsoPrintedAs(card.flavorNames.join(', '))}>
+            {t.cardTile.aka(card.flavorNames.join(', '))}
           </div>
         )}
       </div>
@@ -113,9 +114,9 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
       </div>
       <div
         className="card-tile-owned"
-        title={ownedTotal > owned ? `${owned} of this printing · ${ownedTotal} across all printings` : 'Copies of this printing you own'}
+        title={ownedTotal > owned ? t.cardTile.ownedTitle(owned, ownedTotal) : t.cardTile.ownedTitleSimple}
       >
-        <span className="text-dim">Own</span>
+        <span className="text-dim">{t.cardTile.own}</span>
         <button className="btn stepper-btn stepper-mini" disabled={owned <= 0} onClick={() => onOwnedChange(-1)}>
           −
         </button>
@@ -123,10 +124,10 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
         <button className="btn stepper-btn stepper-mini" onClick={() => onOwnedChange(1)}>
           +
         </button>
-        {ownedTotal > owned && <span className="text-dim">({ownedTotal} total)</span>}
+        {ownedTotal > owned && <span className="text-dim">{t.cardTile.ownedTotal(ownedTotal)}</span>}
       </div>
       {currentBinder && (
-        <div className="card-tile-owned" title={`Copies of this printing in "${currentBinder.name}"`}>
+        <div className="card-tile-owned" title={t.cardTile.inBinderTitle(currentBinder.name)}>
           <span className="text-dim">{currentBinder.name}</span>
           <button className="btn stepper-btn stepper-mini" disabled={inBinder <= 0} onClick={() => setBinderCardQuantity(currentBinder.id, card.id, inBinder - 1)}>
             −

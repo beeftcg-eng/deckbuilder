@@ -6,6 +6,7 @@ import { rarityColorClass } from '../shared/rarityColor'
 import { artUrl, artworkIds, knownArtIds } from '../shared/artChoice'
 import { useState } from 'react'
 import { CardImageViewer } from './CardImageViewer'
+import { t } from '../shared/i18n'
 
 export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose: () => void }) {
   // Read the card from the catalog, so picking an artwork below shows up here straight away.
@@ -30,35 +31,35 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
       <div className="modal card-detail-modal" onClick={(e) => e.stopPropagation()}>
         <div className="card-detail-image">
           {card.imageUrl ? (
-            <button className="card-detail-enlarge" onClick={() => setEnlarged(true)} title="Enlarge (then copy or save the picture)">
+            <button className="card-detail-enlarge" onClick={() => setEnlarged(true)} title={t.cardDetail.enlargeTitle}>
               <img
                 src={card.imageUrl}
                 alt={card.name}
                 width={card.orientation === 'landscape' ? 700 : 500}
                 height={card.orientation === 'landscape' ? 500 : 700}
               />
-              <span className="card-detail-enlarge-hint">🔍 Enlarge</span>
+              <span className="card-detail-enlarge-hint">{t.cardDetail.enlarge}</span>
             </button>
           ) : (
             <div className="card-tile-placeholder">{card.name}</div>
           )}
           {arts.length > 1 ? (
             <div className="card-detail-alt-arts">
-              <div className="text-dim" title="The card data lists every official artwork but not which printing uses which, so pick the one your copy has. It's used for this printing everywhere in the app.">
+              <div className="text-dim" title={t.cardDetail.artPickTitle}>
                 {knownArtIds(card)
-                  ? `Artworks ${card.setCode}-${card.number}${card.rarity ? ` (${card.rarity})` : ''} was printed with — pick the one on your copy:`
-                  : `Artwork for ${card.setCode}-${card.number}${card.rarity ? ` · ${card.rarity}` : ''} — pick the one on your copy:`}
+                  ? t.cardDetail.artworksPrinted(`${card.setCode}-${card.number}${card.rarity ? ` (${card.rarity})` : ''}`)
+                  : t.cardDetail.artworkFor(`${card.setCode}-${card.number}${card.rarity ? ` · ${card.rarity}` : ''}`)}
               </div>
-              <div className="card-detail-alt-arts-row" role="group" aria-label="Artwork">
+              <div className="card-detail-alt-arts-row" role="group" aria-label={t.cardDetail.artwork}>
                 {arts.map((id, i) => (
                   <button
                     key={id}
                     className={`art-choice ${id === shownArt ? 'active' : ''}`}
                     aria-pressed={id === shownArt}
-                    title={i === 0 ? 'Default artwork' : `Artwork ${i + 1}`}
+                    title={i === 0 ? t.cardDetail.defaultArtwork : t.cardDetail.artworkN(i + 1)}
                     onClick={() => setArtChoice(card, i === 0 ? null : id)}
                   >
-                    <img src={artUrl(card, id, 'small')} alt={i === 0 ? 'Default artwork' : `Artwork ${i + 1}`} loading="lazy" />
+                    <img src={artUrl(card, id, 'small')} alt={i === 0 ? t.cardDetail.defaultArtwork : t.cardDetail.artworkN(i + 1)} loading="lazy" />
                   </button>
                 ))}
               </div>
@@ -66,7 +67,7 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
           ) : (
             card.altImageUrlsSmall && card.altImageUrlsSmall.length > 0 && (
               <div className="card-detail-alt-arts">
-                <div className="text-dim">Other known artworks:</div>
+                <div className="text-dim">{t.cardDetail.otherArtworks}</div>
                 <div className="card-detail-alt-arts-row">
                   {card.altImageUrlsSmall.map((url) => (
                     <img key={url} src={url} alt="" loading="lazy" />
@@ -83,10 +84,10 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
               className="btn"
               onClick={() => (wishlistEntryId != null ? removeFromWishlist(wishlistEntryId) : addToWishlist(card, 1))}
             >
-              {onWishlist ? '★ Remove from wishlist' : '☆ Add to wishlist'}
+              {onWishlist ? t.cardDetail.removeWishlist : t.cardDetail.addWishlist}
             </button>
             <button className="btn" onClick={onClose}>
-              Close
+              {t.common.close}
             </button>
           </div>
           <div className="text-dim">
@@ -104,17 +105,19 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
             {card.category}
             {card.subtypes.length ? ` — ${card.subtypes.join(', ')}` : ''}
           </div>
-          {card.colors.length > 0 && <div className="text-dim">Colors: {card.colors.join(', ')}</div>}
+          {card.colors.length > 0 && <div className="text-dim">{t.cardDetail.colors(card.colors.join(', '))}</div>}
           {card.colorIdentity && card.colorIdentity.join() !== card.colors.join() && (
-            <div className="text-dim">Color identity: {card.colorIdentity.length > 0 ? card.colorIdentity.join(', ') : 'Colorless'}</div>
+            <div className="text-dim">{t.cardDetail.colorIdentity(card.colorIdentity.length > 0 ? card.colorIdentity.join(', ') : 'Colorless')}</div>
           )}
-          {card.cost != null && <div className="text-dim">Cost: {card.cost}</div>}
+          {card.cost != null && <div className="text-dim">{t.cardDetail.cost(card.cost)}</div>}
           {card.flavorNames && card.flavorNames.length > 0 && (
-            <div className="text-dim">Also printed as: {card.flavorNames.join(', ')}</div>
+            <div className="text-dim">{t.cardDetail.alsoPrintedAs(card.flavorNames.join(', '))}</div>
           )}
-          {card.price != null && <div className="text-dim">Market price ≈ {formatPrice(card.price)}</div>}
+          {card.price != null && <div className="text-dim">
+              {t.cardDetail.marketPrice} {formatPrice(card.price)}
+            </div>}
           <div className="detail-owned">
-            <span>Owned (this printing)</span>
+            <span>{t.cardDetail.ownedPrinting}</span>
             <button className="btn stepper-btn" disabled={owned <= 0} onClick={() => changeOwned(card.id, -1)}>
               −
             </button>
@@ -125,7 +128,7 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
           </div>
           {currentBinder && (
             <div className="detail-owned">
-              <span>In "{currentBinder.name}"</span>
+              <span>{t.cardDetail.inBinder(currentBinder.name)}</span>
               <button className="btn stepper-btn" disabled={inBinder <= 0} onClick={() => setBinderCardQuantity(currentBinder.id, card.id, inBinder - 1)}>
                 −
               </button>

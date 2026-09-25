@@ -6,6 +6,8 @@ import { formatPrice, gameIdOfCardId, totalPrice } from '../shared/collection'
 import { summarizeSets, topUpItems, unownedUnwishlisted } from '../shared/setProgress'
 import type { Card } from '../shared/types'
 import { CardDetailModal } from './CardDetailModal'
+import { t } from '../shared/i18n'
+import { Rich } from './Rich'
 
 type Tab = 'cards' | 'sets'
 type Sort = 'name' | 'set' | 'copies' | 'value'
@@ -94,60 +96,58 @@ export function CollectionPanel() {
     const items = topUpItems(cardsBySet.get(setId) ?? [], collection, copiesEach)
     if (items.length === 0) return
     const copies = items.reduce((sum, i) => sum + i.quantity, 0)
-    const ok = confirm(
-      `Add ${copies} cop${copies === 1 ? 'y' : 'ies'} to your collection so you own at least ${copiesEach}× of each of the ${items.length} card${items.length === 1 ? '' : 's'} you're missing from ${setName}?`,
-    )
+    const ok = confirm(t.collection.addSetConfirm(copies, copiesEach, items.length, setName))
     if (!ok) return
     const added = await addToCollection(items)
-    flash(`✓ Added ${added} cop${added === 1 ? 'y' : 'ies'} from ${setName}.`)
+    flash(t.collection.addedFromSet(added, setName))
   }
 
   async function handleWishlistSet(setId: string, setName: string) {
     const missing = unownedUnwishlisted(cardsBySet.get(setId) ?? [], collection, wishlistedIds)
     const count = await wishlistCards(missing)
-    flash(count > 0 ? `★ Wishlisted ${count} card${count === 1 ? '' : 's'} from ${setName}.` : 'Nothing to add — you own or have wishlisted everything in it.')
+    flash(count > 0 ? t.collection.wishlistedFromSet(count, setName) : t.collection.nothingToWishlist)
   }
 
   return (
     <div className="wishlist-panel collection-panel">
       <div className="wishlist-header">
-        <h2>Collection — {adapter.shortName}</h2>
+        <h2>{t.collection.title(adapter.shortName)}</h2>
         <span className="text-dim">
-          {owned.entries.length} card{owned.entries.length === 1 ? '' : 's'} · {totalCopies} cop{totalCopies === 1 ? 'y' : 'ies'}
+          {t.common.cards(owned.entries.length)} · {t.collection.copies(totalCopies)}
           {adapter.hasPrices && value.total > 0 ? ` · ≈ ${formatPrice(value.total)}` : ''}
         </span>
       </div>
 
       <div className="fv-modes col-tabs" role="tablist">
         <button className={tab === 'cards' ? 'btn btn-primary' : 'btn'} aria-pressed={tab === 'cards'} onClick={() => setTab('cards')}>
-          My cards
+          {t.collection.myCards}
         </button>
         <button className={tab === 'sets' ? 'btn btn-primary' : 'btn'} aria-pressed={tab === 'sets'} onClick={() => setTab('sets')}>
-          Sets &amp; expansions
+          {t.collection.sets}
         </button>
       </div>
 
       {!catalog || cards.length === 0 ? (
-        <div className="text-dim">No {adapter.shortName} card data yet — use “Sync card data” in the sidebar first.</div>
+        <div className="text-dim">{t.collection.noData(adapter.shortName)}</div>
       ) : (
         <>
           <div className="col-controls">
             <input
               className="search-input"
-              placeholder={tab === 'cards' ? 'Search your cards or sets…' : 'Search sets…'}
+              placeholder={tab === 'cards' ? t.collection.searchCards : t.collection.searchSets}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
             {tab === 'cards' ? (
-              <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} title="Sort">
-                <option value="name">Name</option>
-                <option value="set">Set</option>
-                <option value="copies">Most copies</option>
-                {adapter.hasPrices && <option value="value">Value</option>}
+              <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} title={t.myDecks.sort}>
+                <option value="name">{t.collection.sortName}</option>
+                <option value="set">{t.collection.sortSet}</option>
+                <option value="copies">{t.collection.sortCopies}</option>
+                {adapter.hasPrices && <option value="value">{t.collection.sortValue}</option>}
               </select>
             ) : (
-              <label className="col-copies" title="How many of each card to own">
-                <span className="text-dim">Own at least</span>
+              <label className="col-copies" title={t.collection.copiesTitle}>
+                <span className="text-dim">{t.collection.ownAtLeast}</span>
                 <select value={copiesEach} onChange={(e) => setCopiesEach(Number(e.target.value))}>
                   {COPY_CHOICES.map((n) => (
                     <option key={n} value={n}>
@@ -155,7 +155,7 @@ export function CollectionPanel() {
                     </option>
                   ))}
                 </select>
-                <span className="text-dim">of each</span>
+                <span className="text-dim">{t.collection.ofEach}</span>
               </label>
             )}
           </div>
@@ -166,17 +166,16 @@ export function CollectionPanel() {
             <>
               {owned.entries.length === 0 && (
                 <div className="text-dim">
-                  You haven't marked any {adapter.shortName} cards as owned yet. Use the <b>Own</b> stepper on any card in the browser, or open the{' '}
-                  <b>Sets &amp; expansions</b> tab to add a whole set at once.
+                  <Rich text={t.collection.none(adapter.shortName)} />
                 </div>
               )}
               {owned.unknown > 0 && (
-                <div className="text-dim">{owned.unknown} owned card{owned.unknown === 1 ? ' isn’t' : 's aren’t'} in the loaded card data, so {owned.unknown === 1 ? 'it isn’t' : 'they aren’t'} listed here.</div>
+                <div className="text-dim">{t.collection.unknown(owned.unknown)}</div>
               )}
               <div className="col-list">
                 {visibleOwned.slice(0, shown).map(({ card, copies }) => (
                   <div key={card.id} className="col-row">
-                    <button className="col-card-link" onClick={() => setDetail(card)} title="Card details">
+                    <button className="col-card-link" onClick={() => setDetail(card)} title={t.collection.details}>
                       {card.imageUrlSmall ? <img className="deck-entry-thumb" src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="deck-entry-thumb" />}
                       <span className="col-name">{card.name}</span>
                     </button>
@@ -187,10 +186,10 @@ export function CollectionPanel() {
                     {card.price != null && <span className="text-dim col-price">{formatPrice(card.price * copies)}</span>}
                     <label
                       className="col-for-trade"
-                      title={tradeProfile?.public ? 'Show this card on your public for-trade list' : 'Turn on trading (Trade in the sidebar) for this to be visible to anyone'}
+                      title={tradeProfile?.public ? t.collection.forTradeTitle : t.collection.forTradeOffTitle}
                     >
                       <input type="checkbox" checked={forTrade.has(card.id)} onChange={() => toggleForTrade(card.id)} />
-                      For trade
+                      {t.collection.forTrade}
                     </label>
                     <div className="stepper">
                       <button className="btn stepper-btn" onClick={() => changeOwned(card.id, -1)}>
@@ -206,13 +205,13 @@ export function CollectionPanel() {
               </div>
               {shown < visibleOwned.length && (
                 <button className="btn" onClick={() => setLimit({ key: filterKey, count: shown + PAGE_SIZE })}>
-                  Show {Math.min(PAGE_SIZE, visibleOwned.length - shown)} more ({shown}/{visibleOwned.length})
+                  {t.browser.showMore(Math.min(PAGE_SIZE, visibleOwned.length - shown), shown, visibleOwned.length)}
                 </button>
               )}
             </>
           ) : (
             <>
-              {adapter.setNote && <div className="text-dim col-note">{adapter.setNote}</div>}
+              {adapter.setNote && <div className="text-dim col-note">{t.collection.setNotes[adapter.id] ?? adapter.setNote}</div>}
               <div className="col-list">
                 {visibleSets.slice(0, shown).map((set) => {
                   const inSet = cardsBySet.get(set.setId) ?? []
@@ -225,7 +224,7 @@ export function CollectionPanel() {
                         <div className="col-name">
                           {set.setName} <span className="text-dim">({set.setCode})</span>
                         </div>
-                        <div className="col-progress" title={`${set.owned} of ${set.total} cards`}>
+                        <div className="col-progress" title={t.collection.setProgress(set.owned, set.total)}>
                           <div className="col-progress-fill" style={{ width: `${percent}%` }} />
                         </div>
                       </div>
@@ -236,12 +235,12 @@ export function CollectionPanel() {
                         className="btn"
                         disabled={toAdd === 0}
                         onClick={() => handleAddSet(set.setId, set.setName)}
-                        title={toAdd === 0 ? `You already own at least ${copiesEach}× of every card` : `Add what's missing so you own ${copiesEach}× of each card`}
+                        title={toAdd === 0 ? t.collection.ownAll(copiesEach) : t.collection.addMissingTitle(copiesEach)}
                       >
-                        {toAdd === 0 ? '✓ Complete' : `Add missing (${toAdd})`}
+                        {toAdd === 0 ? t.collection.complete : t.collection.addMissing(toAdd)}
                       </button>
-                      <button className="btn" disabled={toWishlist === 0} onClick={() => handleWishlistSet(set.setId, set.setName)} title="Add the cards you don't own to your wishlist">
-                        ☆ Wishlist ({toWishlist})
+                      <button className="btn" disabled={toWishlist === 0} onClick={() => handleWishlistSet(set.setId, set.setName)} title={t.collection.wishlistSetTitle}>
+                        {t.collection.wishlistSet(toWishlist)}
                       </button>
                     </div>
                   )
@@ -249,10 +248,10 @@ export function CollectionPanel() {
               </div>
               {shown < visibleSets.length && (
                 <button className="btn" onClick={() => setLimit({ key: filterKey, count: shown + PAGE_SIZE })}>
-                  Show more ({shown}/{visibleSets.length})
+                  {t.collection.showMore(shown, visibleSets.length)}
                 </button>
               )}
-              {visibleSets.length === 0 && <div className="text-dim">No sets match.</div>}
+              {visibleSets.length === 0 && <div className="text-dim">{t.collection.noSets}</div>}
             </>
           )}
         </>

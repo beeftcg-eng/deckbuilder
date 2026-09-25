@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Card } from '../shared/types'
+import { t } from '../shared/i18n'
 
 /** The card's picture as large as the window allows, with Copy image / Save image. */
 export function CardImageViewer({ card, onClose }: { card: Card; onClose: () => void }) {
@@ -30,7 +31,7 @@ export function CardImageViewer({ card, onClose }: { card: Card; onClose: () => 
     } catch {
       // On the phone app a Yu-Gi-Oh image can't be read back by the page (YGOPRODeck doesn't allow it),
       // but the browser's own long-press menu on the picture still copies and saves it.
-      setStatus("Couldn't do that here. Press and hold (or right-click) the picture to copy or save it instead.")
+      setStatus(t.imageViewer.cantHere)
     } finally {
       setBusy(false)
     }
@@ -40,7 +41,7 @@ export function CardImageViewer({ card, onClose }: { card: Card; onClose: () => 
     <div
       className="image-viewer"
       role="dialog"
-      aria-label={`${card.name}, enlarged`}
+      aria-label={t.imageViewer.enlarged(card.name)}
       onClick={(e) => {
         e.stopPropagation() // it sits inside the card details; a click here must not close those too
         onClose()
@@ -49,14 +50,14 @@ export function CardImageViewer({ card, onClose }: { card: Card; onClose: () => 
       <div className="image-viewer-body" onClick={(e) => e.stopPropagation()}>
         {card.imageUrl ? <img src={card.imageUrl} alt={card.name} /> : <div className="card-tile-placeholder">{card.name}</div>}
         <div className="image-viewer-actions">
-          <button className="btn btn-primary" disabled={busy || !card.imageUrl} onClick={() => withImage(async (d) => { await window.api.clipboard.writeImage(d); return 'Copied — paste it anywhere.' })}>
-            Copy image
+          <button className="btn btn-primary" disabled={busy || !card.imageUrl} onClick={() => withImage(async (d) => { await window.api.clipboard.writeImage(d); return t.imageViewer.copiedPaste })}>
+            {t.imageViewer.copyImage}
           </button>
-          <button className="btn" disabled={busy || !card.imageUrl} onClick={() => withImage(async (d) => ((await window.api.exportSaveImage(d, `${fileName}.jpg`)) ? 'Saved.' : null))}>
-            Save image…
+          <button className="btn" disabled={busy || !card.imageUrl} onClick={() => withImage(async (d) => ((await window.api.exportSaveImage(d, `${fileName}.jpg`)) ? t.common.saved : null))}>
+            {t.imageViewer.saveImage}
           </button>
           <button className="btn" onClick={onClose}>
-            Close
+            {t.common.close}
           </button>
           {status && <span className="text-dim image-viewer-status">{status}</span>}
         </div>

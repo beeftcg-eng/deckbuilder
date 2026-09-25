@@ -1,6 +1,7 @@
 import { useAppStore } from '../state/useAppStore'
 import { PAIRINGS_APP_URL } from '../shared/pairingsRecord'
 import type { Deck } from '../shared/types'
+import { t } from '../shared/i18n'
 
 /**
  * Shown on a deck that's linked in Pairings when its card list has changed since Pairings last
@@ -23,23 +24,22 @@ export function PairingsSyncReminder({ deck, inset }: { deck: Deck; inset?: bool
   return (
     <div className={`pr-sync-banner${inset ? ' inset' : ''}`} role="status">
       <span>
-        🏆 <b>This deck changed since Pairings last synced it.</b>{' '}
+        🏆 <b>{t.pairingsSync.changed}</b>{' '}
         <span className="text-dim">
-          Sync it before logging results with the new list, so Pairings counts them as a new version of the deck instead of the old
-          one.
-          {!cloudConnected && ' Pairings reads your decks from the cloud, so log in (👤 in the sidebar) first.'}
+          {t.pairingsSync.help}
+          {!cloudConnected && t.pairingsSync.logInFirst}
         </span>
       </span>
       <span className="pr-sync-actions">
         <button
           className="btn btn-primary"
           onClick={() => void window.api.system.openExternal(`${PAIRINGS_APP_URL}/?open=decks`)}
-          title="Opens Pairings' Decks screen, which syncs your linked decks"
+          title={t.pairingsSync.openTitle}
         >
-          Open Pairings to sync ↗
+          {t.pairingsSync.open}
         </button>
-        <button className="btn" onClick={() => void loadRecords()} disabled={loading} title="Check whether Pairings has synced it">
-          {loading ? 'Checking…' : 'Check again'}
+        <button className="btn" onClick={() => void loadRecords()} disabled={loading} title={t.pairingsSync.checkTitle}>
+          {loading ? t.pairingsSync.checking : t.pairingsSync.checkAgain}
         </button>
       </span>
     </div>

@@ -1,6 +1,7 @@
 import type { Card, CardLegalityStatus, Deck, DeckRules, Format } from '../types'
 import type { FetchProgress, GameAdapter, GuidedStage } from './types'
 import { SCRYFALL_HEADERS, fetchJson, fetchJsonWithRetry, sleep } from './fetchUtil'
+import { t } from '../i18n'
 
 // Scryfall's "Default Cards" bulk file: every real-world printing (~80 MB) — alternate art, showcase,
 // Secret Lair, and reprints that reuse an earlier printing's art (Masters sets, From the Vault, etc.)
@@ -335,7 +336,7 @@ function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
 
 function getGuidedStage(deck: Deck): GuidedStage | null {
   if (deck.formatId !== 'commander' || (deck.zones.commander ?? []).length > 0) return null
-  return { label: 'Pick your Commander', filter: canBeCommander, filterLabel: 'Commanders only', targetZoneId: 'commander' }
+  return { label: t.stages.pickCommander, filter: canBeCommander, filterLabel: t.stages.commandersOnly, targetZoneId: 'commander' }
 }
 
 export const mtgAdapter: GameAdapter = {

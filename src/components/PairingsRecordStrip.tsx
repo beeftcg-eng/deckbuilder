@@ -3,6 +3,7 @@ import { useAppStore } from '../state/useAppStore'
 import { summarizeRecord, type Matchup } from '../shared/pairingsRecord'
 import type { Deck } from '../shared/types'
 import { PairingsAccountModal } from './PairingsAccountModal'
+import { t } from '../shared/i18n'
 
 /** This deck's tournament record from Pairings, under the deck view's header (see shared/pairingsRecord.ts). */
 export function PairingsRecordStrip({ deck }: { deck: Deck }) {
@@ -24,8 +25,8 @@ export function PairingsRecordStrip({ deck }: { deck: Deck }) {
   if (!config.connected) {
     return (
       <div className="pr-strip">
-        <button className="btn pr-connect" onClick={() => setShowAccount(true)} title="Show the results you logged with this deck in Pairings">
-          🏆 Tournament record: connect Pairings
+        <button className="btn pr-connect" onClick={() => setShowAccount(true)} title={t.pairingsStrip.connectTitle}>
+          {t.pairingsStrip.connect}
         </button>
         {account}
       </div>
@@ -33,22 +34,20 @@ export function PairingsRecordStrip({ deck }: { deck: Deck }) {
   }
 
   let body
-  if (loading && records === null) body = <span className="text-dim">Loading your Pairings results…</span>
-  else if (error) body = <span className="sync-error">Couldn't load Pairings results: {error}</span>
+  if (loading && records === null) body = <span className="text-dim">{t.pairingsStrip.loading}</span>
+  else if (error) body = <span className="sync-error">{t.pairingsStrip.loadFailed(error)}</span>
   else if (!summary)
     body = (
-      <span className="text-dim">
-        No Pairings results for this deck yet. In Pairings, go to Stats → Manage your decks → Connect Brewhouse and import it, then log results with it (⚙ shows the steps).
-      </span>
+      <span className="text-dim">{t.pairingsStrip.noResults}</span>
     )
   else
     body = (
       <button className="pr-total" onClick={() => setOpen(!open)} aria-expanded={open}>
         🏆 <b>{summary.wins}-{summary.losses}{summary.draws ? `-${summary.draws}` : ''}</b>
-        {summary.winRate != null && <span> · {summary.winRate}% wins</span>}
+        {summary.winRate != null && <span> · {t.pairingsStrip.winRate(summary.winRate)}</span>}
         <span className="text-dim">
           {' '}
-          · {summary.events} event{summary.events === 1 ? '' : 's'} in Pairings {open ? '▴' : '▾'}
+          · {t.pairingsStrip.events(summary.events)} {open ? '▴' : '▾'}
         </span>
       </button>
     )
@@ -58,10 +57,10 @@ export function PairingsRecordStrip({ deck }: { deck: Deck }) {
       <div className="pr-row">
         {body}
         <span className="pr-tools">
-          <button className="btn" onClick={() => void loadRecords()} disabled={loading} title="Fetch your latest results from Pairings">
+          <button className="btn" onClick={() => void loadRecords()} disabled={loading} title={t.pairingsStrip.refreshTitle}>
             {loading ? '…' : '↻'}
           </button>
-          <button className="btn" onClick={() => setShowAccount(true)} title={`Pairings account (${config.email})`}>
+          <button className="btn" onClick={() => setShowAccount(true)} title={t.pairingsStrip.accountTitle(config.email)}>
             ⚙
           </button>
         </span>
@@ -70,13 +69,13 @@ export function PairingsRecordStrip({ deck }: { deck: Deck }) {
         <div className="pr-matchups">
           {summary.bestAgainst.length > 0 && (
             <span>
-              <span className="text-dim">Best against </span>
+              <span className="text-dim">{t.pairingsStrip.bestAgainst}</span>
               {summary.bestAgainst.map(matchupLabel).join(', ')}
             </span>
           )}
           {summary.toughestAgainst.length > 0 && (
             <span>
-              <span className="text-dim">Toughest </span>
+              <span className="text-dim">{t.pairingsStrip.toughest}</span>
               {summary.toughestAgainst.map(matchupLabel).join(', ')}
             </span>
           )}
@@ -87,11 +86,11 @@ export function PairingsRecordStrip({ deck }: { deck: Deck }) {
           {summary.results.map((r, i) => (
             <li key={`${r.date}-${r.event}-${i}`}>
               <span className="text-dim">{r.date}</span>
-              <span className="pr-event">{r.event || 'Event'}</span>
+              <span className="pr-event">{r.event || t.pairingsStrip.event}</span>
               <span className="text-dim">{[r.format, r.store].filter(Boolean).join(' · ')}</span>
               <span>{r.placement}</span>
               <b>{r.record}</b>
-              {r.inProgress && <span className="text-dim">(in progress)</span>}
+              {r.inProgress && <span className="text-dim">{t.pairingsStrip.inProgress}</span>}
             </li>
           ))}
         </ul>

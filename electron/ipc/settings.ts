@@ -1,8 +1,9 @@
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import type { AppSettings, GameId } from '../../src/shared/types'
 import { GAME_LIST } from '../../src/shared/games/registry'
 import { isDeckViewMode } from '../../src/shared/deckView'
 import { isThemeId } from '../../src/shared/themes'
+import { isLanguage, languageFromLocale, setLanguage } from '../../src/shared/i18n'
 import { isDeckSortMode } from '../../src/shared/deckOrder'
 import { settingsFile } from '../lib/paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/jsonStore'
@@ -24,6 +25,7 @@ function sanitize(raw: unknown): AppSettings {
   if (Array.isArray(source.deckOrder)) settings.deckOrder = [...new Set(source.deckOrder.filter((id): id is string => typeof id === 'string'))].slice(0, 5000)
   if (isDeckViewMode(source.deckViewMode)) settings.deckViewMode = source.deckViewMode
   if (isThemeId(source.theme)) settings.theme = source.theme
+  if (isLanguage(source.language)) settings.language = source.language
   if (isPlainObject(source.tradeProfile)) {
     const tp = source.tradeProfile as Record<string, unknown>
     if (typeof tp.public === 'boolean' && typeof tp.displayName === 'string') settings.tradeProfile = { public: tp.public, displayName: tp.displayName }
@@ -31,9 +33,15 @@ function sanitize(raw: unknown): AppSettings {
   return settings
 }
 
+/** Messages made in this process (backup and account errors) follow the window's language: the saved choice, else the system's. */
+function followLanguage(settings: AppSettings): AppSettings {
+  setLanguage(settings.language ?? languageFromLocale(app.getLocale()))
+  return settings
+}
+
 export function registerSettingsIpc(): void {
   ipcMain.handle('settings:get', async (): Promise<AppSettings> => {
-    return sanitize(await readJsonFile<unknown>(settingsFile(), {}, isPlainObject))
+    return followLanguage(sanitize(await readJsonFile<unknown>(settingsFile(), {}, isPlainObject)))
   })
 
   ipcMain.handle('settings:set', (_e, patch: AppSettings): Promise<AppSettings> =>
@@ -41,7 +49,7 @@ export function registerSettingsIpc(): void {
       const current = sanitize(await readJsonFile<unknown>(settingsFile(), {}, isPlainObject))
       const next = sanitize({ ...current, ...patch })
       await writeJsonAtomic(settingsFile(), next)
-      return next
+      return followLanguage(next)
     }),
   )
 }

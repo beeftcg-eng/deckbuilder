@@ -1,6 +1,7 @@
 import type { Card, DeckRules, Deck, Format } from '../types'
 import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
+import { t } from '../i18n'
 
 const API_BASE = 'https://api.riftcodex.com/cards'
 const PAGE_SIZE = 100
@@ -179,7 +180,7 @@ function getGuidedStage(deck: Deck, cardsById: Map<string, Card>): GuidedStage |
     // — you can queue them up any time during the build, not just once the
     // guided flow happens to land on a stage with no filter of its own.
     return {
-      label: 'Pick your Legend',
+      label: t.stages.pickLegend,
       filter: (card) => card.category === 'Legend' || card.category === 'Battlefield',
       targetZoneId: 'legend',
     }
@@ -189,7 +190,7 @@ function getGuidedStage(deck: Deck, cardsById: Map<string, Card>): GuidedStage |
   const hasChampion = mainEntries.some((e) => cardsById.get(e.cardId)?.subtypes.includes('Champion'))
   if (!hasChampion) {
     return {
-      label: 'Pick your Champion',
+      label: t.stages.pickChampion,
       filter: (card) => card.subtypes.includes('Champion') || card.category === 'Battlefield',
       targetZoneId: 'main',
     }
@@ -198,7 +199,7 @@ function getGuidedStage(deck: Deck, cardsById: Map<string, Card>): GuidedStage |
   const mainTotal = mainEntries.reduce((sum, e) => sum + e.quantity, 0)
   if (mainTotal < 40) return null // back to normal main-deck browsing
 
-  return { label: 'Fill your Sideboard', targetZoneId: 'sideboard' }
+  return { label: t.stages.fillSideboard, targetZoneId: 'sideboard' }
 }
 
 export const riftboundAdapter: GameAdapter = {

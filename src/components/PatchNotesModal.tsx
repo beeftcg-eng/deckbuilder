@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { PatchNote } from '../shared/patchNotes'
+import { getLanguage, t } from '../shared/i18n'
 
 interface Props {
   onClose: () => void
@@ -47,7 +48,7 @@ function toBlocks(body: string): Block[] {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString(getLanguage(), { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 export function PatchNotesModal({ onClose }: Props) {
@@ -73,14 +74,14 @@ export function PatchNotesModal({ onClose }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal patch-notes-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span>Patch notes</span>
+          <span>{t.patchNotes.title}</span>
           <button className="btn" onClick={onClose}>
-            Close
+            {t.common.close}
           </button>
         </div>
         <div className="patch-notes-body">
-          {error && <div className="sync-error">Couldn't load patch notes: {error}</div>}
-          {!error && !notes && <div className="text-dim">Loading…</div>}
+          {error && <div className="sync-error">{t.patchNotes.loadFailed(error)}</div>}
+          {!error && !notes && <div className="text-dim">{t.common.loading}</div>}
           {notes?.map((note) => (
             <div key={note.version} className="patch-note">
               <div className="patch-note-header">

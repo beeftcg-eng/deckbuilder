@@ -4,6 +4,7 @@ import { rulesForFormat } from '../shared/games/rules'
 import { IMAGE_PADDING as PADDING, THUMB_GAP as GAP, THUMB_WIDTH as TARGET_WIDTH, columnsFor, imageWidthFor } from '../shared/exportImage'
 import { encodeUnderLimit } from './encodeImage'
 import { mergePrintings } from '../shared/deckView'
+import { t, zoneLabel } from '../shared/i18n'
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
   const dataUri = await window.api.images.fetchDataUri(url)
@@ -70,7 +71,7 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
       y += 44
       ctx.fillStyle = '#9a9db3'
       ctx.font = '400 16px sans-serif'
-      ctx.fillText(`${adapter.name} · ${totalCards} cards`, PADDING, y + 16)
+      ctx.fillText(t.images.deckHeader(adapter.name, totalCards), PADDING, y + 16)
       y += 36
     }
 
@@ -181,7 +182,7 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
       if (zone.freeText) {
         const entries: DeckFreeTextEntry[] = deck.freeTextZones[zone.id] ?? []
         if (entries.length === 0) continue
-        drawSectionLabel(zone.label)
+        drawSectionLabel(zoneLabel(zone.label))
         drawTextChips(entries.map((e) => ({ label: e.label, quantity: e.quantity })))
         continue
       }
@@ -191,7 +192,7 @@ export async function renderDeckImage(deck: Deck, adapter: GameAdapter, cardsByI
       // One thumbnail per card with its total, like the deck view (printings of a card merged).
       const thumbs: ThumbEntry[] = mergePrintings(entries, cardsById).map(({ card, quantity }) => ({ card, quantity }))
       if (thumbs.length === 0) continue
-      drawSectionLabel(`${zone.label} (${thumbs.reduce((n, t) => n + t.quantity, 0)})`)
+      drawSectionLabel(`${zoneLabel(zone.label)} (${thumbs.reduce((n, thumb) => n + thumb.quantity, 0)})`)
       drawThumbRow(thumbs)
     }
 

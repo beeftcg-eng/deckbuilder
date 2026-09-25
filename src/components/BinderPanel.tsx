@@ -4,6 +4,8 @@ import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { formatPrice, gameIdOfCardId, totalPrice } from '../shared/collection'
 import type { Card, GameId } from '../shared/types'
+import { t } from '../shared/i18n'
+import { Rich } from './Rich'
 
 /** The binder picker grid, shown when no binder is currently open. */
 function BinderList() {
@@ -15,19 +17,14 @@ function BinderList() {
   return (
     <div className="wishlist-panel md-panel">
       <div className="wishlist-header">
-        <h2>Binders</h2>
-        <span className="text-dim">
-          {binders.length} binder{binders.length === 1 ? '' : 's'}
-        </span>
+        <h2>{t.binders.title}</h2>
+        <span className="text-dim">{t.binders.count(binders.length)}</span>
       </div>
-      <div className="text-dim">
-        A binder is a named group of owned cards you organize yourself — a trade binder, an art binder, anything that doesn't belong to one
-        deck. Open one, then browse cards anywhere in the app to add to it.
-      </div>
+      <div className="text-dim">{t.binders.intro}</div>
       <div className="col-controls">
         <input
           className="search-input"
-          placeholder="New binder name…"
+          placeholder={t.binders.newName}
           value={nameDraft}
           onChange={(e) => setNameDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -43,22 +40,22 @@ function BinderList() {
             setNameDraft('')
           }}
         >
-          + New binder
+          {t.binders.newBinder}
         </button>
       </div>
       {binders.length === 0 ? (
-        <div className="text-dim">You haven't made a binder yet. Name one above and click + New binder.</div>
+        <div className="text-dim">{t.binders.none}</div>
       ) : (
         <div className="md-grid">
           {binders.map((binder) => {
             const copies = Object.values(binder.cards).reduce((n, q) => n + q, 0)
             return (
-              <div key={binder.id} className="md-card" role="button" tabIndex={0} onClick={() => selectBinder(binder.id)} title={`Open "${binder.name}"`}>
+              <div key={binder.id} className="md-card" role="button" tabIndex={0} onClick={() => selectBinder(binder.id)} title={t.binders.open(binder.name)}>
                 <div className="md-card-body">
                   <div className="md-card-name">{binder.name}</div>
                   <div className="md-card-counts">
-                    <b>{Object.keys(binder.cards).length}</b> card{Object.keys(binder.cards).length === 1 ? '' : 's'}
-                    {copies !== Object.keys(binder.cards).length && <span className="text-dim"> ({copies} copies)</span>}
+                    <Rich text={t.binders.cardCount(Object.keys(binder.cards).length)} />
+                    {copies !== Object.keys(binder.cards).length && <span className="text-dim">{t.binders.copies(copies)}</span>}
                   </div>
                 </div>
               </div>
@@ -123,8 +120,8 @@ function OpenBinder({ binderId }: { binderId: string }) {
   return (
     <div className="wishlist-panel">
       <div className="wishlist-header">
-        <button className="btn" onClick={() => selectBinder(null)} title="Back to all binders">
-          ← Binders
+        <button className="btn" onClick={() => selectBinder(null)} title={t.binders.backTitle}>
+          {t.binders.back}
         </button>
         {nameDraft != null ? (
           <input
@@ -136,36 +133,34 @@ function OpenBinder({ binderId }: { binderId: string }) {
             onKeyDown={(e) => (e.key === 'Enter' ? commitName() : e.key === 'Escape' ? setNameDraft(null) : undefined)}
           />
         ) : (
-          <h2 onClick={() => setNameDraft(binder.name)} title="Click to rename">
+          <h2 onClick={() => setNameDraft(binder.name)} title={t.binders.renameTitle}>
             {binder.name}
           </h2>
         )}
         <div className="wishlist-header-actions">
           <span className="text-dim">
-            {cardIds.length} card{cardIds.length === 1 ? '' : 's'} · {totalCopies} cop{totalCopies === 1 ? 'y' : 'ies'}
+            {t.binders.summary(cardIds.length, totalCopies)}
             {value.total > 0 ? ` · ≈ ${formatPrice(value.total)}` : ''}
           </span>
-          <button className="btn" title="Duplicate binder" onClick={() => duplicateBinder(binderId)}>
-            ⧉ Duplicate
+          <button className="btn" title={t.binders.duplicateTitle} onClick={() => duplicateBinder(binderId)}>
+            {t.binders.duplicate}
           </button>
           <button
             className="btn"
-            title="Delete binder"
+            title={t.binders.deleteTitle}
             onClick={() => {
-              if (confirm(`Delete "${binder.name}"? The cards stay in your collection, only the binder itself is removed.`)) deleteBinder(binderId)
+              if (confirm(t.binders.deleteConfirm(binder.name))) deleteBinder(binderId)
             }}
           >
-            × Delete
+            {t.binders.delete}
           </button>
         </div>
       </div>
 
-      <div className="text-dim">
-        Browsing any game's cards while this binder is open shows a "+ {binder.name}" stepper on each card — that's how you add to it.
-      </div>
+      <div className="text-dim">{t.binders.howToAdd(binder.name)}</div>
 
       <div className="wishlist-groups">
-        {cardIds.length === 0 && <div className="text-dim">This binder is empty. Browse cards anywhere in the app and add to it from there.</div>}
+        {cardIds.length === 0 && <div className="text-dim">{t.binders.empty}</div>}
         {[...grouped.entries()].map(([gameId, entries]) => {
           const adapter = getAdapter(gameId)
           return (
@@ -192,10 +187,10 @@ function OpenBinder({ binderId }: { binderId: string }) {
                       +
                     </button>
                   </div>
-                  <button className="btn" title="Move copies to another binder or into a deck" onClick={() => setMoving({ card, quantity })}>
-                    Move…
+                  <button className="btn" title={t.binders.moveTitle} onClick={() => setMoving({ card, quantity })}>
+                    {t.binders.move}
                   </button>
-                  <button className="deck-row-delete" title="Remove from binder" onClick={() => setBinderCardQuantity(binderId, card.id, 0)}>
+                  <button className="deck-row-delete" title={t.binders.remove} onClick={() => setBinderCardQuantity(binderId, card.id, 0)}>
                     ×
                   </button>
                 </div>

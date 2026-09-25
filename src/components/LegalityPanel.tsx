@@ -1,4 +1,5 @@
 import type { LegalityResult } from '../shared/types'
+import { t } from '../shared/i18n'
 
 const STALE_AFTER_DAYS = 60
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -9,9 +10,9 @@ function daysSince(iso: string): number {
 }
 
 function describeAge(days: number): string {
-  if (days <= 0) return 'today'
-  if (days === 1) return 'yesterday'
-  return `${days} days ago`
+  if (days <= 0) return t.legality.today
+  if (days === 1) return t.legality.yesterday
+  return t.legality.daysAgo(days)
 }
 
 interface Props {
@@ -29,7 +30,7 @@ export function LegalityPanel({ result, banList }: Props) {
 
   return (
     <div className={`legality-panel ${result.legal ? 'legal' : 'illegal'}`}>
-      <div className="legality-summary">{result.legal ? '✓ Deck is legal' : `✗ ${result.issues.length} issue${result.issues.length === 1 ? '' : 's'}`}</div>
+      <div className="legality-summary">{result.legal ? t.legality.legal : t.legality.issues(result.issues.length)}</div>
       {result.issues.length > 0 && (
         <ul className="legality-issues">
           {result.issues.map((issue, i) => (
@@ -42,11 +43,11 @@ export function LegalityPanel({ result, banList }: Props) {
       {banList && (
         <div className="legality-banlist">
           <span className={stale ? 'ban-stale' : 'text-dim'}>
-            Ban list &amp; rotation {age == null ? 'never reviewed' : `last reviewed ${describeAge(age)}`}
-            {stale ? ' — may be out of date' : ''}
+            {age == null ? t.legality.neverReviewed : t.legality.lastReviewed(describeAge(age))}
+            {stale ? t.legality.maybeStale : ''}
           </span>
           <button className="btn" onClick={banList.onEdit}>
-            Edit ban list…
+            {t.legality.editBanList}
           </button>
         </div>
       )}

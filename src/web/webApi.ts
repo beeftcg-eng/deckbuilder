@@ -44,6 +44,7 @@ import { fetchDeckRecords } from '../shared/pairingsRecord'
 import { applyIdRepairs, type RepairableData } from '../shared/cardIdRepair'
 import { idbGet, idbGetAll, idbSet, idbDelete, idbReplaceAll } from './idb'
 import { WebSyncStore } from './webSyncStore'
+import { t } from '../shared/i18n'
 
 const RELEASES_REPO = 'beeftcg-eng/deckbuilder-releases'
 
@@ -387,7 +388,7 @@ const pawmodoro = {
     let refreshToken: string | null
     if (doSignUp) {
       refreshToken = (await clientSignUp(cleanUrl, key, email, password)).refreshToken
-      if (!refreshToken) throw new Error('Account created — check your email to confirm it, then press Log in.')
+      if (!refreshToken) throw new Error(t.store.confirmEmail)
     } else {
       refreshToken = (await passwordLogin(cleanUrl, key, email, password)).refreshToken
     }
@@ -408,7 +409,7 @@ const pawmodoro = {
     items: { entryId: string; text: string }[],
   ): Promise<{ pushed: { entryId: string; taskId: string }[]; failed: { entryId: string; message: string }[] }> => {
     const config = await syncStore.getConfig()
-    if (!config) throw new Error('Not connected to Pawmodoro')
+    if (!config) throw new Error(t.store.notConnectedPawmodoro)
     const { accessToken } = await refreshAccessToken(config)
     const pushed: { entryId: string; taskId: string }[] = []
     const failed: { entryId: string; message: string }[] = []
@@ -428,13 +429,13 @@ const pawmodoro = {
   },
   setTradeProfile: async (isPublic: boolean, displayName: string): Promise<void> => {
     const config = await syncStore.getConfig()
-    if (!config) throw new Error('Not connected to Pawmodoro')
+    if (!config) throw new Error(t.store.notConnectedPawmodoro)
     const { accessToken } = await refreshAccessToken(config)
     await callRpc(config, accessToken, 'deckbuilder_set_profile', { p_public: isPublic, p_display_name: displayName })
   },
   syncTradeCollection: async (entries: TradeListing[]): Promise<void> => {
     const config = await syncStore.getConfig()
-    if (!config) throw new Error('Not connected to Pawmodoro')
+    if (!config) throw new Error(t.store.notConnectedPawmodoro)
     const { accessToken } = await refreshAccessToken(config)
     await callRpc(config, accessToken, 'deckbuilder_sync_collection', {
       p_entries: entries.map((e) => ({
@@ -444,7 +445,7 @@ const pawmodoro = {
   },
   syncTradeWants: async (entries: TradeWant[]): Promise<void> => {
     const config = await syncStore.getConfig()
-    if (!config) throw new Error('Not connected to Pawmodoro')
+    if (!config) throw new Error(t.store.notConnectedPawmodoro)
     const { accessToken } = await refreshAccessToken(config)
     await callRpc(config, accessToken, 'deckbuilder_sync_wants', {
       p_entries: entries.map((e) => ({ game_id: e.gameId, card_id: e.cardId, card_name: e.cardName, quantity: e.quantity })),
@@ -452,7 +453,7 @@ const pawmodoro = {
   },
   browseTraders: async (): Promise<TraderProfile[]> => {
     const config = await syncStore.getConfig()
-    if (!config) throw new Error('Not connected to Pawmodoro')
+    if (!config) throw new Error(t.store.notConnectedPawmodoro)
     const { accessToken } = await refreshAccessToken(config)
     const rows = (await callRpc(config, accessToken, 'deckbuilder_browse', {})) as Array<{
       user_id: string
@@ -473,7 +474,7 @@ const pawmodoro = {
   },
   tradeMatches: async (): Promise<TradeMatch[]> => {
     const config = await syncStore.getConfig()
-    if (!config) throw new Error('Not connected to Pawmodoro')
+    if (!config) throw new Error(t.store.notConnectedPawmodoro)
     const { accessToken } = await refreshAccessToken(config)
     const rows = (await callRpc(config, accessToken, 'deckbuilder_matches', {})) as Array<{
       user_id: string
@@ -690,7 +691,7 @@ const pairings = {
   },
   deckRecords: async (): Promise<PairingsDeckRecord[]> => {
     const config = await readPairingsConfig()
-    if (!config) throw new Error('Not connected to Pairings')
+    if (!config) throw new Error(t.store.notConnectedPairings)
     const { records, refreshToken } = await fetchDeckRecords(config)
     if (refreshToken !== config.refreshToken) await idbSet('sync', PAIRINGS_CONFIG_KEY, { ...config, refreshToken })
     return records

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import type { TradeMatch, TraderProfile } from '../shared/types'
+import { t } from '../shared/i18n'
+import { Rich } from './Rich'
 
 type Tab = 'profile' | 'browse' | 'matches'
 
@@ -60,12 +62,12 @@ export function TradePanel() {
     setSavingProfile(true)
     setSyncMessage(null)
     try {
-      const name = displayName.trim() || pawmodoroConfig.email.split('@')[0] || 'Trader'
+      const name = displayName.trim() || pawmodoroConfig.email.split('@')[0] || t.trade.defaultName
       setDisplayName(name)
       await setTradeVisibility(next, name)
-      setSyncMessage(next ? 'You’re now visible to other connected accounts.' : 'You’re private again — others can no longer see your collection.')
+      setSyncMessage(next ? t.trade.nowVisible : t.trade.nowPrivate)
     } catch (err) {
-      setSyncMessage(`Couldn't update: ${err instanceof Error ? err.message : String(err)}`)
+      setSyncMessage(t.trade.updateFailed(err instanceof Error ? err.message : String(err)))
     } finally {
       setSavingProfile(false)
     }
@@ -75,9 +77,9 @@ export function TradePanel() {
     setSyncMessage(null)
     try {
       const { skipped } = await syncTradeData()
-      setSyncMessage(skipped > 0 ? `Synced. ${skipped} card${skipped === 1 ? '' : 's'} skipped (sync that game's card data to include them).` : 'Synced.')
+      setSyncMessage(skipped > 0 ? t.trade.syncedSkipped(skipped) : t.trade.synced)
     } catch (err) {
-      setSyncMessage(`Sync failed: ${err instanceof Error ? err.message : String(err)}`)
+      setSyncMessage(t.trade.syncFailed(err instanceof Error ? err.message : String(err)))
     }
   }
 
@@ -85,10 +87,10 @@ export function TradePanel() {
   const filteredTraders = useMemo(() => {
     if (!needle) return browseTraders
     return browseTraders.filter(
-      (t) =>
-        t.displayName.toLowerCase().includes(needle) ||
-        t.collection.some((c) => c.cardName.toLowerCase().includes(needle)) ||
-        t.wants.some((c) => c.cardName.toLowerCase().includes(needle)),
+      (trader) =>
+        trader.displayName.toLowerCase().includes(needle) ||
+        trader.collection.some((c) => c.cardName.toLowerCase().includes(needle)) ||
+        trader.wants.some((c) => c.cardName.toLowerCase().includes(needle)),
     )
   }, [browseTraders, needle])
 
@@ -96,10 +98,10 @@ export function TradePanel() {
     return (
       <div className="wishlist-panel">
         <div className="wishlist-header">
-          <h2>Trade</h2>
+          <h2>{t.trade.title}</h2>
         </div>
         <div className="text-dim">
-          Trading uses the same Pawmodoro account as the Card Wishlist push. Connect it from the <b>Wishlist</b> tab first, then come back here.
+          <Rich text={t.trade.notConnected} />
         </div>
       </div>
     )
@@ -108,64 +110,60 @@ export function TradePanel() {
   return (
     <div className="wishlist-panel">
       <div className="wishlist-header">
-        <h2>Trade</h2>
-        <span className="text-dim">{forTradeCount} card{forTradeCount === 1 ? '' : 's'} marked for trade</span>
+        <h2>{t.trade.title}</h2>
+        <span className="text-dim">{t.trade.markedCount(forTradeCount)}</span>
       </div>
 
       <div className="fv-modes col-tabs" role="tablist">
         <button className={tab === 'profile' ? 'btn btn-primary' : 'btn'} aria-pressed={tab === 'profile'} onClick={() => setTab('profile')}>
-          My profile
+          {t.trade.myProfile}
         </button>
         <button className={tab === 'browse' ? 'btn btn-primary' : 'btn'} aria-pressed={tab === 'browse'} onClick={() => setTab('browse')}>
-          Browse
+          {t.trade.browse}
         </button>
         <button className={tab === 'matches' ? 'btn btn-primary' : 'btn'} aria-pressed={tab === 'matches'} onClick={() => setTab('matches')}>
-          Matches{tradeMatches.length > 0 ? ` (${tradeMatches.length})` : ''}
+          {t.trade.matches}
+          {tradeMatches.length > 0 ? ` (${tradeMatches.length})` : ''}
         </button>
       </div>
 
       {tab === 'profile' && (
         <div className="pawmodoro-box">
-          <div className="pawmodoro-box-title">Visible to others</div>
-          <div className="text-dim">
-            Off by default. Turning this on shares your whole collection (with which cards are marked "for trade" in the Collection tab) and your
-            wishlist with anyone else who's connected their Pawmodoro account and turned it on too — including your email, so a match can actually
-            reach you.
-          </div>
+          <div className="pawmodoro-box-title">{t.trade.visible}</div>
+          <div className="text-dim">{t.trade.visibleHelp}</div>
           <div className="pawmodoro-form">
-            <input placeholder="Name shown to others" value={displayName} onChange={(e) => setDisplayName(e.target.value)} disabled={savingProfile} />
+            <input placeholder={t.trade.namePlaceholder} value={displayName} onChange={(e) => setDisplayName(e.target.value)} disabled={savingProfile} />
             <button className={tradeProfile?.public ? 'btn' : 'btn btn-primary'} disabled={savingProfile} onClick={() => handleTogglePublic(!tradeProfile?.public)}>
-              {savingProfile ? 'Saving…' : tradeProfile?.public ? 'Make private' : 'Make visible'}
+              {savingProfile ? t.trade.saving : tradeProfile?.public ? t.trade.makePrivate : t.trade.makeVisible}
             </button>
             {tradeProfile?.public && (
               <button className="btn" disabled={tradeSyncing} onClick={handleSync}>
-                {tradeSyncing ? 'Syncing…' : 'Sync my trade list now'}
+                {tradeSyncing ? t.trade.syncing : t.trade.syncNow}
               </button>
             )}
           </div>
           {syncMessage && <div className="text-dim">{syncMessage}</div>}
           {tradeProfile?.public && (
             <div className="text-dim">
-              Mark cards "for trade" from the <b>Collection</b> tab, then press <b>Sync my trade list now</b> to push changes — they don't push
-              automatically yet.
+              <Rich text={t.trade.syncHelp} />
             </div>
           )}
         </div>
       )}
 
       {(tab === 'browse' || tab === 'matches') && !tradeProfile?.public && (
-        <div className="text-dim">Turn on "Visible to others" under My profile first — Browse and Matches only work once you're connected both ways.</div>
+        <div className="text-dim">{t.trade.turnOnFirst}</div>
       )}
 
       {(tab === 'browse' || tab === 'matches') && tradeProfile?.public && (
         <>
-          {loadingList && <div className="text-dim">Loading…</div>}
-          {loadError && <div className="sync-error">Couldn't load: {loadError}</div>}
+          {loadingList && <div className="text-dim">{t.common.loading}</div>}
+          {loadError && <div className="sync-error">{t.trade.loadFailed(loadError)}</div>}
 
           {tab === 'browse' && !loadingList && (
             <>
-              <input className="search-input" placeholder="Search traders or cards…" value={query} onChange={(e) => setQuery(e.target.value)} />
-              {filteredTraders.length === 0 && <div className="text-dim">No one else is visible yet — invite friends to turn on trading too.</div>}
+              <input className="search-input" placeholder={t.trade.search} value={query} onChange={(e) => setQuery(e.target.value)} />
+              {filteredTraders.length === 0 && <div className="text-dim">{t.trade.nobody}</div>}
               <div className="wishlist-groups">
                 {filteredTraders.map((trader) => (
                   <TraderCard key={trader.userId} trader={trader} />
@@ -177,7 +175,7 @@ export function TradePanel() {
           {tab === 'matches' && !loadingList && (
             <>
               {tradeMatches.length === 0 && (
-                <div className="text-dim">No matches yet — a match needs someone else to want a card you've marked for trade, or vice versa.</div>
+                <div className="text-dim">{t.trade.noMatches}</div>
               )}
               <div className="wishlist-groups">
                 {tradeMatches.map((match) => (
@@ -202,10 +200,10 @@ function TraderCard({ trader }: { trader: TraderProfile }) {
       <div className="wishlist-group-header">
         {trader.displayName || trader.email} <span className="text-dim">— {trader.email}</span>
       </div>
-      {forTrade.length === 0 && trader.wants.length === 0 && <div className="text-dim">Nothing marked for trade or wanted yet.</div>}
+      {forTrade.length === 0 && trader.wants.length === 0 && <div className="text-dim">{t.trade.nothing}</div>}
       {forTrade.length > 0 && (
         <div>
-          <div className="text-dim">For trade ({forTrade.length}):</div>
+          <div className="text-dim">{t.trade.forTrade(forTrade.length)}</div>
           {forTrade.map((c) => (
             <div key={`${c.gameId}:${c.cardId}`} className="wishlist-row">
               <span className="wishlist-row-name">
@@ -217,7 +215,7 @@ function TraderCard({ trader }: { trader: TraderProfile }) {
       )}
       {trader.wants.length > 0 && (
         <div>
-          <div className="text-dim">Wants ({trader.wants.length}):</div>
+          <div className="text-dim">{t.trade.wants(trader.wants.length)}</div>
           {trader.wants.map((c) => (
             <div key={`${c.gameId}:${c.cardId}`} className="wishlist-row">
               <span className="wishlist-row-name">
@@ -229,7 +227,7 @@ function TraderCard({ trader }: { trader: TraderProfile }) {
       )}
       {restOfCollection.length > 0 && (
         <button className="link-btn" onClick={() => setExpanded(!expanded)}>
-          {expanded ? 'Hide' : 'Show'} the rest of their collection ({restOfCollection.length})
+          {expanded ? t.trade.hideRest(restOfCollection.length) : t.trade.showRest(restOfCollection.length)}
         </button>
       )}
       {expanded &&
@@ -252,10 +250,10 @@ function MatchCard({ match }: { match: TradeMatch }) {
         {match.displayName || match.email} <span className="text-dim">— {match.email}</span>
       </div>
       {match.theyHaveWhatIWant.length > 0 && (
-        <div className="text-dim">They have what you want: {match.theyHaveWhatIWant.map((c) => c.cardName).join(', ')}</div>
+        <div className="text-dim">{t.trade.theyHave(match.theyHaveWhatIWant.map((c) => c.cardName).join(', '))}</div>
       )}
       {match.iHaveWhatTheyWant.length > 0 && (
-        <div className="text-dim">You have what they want: {match.iHaveWhatTheyWant.map((c) => c.cardName).join(', ')}</div>
+        <div className="text-dim">{t.trade.youHave(match.iHaveWhatTheyWant.map((c) => c.cardName).join(', '))}</div>
       )}
     </div>
   )

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Card, Deck } from '../shared/types'
 import { expandZone, shuffled } from '../shared/sampleHand'
+import { t } from '../shared/i18n'
 
 interface Props {
   deck: Deck
@@ -27,25 +28,25 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal sample-hand-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span>Sample hand — {deck.name}</span>
+          <span>{t.sampleHand.title(deck.name)}</span>
           <button className="btn" onClick={onClose}>
-            Close
+            {t.common.close}
           </button>
         </div>
 
         {library.length === 0 ? (
-          <div className="text-dim">The main deck is empty — add some cards first.</div>
+          <div className="text-dim">{t.sampleHand.empty}</div>
         ) : (
           <>
             <div className="sample-hand-actions">
               <button className="btn btn-primary" onClick={newHand}>
-                New hand ({handSize})
+                {t.sampleHand.newHand(handSize)}
               </button>
               <button className="btn" disabled={remaining === 0} onClick={() => setDrawn((n) => n + 1)}>
-                Draw a card
+                {t.sampleHand.draw}
               </button>
               <span className="text-dim">
-                {hand.length} in hand · {remaining} left in deck
+                {t.sampleHand.status(hand.length, remaining)}
               </span>
             </div>
             <div className="sample-hand-grid">

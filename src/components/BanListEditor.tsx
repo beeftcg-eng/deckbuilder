@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import type { Card, Format, GameId } from '../shared/types'
+import { t } from '../shared/i18n'
+import { formatLabel } from '../shared/formatText'
 
 const MAX_PICKER_RESULTS = 8
 const NO_CARDS: Card[] = []
@@ -144,13 +146,13 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
           {title} ({active[list].length})
         </h3>
         <ul className="banlist-items">
-          {active[list].length === 0 && <li className="text-dim">None</li>}
+          {active[list].length === 0 && <li className="text-dim">{t.banList.none}</li>}
           {active[list].map((key) => (
             <li key={key}>
               <span>
                 {nameForKey(key)} <span className="text-dim">{key.slice(key.indexOf(':') + 1)}</span>
               </span>
-              <button className="deck-row-delete" title="Remove" onClick={() => removeFrom(list, key)}>
+              <button className="deck-row-delete" title={t.banList.remove} onClick={() => removeFrom(list, key)}>
                 ×
               </button>
             </li>
@@ -165,9 +167,9 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal banlist-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span>{adapter.shortName} ban list &amp; rotation</span>
+          <span>{t.banList.title(adapter.shortName)}</span>
           <button className="btn" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </button>
         </div>
 
@@ -175,22 +177,24 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
           <select value={active.id} onChange={(e) => setActiveId(e.target.value)}>
             {draft.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.label}
+                {formatLabel(gameId, f)}
               </option>
             ))}
           </select>
         )}
 
-        {cards.length === 0 && <div className="text-dim">Sync {adapter.shortName} card data to search cards by name; existing entries show as card numbers.</div>}
+        {cards.length === 0 && <div className="text-dim">{t.banList.noCards(adapter.shortName)}</div>}
 
         <div className="banlist-body">
-          {renderKeyList('bannedCardIds', 'Banned cards', 'Search a card to ban…')}
-          {renderKeyList('restrictedCardIds', 'Restricted to 1 copy', 'Search a card to restrict…')}
+          {renderKeyList('bannedCardIds', t.banList.banned, t.banList.banSearch)}
+          {renderKeyList('restrictedCardIds', t.banList.restricted, t.banList.restrictSearch)}
 
           <section className="banlist-section">
-            <h3>Banned pairs ({active.bannedPairs.length})</h3>
+            <h3>
+              {t.banList.bannedPairs} ({active.bannedPairs.length})
+            </h3>
             <ul className="banlist-items">
-              {active.bannedPairs.length === 0 && <li className="text-dim">None</li>}
+              {active.bannedPairs.length === 0 && <li className="text-dim">{t.banList.none}</li>}
               {active.bannedPairs.map(([a, b], i) => (
                 <li key={`${a}-${b}-${i}`}>
                   <span>
@@ -198,7 +202,7 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
                   </span>
                   <button
                     className="deck-row-delete"
-                    title="Remove"
+                    title={t.banList.remove}
                     onClick={() => edit((f) => ({ ...f, bannedPairs: f.bannedPairs.filter((_, index) => index !== i) }))}
                   >
                     ×
@@ -207,10 +211,10 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
               ))}
             </ul>
             <div className="pair-picker">
-              <div>{pairA ? <b>{pairA.name}</b> : <CardPicker cards={cards} placeholder="First card…" onPick={setPairA} />}</div>
-              <div>{pairB ? <b>{pairB.name}</b> : <CardPicker cards={cards} placeholder="Second card…" onPick={setPairB} />}</div>
+              <div>{pairA ? <b>{pairA.name}</b> : <CardPicker cards={cards} placeholder={t.banList.firstCard} onPick={setPairA} />}</div>
+              <div>{pairB ? <b>{pairB.name}</b> : <CardPicker cards={cards} placeholder={t.banList.secondCard} onPick={setPairB} />}</div>
               <button className="btn" disabled={!pairA || !pairB || pairA.sourceId === pairB.sourceId} onClick={addPair}>
-                Add pair
+                {t.banList.addPair}
               </button>
             </div>
           </section>
@@ -218,7 +222,7 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
           {active.legalSetIds && (
             <section className="banlist-section">
               <h3>
-                Legal sets ({active.legalSetIds.length}) <span className="text-dim">— cards from unchecked sets are illegal</span>
+                {t.banList.legalSets} ({active.legalSetIds.length}) <span className="text-dim">{t.banList.legalSetsHelp}</span>
               </h3>
               <div className="set-checklist">
                 {sets.map(([id, name]) => (
@@ -234,12 +238,12 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
           )}
         </div>
 
-        {error && <div className="sync-error">Couldn't save: {error}</div>}
+        {error && <div className="sync-error">{t.banList.saveFailed(error)}</div>}
         <div className="export-actions">
           <button className="btn btn-primary" disabled={saving} onClick={handleSave}>
-            {saving ? 'Saving…' : 'Save & mark reviewed'}
+            {saving ? t.banList.saving : t.banList.save}
           </button>
-          <span className="text-dim">Changes apply to your legality checks right away.</span>
+          <span className="text-dim">{t.banList.appliesNow}</span>
         </div>
       </div>
     </div>,

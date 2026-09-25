@@ -5,22 +5,24 @@ import { PatchNotesModal } from './PatchNotesModal'
 import { PawmodoroAccountModal } from './PawmodoroAccountModal'
 import { PairingsAccountModal } from './PairingsAccountModal'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
-import { THEMES, getTheme } from '../shared/themes'
+import { THEMES, getTheme, themeLabel } from '../shared/themes'
 import { resolveDeckIcon } from '../shared/deckIcon'
 import { moveBy, reorderByDrop, sortDecks, type DeckSortMode } from '../shared/deckOrder'
 import { getAdapter } from '../shared/games/registry'
 import type { GameId } from '../shared/types'
+import type { Language } from '../shared/i18n'
 import { DeckIcon } from './DeckIcon'
+import { LANGUAGES, t } from '../shared/i18n'
 
 function formatRelativeTime(iso: string | null): string {
-  if (!iso) return 'never synced'
+  if (!iso) return t.sidebar.neverSynced
   const diffMs = Date.now() - new Date(iso).getTime()
   const mins = Math.round(diffMs / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return t.sidebar.justNow
+  if (mins < 60) return t.sidebar.minutesAgo(mins)
   const hours = Math.round(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.round(hours / 24)}d ago`
+  if (hours < 24) return t.sidebar.hoursAgo(hours)
+  return t.sidebar.daysAgo(Math.round(hours / 24))
 }
 
 // With only a few decks a search box is just clutter.
@@ -74,6 +76,8 @@ export function Sidebar() {
   const updateStatus = useAppStore((s) => s.updateStatus)
   const themeId = useAppStore((s) => getTheme(s.settings.theme).id)
   const setTheme = useAppStore((s) => s.setTheme)
+  const language = useAppStore((s) => s.language)
+  const setLanguage = useAppStore((s) => s.setLanguage)
   const cardsById = useCardsById(currentGameId)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [deckFilter, setDeckFilter] = useState('')
@@ -117,43 +121,47 @@ export function Sidebar() {
     setBackupStatus(null)
     try {
       const saved = await exportBackup()
-      setBackupStatus(saved ? 'Saved.' : null)
+      setBackupStatus(saved ? t.common.saved : null)
       if (saved) setTimeout(() => setBackupStatus(null), 2500)
     } catch (err) {
-      setBackupStatus(`Backup failed: ${err instanceof Error ? err.message : String(err)}`)
+      setBackupStatus(t.sidebar.backupFailed(err instanceof Error ? err.message : String(err)))
     }
   }
 
   async function handleBackupImport() {
-    if (
-      !confirm(
-        "This replaces the decks, wishlist and collection on this machine with what's in the backup file. A snapshot of the current ones is saved to the backups folder first. Continue?",
-      )
-    )
-      return
+    if (!confirm(t.sidebar.restoreConfirm)) return
     setBackupStatus(null)
     try {
       const result = await importBackup()
       if (result.imported) {
-        const skipped = result.skipped > 0 ? ` (${result.skipped} unreadable entr${result.skipped === 1 ? 'y' : 'ies'} skipped)` : ''
-        setBackupStatus(`Restored ${result.deckCount} deck(s), ${result.wishlistCount} wishlist card(s)${skipped}.`)
+        setBackupStatus(t.sidebar.restored(result.deckCount, result.wishlistCount, result.skipped))
       } else if (result.error) {
         setBackupStatus(result.error)
       }
     } catch (err) {
-      setBackupStatus(`Restore failed: ${err instanceof Error ? err.message : String(err)}`)
+      setBackupStatus(t.sidebar.restoreFailed(err instanceof Error ? err.message : String(err)))
     }
   }
 
   return (
     <aside className="sidebar">
       <div className="sidebar-title">Beef’s Brewhouse</div>
-      <label className="theme-row" title="Change the app's colours">
-        <span className="text-dim">Theme</span>
+      <label className="theme-row" title={t.sidebar.themeTitle}>
+        <span className="text-dim">{t.sidebar.theme}</span>
         <select value={themeId} onChange={(e) => setTheme(e.target.value)}>
-          {THEMES.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
+          {THEMES.map((theme) => (
+            <option key={theme.id} value={theme.id}>
+              {themeLabel(theme)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="theme-row" title={t.sidebar.languageTitle}>
+        <span className="text-dim">{t.sidebar.language}</span>
+        <select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
+          {LANGUAGES.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.label}
             </option>
           ))}
         </select>
@@ -162,41 +170,43 @@ export function Sidebar() {
       <button
         className="wishlist-nav-btn"
         onClick={() => setShowAccount(true)}
-        title={pawmodoroConfig.connected ? 'Manage your Pawmodoro account' : 'Log in to sync decks, collection and wishlist to your phone'}
+        title={pawmodoroConfig.connected ? t.sidebar.manageAccount : t.sidebar.loginTitle}
       >
-        {pawmodoroConfig.connected ? `👤 ${pawmodoroConfig.email}` : '👤 Log in'}
+        {pawmodoroConfig.connected ? `👤 ${pawmodoroConfig.email}` : t.sidebar.login}
       </button>
 
       <button
         className="wishlist-nav-btn"
         onClick={() => setShowPairings(true)}
         title={
-          pairingsConfig.connected
-            ? `Pairings connected as ${pairingsConfig.email}`
-            : 'Show your tournament results from Pairings on your decks: how to connect'
+          pairingsConfig.connected ? t.sidebar.pairingsConnectedAs(pairingsConfig.email) : t.sidebar.pairingsHowTo
         }
       >
-        {pairingsConfig.connected ? '🏆 Pairings: connected' : '🏆 Connect Pairings'}
+        {pairingsConfig.connected ? t.sidebar.pairingsConnected : t.sidebar.connectPairings}
       </button>
 
       <button className={`wishlist-nav-btn ${showWishlist ? 'active' : ''}`} onClick={() => setShowWishlist(!showWishlist)}>
-        ★ Wishlist{wishlist.length > 0 ? ` (${wishlist.reduce((n, e) => n + e.quantity, 0)})` : ''}
+        {t.sidebar.wishlist}
+        {wishlist.length > 0 ? ` (${wishlist.reduce((n, e) => n + e.quantity, 0)})` : ''}
       </button>
 
       <button className={`wishlist-nav-btn ${showMyDecks ? 'active' : ''}`} onClick={() => setShowMyDecks(!showMyDecks)}>
-        🗂 My Decks{decks.length > 0 ? ` (${decks.length})` : ''}
+        {t.sidebar.myDecks}
+        {decks.length > 0 ? ` (${decks.length})` : ''}
       </button>
 
       <button className={`wishlist-nav-btn ${showCollection ? 'active' : ''}`} onClick={() => setShowCollection(!showCollection)}>
-        ▦ Collection{collectionCopies > 0 ? ` (${collectionCopies})` : ''}
+        {t.sidebar.collection}
+        {collectionCopies > 0 ? ` (${collectionCopies})` : ''}
       </button>
 
       <button className={`wishlist-nav-btn ${showTrade ? 'active' : ''}`} onClick={() => setShowTrade(!showTrade)}>
-        🔀 Trade
+        {t.sidebar.trade}
       </button>
 
       <button className={`wishlist-nav-btn ${showBinders ? 'active' : ''}`} onClick={() => setShowBinders(!showBinders)}>
-        📚 Binders{binders.length > 0 ? ` (${binders.length})` : ''}
+        {t.sidebar.binders}
+        {binders.length > 0 ? ` (${binders.length})` : ''}
       </button>
 
       <nav className="game-tabs">
@@ -205,7 +215,7 @@ export function Sidebar() {
             key={adapter.id}
             className={`game-tab ${adapter.id === currentGameId ? 'active' : ''} ${dragGameId === adapter.id ? 'dragging' : ''} ${gameDrop?.id === adapter.id ? `drop-${gameDrop.position}` : ''}`}
             draggable
-            title="Drag to re-order the games (or Alt+↑ / Alt+↓)"
+            title={t.sidebar.dragGame}
             onClick={() => setGame(adapter.id)}
             onKeyDown={(e) => {
               if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
@@ -246,7 +256,7 @@ export function Sidebar() {
       </nav>
 
       <button className="link-btn game-manage-toggle" onClick={() => setShowGameManage(!showGameManage)}>
-        {showGameManage ? 'Done' : 'Manage games…'}
+        {showGameManage ? t.sidebar.done : t.sidebar.manageGames}
       </button>
 
       {showGameManage && (
@@ -255,7 +265,7 @@ export function Sidebar() {
             const hidden = hiddenGames?.includes(adapter.id) ?? false
             const isLastVisible = !hidden && visibleGames.length <= 1
             return (
-              <label key={adapter.id} className="game-manage-row" title={isLastVisible ? 'At least one game must stay visible' : undefined}>
+              <label key={adapter.id} className="game-manage-row" title={isLastVisible ? t.sidebar.lastVisibleGame : undefined}>
                 <input
                   type="checkbox"
                   checked={!hidden}
@@ -271,7 +281,7 @@ export function Sidebar() {
 
       <div className="sync-box">
         <div className="sync-status">
-          <span>{meta?.count ?? 0} cards cached</span>
+          <span>{t.sidebar.cardsCached(meta?.count ?? 0)}</span>
           <span className="text-dim">{formatRelativeTime(meta?.lastSynced ?? null)}</span>
         </div>
         {isSyncing && progress && (
@@ -282,17 +292,17 @@ export function Sidebar() {
             />
           </div>
         )}
-        {progress?.error && <div className="sync-error">Sync failed: {progress.error}</div>}
+        {progress?.error && <div className="sync-error">{t.sidebar.syncFailed(progress.error)}</div>}
         <button className="btn" disabled={isSyncing} onClick={() => syncCatalog(currentGameId)}>
-          {isSyncing ? `Syncing… ${progress?.loaded ?? 0}/${progress?.total ?? '?'}` : meta?.count ? 'Update card data' : 'Sync card data'}
+          {isSyncing ? t.sidebar.syncing(progress?.loaded ?? 0, progress?.total ?? '?') : meta?.count ? t.sidebar.updateCardData : t.sidebar.syncCardData}
         </button>
       </div>
 
       <div className="deck-list-header">
-        <span>Decks</span>
+        <span>{t.sidebar.decks}</span>
         <div className="deck-list-header-actions">
-          <button className="btn" onClick={() => setShowImport(true)} title="Create a deck from pasted text">
-            Import
+          <button className="btn" onClick={() => setShowImport(true)} title={t.sidebar.importTitle}>
+            {t.sidebar.import}
           </button>
           <button
             className="btn"
@@ -303,37 +313,37 @@ export function Sidebar() {
               createDeck(currentGameId)
             }}
           >
-            + New
+            {t.sidebar.newDeck}
           </button>
         </div>
       </div>
 
       {undoLabel && (
-        <button className="btn undo-btn" onClick={undo} title="Undo the last deck change (Ctrl+Z)">
-          ↶ Undo: {undoLabel}
+        <button className="btn undo-btn" onClick={undo} title={t.sidebar.undoTitle}>
+          {t.sidebar.undo(undoLabel)}
         </button>
       )}
 
       {gameDecks.length >= 2 && (
         <div className="deck-list-tools">
-          {gameDecks.length >= SEARCH_THRESHOLD && <input placeholder="Filter decks…" value={deckFilter} onChange={(e) => setDeckFilter(e.target.value)} />}
-          <select value={deckSort} onChange={(e) => setDeckSort(e.target.value as DeckSortMode)} title="Sort decks — or just drag a deck to put it where you want it">
-            <option value="recent">Recent</option>
-            <option value="name">A–Z</option>
-            <option value="custom">My order</option>
+          {gameDecks.length >= SEARCH_THRESHOLD && <input placeholder={t.sidebar.filterDecks} value={deckFilter} onChange={(e) => setDeckFilter(e.target.value)} />}
+          <select value={deckSort} onChange={(e) => setDeckSort(e.target.value as DeckSortMode)} title={t.sidebar.sortTitle}>
+            <option value="recent">{t.sidebar.sortRecent}</option>
+            <option value="name">{t.sidebar.sortName}</option>
+            <option value="custom">{t.sidebar.sortCustom}</option>
           </select>
         </div>
       )}
 
       <div className="deck-list">
-        {gameDecks.length === 0 && <div className="text-dim deck-list-empty">No decks yet.</div>}
-        {gameDecks.length > 0 && visibleDecks.length === 0 && <div className="text-dim deck-list-empty">No decks match.</div>}
+        {gameDecks.length === 0 && <div className="text-dim deck-list-empty">{t.sidebar.noDecks}</div>}
+        {gameDecks.length > 0 && visibleDecks.length === 0 && <div className="text-dim deck-list-empty">{t.sidebar.noDecksMatch}</div>}
         {visibleDecks.map((deck) => (
           <div
             key={deck.id}
             className={`deck-row ${deck.id === currentDeckId ? 'active' : ''} ${dragId === deck.id ? 'dragging' : ''} ${dropTarget?.id === deck.id ? `drop-${dropTarget.position}` : ''}`}
             draggable={canReorder}
-            title={canReorder ? 'Drag to re-order' : undefined}
+            title={canReorder ? t.sidebar.dragDeck : undefined}
             onDragStart={(e) => {
               setDragId(deck.id)
               if (e.dataTransfer) {
@@ -378,7 +388,7 @@ export function Sidebar() {
               <span className="deck-row-reorder">
                 <button
                   className="deck-row-delete"
-                  title="Move up"
+                  title={t.common.moveUp}
                   disabled={orderedIds[0] === deck.id}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -389,7 +399,7 @@ export function Sidebar() {
                 </button>
                 <button
                   className="deck-row-delete"
-                  title="Move down"
+                  title={t.common.moveDown}
                   disabled={orderedIds[orderedIds.length - 1] === deck.id}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -403,7 +413,7 @@ export function Sidebar() {
             <span className="deck-row-actions">
               <button
                 className="deck-row-delete"
-                title="Duplicate deck"
+                title={t.sidebar.duplicateDeck}
                 onClick={(e) => {
                   e.stopPropagation()
                   duplicateDeck(deck.id)
@@ -414,10 +424,10 @@ export function Sidebar() {
               <button
                 className="deck-row-delete"
                 disabled={deck.locked}
-                title={deck.locked ? 'Unlock this deck to delete it' : 'Delete deck (Ctrl+Z undoes it)'}
+                title={deck.locked ? t.sidebar.unlockToDelete : t.sidebar.deleteDeck}
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (confirm(`Delete "${deck.name}"?`)) deleteDeck(deck.id)
+                  if (confirm(t.sidebar.deleteConfirm(deck.name))) deleteDeck(deck.id)
                 }}
               >
                 ×
@@ -428,17 +438,17 @@ export function Sidebar() {
       </div>
 
       <div className="backup-box">
-        <div className="backup-box-title">Backup decks, wishlist &amp; collection</div>
+        <div className="backup-box-title">{t.sidebar.backupTitle}</div>
         <div className="backup-actions">
           <button className="btn" onClick={handleBackupExport}>
-            Backup…
+            {t.sidebar.backup}
           </button>
           <button className="btn" onClick={handleBackupImport}>
-            Restore…
+            {t.sidebar.restore}
           </button>
         </div>
-        <button className="btn" onClick={() => window.api.backup.openFolder()} title="Snapshots are taken automatically on launch and before edits">
-          Open auto-backups folder
+        <button className="btn" onClick={() => window.api.backup.openFolder()} title={t.sidebar.autoBackupsTitle}>
+          {t.sidebar.openAutoBackups}
         </button>
         {backupStatus && <div className="text-dim">{backupStatus}</div>}
       </div>
@@ -449,21 +459,21 @@ export function Sidebar() {
             <span className="text-dim">Beef’s Brewhouse v{updateStatus.version}</span>
             {canCheckForUpdates(updateStatus) && (
               <button className="link-btn" onClick={() => window.api.updater.check()}>
-                Check for updates
+                {t.sidebar.checkUpdates}
               </button>
             )}
           </div>
           {describeUpdate(updateStatus) && <div className={updateStatus.state === 'error' ? 'sync-error' : 'text-dim'}>{describeUpdate(updateStatus)}</div>}
           <div className="version-line">
             <button className="link-btn" onClick={() => setShowPatchNotes(true)}>
-              Patch notes
+              {t.sidebar.patchNotes}
             </button>
             <button
               className="link-btn"
-              title="Support the project"
+              title={t.sidebar.support}
               onClick={() => window.api.system.openExternal('https://paypal.me/beeftcg')}
             >
-              ♥ Support the project
+              {t.sidebar.supportButton}
             </button>
           </div>
         </div>

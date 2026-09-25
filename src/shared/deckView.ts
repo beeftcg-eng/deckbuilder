@@ -3,7 +3,6 @@ import { poolKey } from './collection'
 
 export const DECK_VIEW_MODES: readonly DeckViewMode[] = ['grid', 'list', 'text']
 
-export const DECK_VIEW_MODE_LABELS: Record<DeckViewMode, string> = { grid: 'Grid', list: 'List', text: 'Text' }
 
 export function isDeckViewMode(value: unknown): value is DeckViewMode {
   return typeof value === 'string' && (DECK_VIEW_MODES as readonly string[]).includes(value)

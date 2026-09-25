@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
+import { t } from '../shared/i18n'
 
 interface Props {
   onClose: () => void
@@ -52,48 +53,43 @@ export function PawmodoroAccountModal({ onClose }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span>Pawmodoro account</span>
+          <span>{t.pawmodoro.title}</span>
           <button className="btn" onClick={onClose}>
-            Close
+            {t.common.close}
           </button>
         </div>
         <div className="pawmodoro-box">
           {pawmodoroConfig.connected ? (
             <>
-              <div className="text-dim">Connected as {pawmodoroConfig.email}</div>
-              <div className="text-dim">
-                Decks, collection and wishlist sync to your phone, and you can push wishlist cards to your Pawmodoro checklist from the Wishlist tab.
-              </div>
+              <div className="text-dim">{t.pawmodoro.connectedAs(pawmodoroConfig.email)}</div>
+              <div className="text-dim">{t.pawmodoro.connectedInfo}</div>
               <div className="wishlist-actions">
                 <button className="btn" onClick={disconnectPawmodoro}>
-                  Disconnect
+                  {t.common.disconnect}
                 </button>
               </div>
             </>
           ) : (
             <>
-              <div className="text-dim">
-                New here? Enter an email and password and press Create account. Already have a Pawmodoro login (phone or desktop)? Use the same one and press
-                Connect. This account also syncs your decks, collection and wishlist to your phone.
-              </div>
+              <div className="text-dim">{t.pawmodoro.intro}</div>
               <div className="pawmodoro-form">
-                <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <input placeholder={t.common.email} value={email} onChange={(e) => setEmail(e.target.value)} />
+                <input type="password" placeholder={t.common.password} value={password} onChange={(e) => setPassword(e.target.value)} />
                 <button className="btn btn-primary" onClick={() => handleConnect(false)} disabled={connecting || !email.trim() || !password}>
-                  {connecting ? 'Connecting…' : 'Connect'}
+                  {connecting ? t.common.connecting : t.common.connect}
                 </button>
                 <button className="btn" onClick={() => handleConnect(true)} disabled={connecting || !email.trim() || !password}>
-                  Create account
+                  {t.pawmodoro.createAccount}
                 </button>
               </div>
               <details className="pawmodoro-advanced" open={customProject}>
-                <summary>Use a different project</summary>
+                <summary>{t.pawmodoro.differentProject}</summary>
                 <div className="pawmodoro-form">
-                  <input placeholder="Project URL (https://xxxx.supabase.co)" value={url} onChange={(e) => setUrl(e.target.value)} />
-                  <input placeholder="anon public key" value={anonKey} onChange={(e) => setAnonKey(e.target.value)} />
+                  <input placeholder={t.pawmodoro.projectUrl} value={url} onChange={(e) => setUrl(e.target.value)} />
+                  <input placeholder={t.pawmodoro.anonKey} value={anonKey} onChange={(e) => setAnonKey(e.target.value)} />
                 </div>
               </details>
-              {connectError && <div className="sync-error">Couldn't connect: {connectError}</div>}
+              {connectError && <div className="sync-error">{t.common.couldntConnect(connectError)}</div>}
             </>
           )}
         </div>

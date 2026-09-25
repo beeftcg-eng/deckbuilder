@@ -1,5 +1,6 @@
 import type { DeckStats as Stats } from '../shared/deckStats'
 import { formatPrice, type PriceTotal } from '../shared/collection'
+import { t } from '../shared/i18n'
 
 interface Props {
   stats: Stats
@@ -12,7 +13,7 @@ interface Props {
 }
 
 function priceNote(price: PriceTotal): string {
-  return price.unpricedCopies > 0 ? ` (${price.unpricedCopies} card${price.unpricedCopies === 1 ? '' : 's'} unpriced)` : ''
+  return price.unpricedCopies > 0 ? t.deckStats.unpriced(price.unpricedCopies) : ''
 }
 
 export function DeckStats({ stats, toBuy, gameHasPrices, showSubtypeStats }: Props) {
@@ -22,12 +23,12 @@ export function DeckStats({ stats, toBuy, gameHasPrices, showSubtypeStats }: Pro
   return (
     <div className="deck-stats">
       <div className="deck-stats-summary">
-        <span>{stats.totalCards} cards</span>
-        {stats.averageCost != null && <span className="text-dim">avg cost {stats.averageCost.toFixed(1)}</span>}
+        <span>{t.common.cards(stats.totalCards)}</span>
+        {stats.averageCost != null && <span className="text-dim">{t.deckStats.avgCost(stats.averageCost.toFixed(1))}</span>}
       </div>
 
       {stats.curve.length > 0 && (
-        <div className="cost-curve" title="Main deck by cost">
+        <div className="cost-curve" title={t.deckStats.curveTitle}>
           {stats.curve.map(({ cost, count }) => (
             <div className="cost-curve-col" key={cost}>
               <span className="cost-curve-count">{count > 0 ? count : ''}</span>
@@ -59,18 +60,19 @@ export function DeckStats({ stats, toBuy, gameHasPrices, showSubtypeStats }: Pro
 
       {anyPriced && (
         <div className="deck-stats-price">
-          Deck value ≈ {formatPrice(stats.price.total)}
+          {t.deckStats.deckValue} {formatPrice(stats.price.total)}
           <span className="text-dim">{priceNote(stats.price)}</span>
           {toBuy && toBuy.total > 0 && (
             <>
-              {' · '}To buy ≈ {formatPrice(toBuy.total)}
+              {' · '}
+              {t.deckStats.toBuy} {formatPrice(toBuy.total)}
               <span className="text-dim">{priceNote(toBuy)}</span>
             </>
           )}
         </div>
       )}
       {!anyPriced && gameHasPrices && stats.totalCards > 0 && (
-        <div className="text-dim deck-stats-price">No prices yet — “Update card data” in the sidebar loads them.</div>
+        <div className="text-dim deck-stats-price">{t.deckStats.noPrices}</div>
       )}
     </div>
   )

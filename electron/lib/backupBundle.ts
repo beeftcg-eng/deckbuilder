@@ -1,5 +1,6 @@
 import type { Binder, Collection, Deck, WishlistEntry } from '../../src/shared/types'
 import { GAME_LIST } from '../../src/shared/games/registry'
+import { t } from '../../src/shared/i18n'
 
 // From the registry, so a newly added game's decks are never silently dropped from a backup or restore.
 const GAME_IDS: string[] = GAME_LIST.map((adapter) => adapter.id)
@@ -51,7 +52,7 @@ export type ParsedBackup =
  */
 export function parseBackupBundle(bundle: unknown): ParsedBackup {
   if (!isRecord(bundle) || (!Array.isArray(bundle.decks) && !Array.isArray(bundle.binders) && !Array.isArray(bundle.wishlist))) {
-    return { ok: false, error: "That file isn't a Beef's Brewhouse backup (no decks, binders or wishlist in it)." }
+    return { ok: false, error: t.main.notBackup }
   }
 
   const rawDecks = Array.isArray(bundle.decks) ? bundle.decks : null

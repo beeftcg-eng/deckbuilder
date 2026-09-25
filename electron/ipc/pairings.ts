@@ -6,6 +6,7 @@ import { passwordLogin, type SyncConfig } from '../../src/shared/sync/client'
 import { fetchDeckRecords } from '../../src/shared/pairingsRecord'
 import { PAIRINGS_ANON_KEY, PAIRINGS_URL } from '../../src/shared/pairingsDefaults'
 import { pairingsConfigFile } from '../lib/paths'
+import { t } from '../../src/shared/i18n'
 
 // The Pairings login: read-only use of your tournament results (see shared/pairingsRecord.ts).
 // Kept in its own file, apart from pawmodoro-sync.json, because it's a different account.
@@ -46,7 +47,7 @@ export function registerPairingsIpc(): void {
 
   ipcMain.handle('pairings:deckRecords', async (): Promise<PairingsDeckRecord[]> => {
     const config = await readConfig()
-    if (!config) throw new Error('Not connected to Pairings')
+    if (!config) throw new Error(t.store.notConnectedPairings)
     const { records, refreshToken } = await fetchDeckRecords(config)
     if (refreshToken !== config.refreshToken) await writeConfig({ ...config, refreshToken })
     return records

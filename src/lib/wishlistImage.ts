@@ -3,6 +3,7 @@ import { getAdapter } from '../shared/games/registry'
 import type { ResolvedWishlistEntry } from '../shared/export'
 import { IMAGE_PADDING as PADDING, THUMB_GAP as GAP, THUMB_WIDTH as TARGET_WIDTH, columnsFor, imageWidthFor } from '../shared/exportImage'
 import { encodeUnderLimit } from './encodeImage'
+import { t } from '../shared/i18n'
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
   const dataUri = await window.api.images.fetchDataUri(url)
@@ -79,13 +80,13 @@ export async function renderWishlistImage(entries: ResolvedWishlistEntry[]): Pro
 
   ctx.fillStyle = '#e8e9ee'
   ctx.font = '700 34px sans-serif'
-  ctx.fillText('Card Wishlist', PADDING, y + 34)
+  ctx.fillText(t.images.wishlistTitle, PADDING, y + 34)
   y += 44
 
   const total = entries.reduce((sum, e) => sum + e.quantity, 0)
   ctx.fillStyle = '#9a9db3'
   ctx.font = '400 16px sans-serif'
-  ctx.fillText(`${total} card${total === 1 ? '' : 's'} wanted`, PADDING, y + 16)
+  ctx.fillText(t.images.wanted(total), PADDING, y + 16)
   y += 36
 
   for (const [gameId, list] of byGame) {

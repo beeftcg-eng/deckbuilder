@@ -6,6 +6,9 @@ import { detectFormatFromHeadings, parseDecklistText } from '../shared/importDec
 import { isCardLegalInFormat } from '../shared/legality'
 import type { PrintingPrefs } from '../shared/printings'
 import type { GameId } from '../shared/types'
+import { t } from '../shared/i18n'
+import { formatLabel } from '../shared/formatText'
+import { Rich } from './Rich'
 
 const MAX_UNMATCHED_SHOWN = 8
 
@@ -41,13 +44,13 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
   )
   const catalogReady = cardsById.size > 0
 
-  const name = nameDraft ?? parsed.name ?? 'Imported deck'
+  const name = nameDraft ?? parsed.name ?? t.importDeck.defaultName
 
   async function handleImport() {
     setImporting(true)
     setError(null)
     try {
-      await importDeck(gameId, parsed, name.trim() || 'Imported deck', formatId)
+      await importDeck(gameId, parsed, name.trim() || t.importDeck.defaultName, formatId)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -59,20 +62,20 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal import-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span>Import {adapter.shortName} decklist</span>
+          <span>{t.importDeck.title(adapter.shortName)}</span>
           <button className="btn" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </button>
         </div>
 
         {!catalogReady ? (
-          <div className="text-dim">No {adapter.shortName} card data yet — use “Sync card data” in the sidebar first, then import.</div>
+          <div className="text-dim">{t.importDeck.noData(adapter.shortName)}</div>
         ) : (
           <>
             <textarea
               className="export-textarea"
               autoFocus
-              placeholder={'Paste a decklist — this app\'s export, or a list from a deck site:\n\n4x OP01-006 Otama\n3 Professor\'s Research SVI 189\n4 Lightning Bolt (2XM) 141'}
+              placeholder={t.importDeck.placeholder}
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
@@ -80,34 +83,34 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
             {text.trim() && (
               <div className="import-summary">
                 <div>
-                  Recognised <b>{parsed.matchedCopies}</b> card{parsed.matchedCopies === 1 ? '' : 's'}
-                  {parsed.unmatched.length > 0 && <span className="sync-error"> · {parsed.unmatched.length} line(s) not matched</span>}
+                  <Rich text={t.importDeck.recognised(parsed.matchedCopies)} />
+                  {parsed.unmatched.length > 0 && <span className="sync-error">{t.importDeck.unmatched(parsed.unmatched.length)}</span>}
                 </div>
                 {parsed.unmatched.length > 0 && (
                   <ul className="import-unmatched">
                     {parsed.unmatched.slice(0, MAX_UNMATCHED_SHOWN).map((line, i) => (
                       <li key={i}>{line}</li>
                     ))}
-                    {parsed.unmatched.length > MAX_UNMATCHED_SHOWN && <li>…and {parsed.unmatched.length - MAX_UNMATCHED_SHOWN} more</li>}
+                    {parsed.unmatched.length > MAX_UNMATCHED_SHOWN && <li>{t.importDeck.andMore(parsed.unmatched.length - MAX_UNMATCHED_SHOWN)}</li>}
                   </ul>
                 )}
               </div>
             )}
 
             <div className="import-fields">
-              <input value={name} onChange={(e) => setNameDraft(e.target.value)} placeholder="Deck name" />
+              <input value={name} onChange={(e) => setNameDraft(e.target.value)} placeholder={t.importDeck.deckName} />
               <select value={formatId} onChange={(e) => setFormatDraft(e.target.value)}>
                 {formats.map((f) => (
                   <option key={f.id} value={f.id}>
-                    {f.label}
+                    {formatLabel(gameId, f)}
                   </option>
                 ))}
               </select>
               <button className="btn btn-primary" disabled={parsed.matchedCopies === 0 || importing} onClick={handleImport}>
-                {importing ? 'Importing…' : 'Import deck'}
+                {importing ? t.importDeck.importing : t.importDeck.import}
               </button>
             </div>
-            {error && <div className="sync-error">Couldn't import: {error}</div>}
+            {error && <div className="sync-error">{t.importDeck.failed(error)}</div>}
           </>
         )}
       </div>

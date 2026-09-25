@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { buildWishlistExportText, type ResolvedWishlistEntry } from '../shared/export'
 import { renderWishlistImage } from '../lib/wishlistImage'
 import { dataUrlBytes, imageExtension } from '../shared/exportImage'
+import { t } from '../shared/i18n'
 
 interface Props {
   entries: ResolvedWishlistEntry[]
@@ -64,44 +65,44 @@ export function WishlistExportModal({ entries, onClose }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal export-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span>Export Wishlist</span>
+          <span>{t.wishlistExport.title}</span>
           <button className="btn" onClick={onClose}>
-            Close
+            {t.common.close}
           </button>
         </div>
         <textarea className="export-textarea" readOnly value={text} />
         <div className="export-actions">
           <button className="btn" onClick={handleCopy}>
-            {copied ? 'Copied!' : 'Copy to clipboard'}
+            {copied ? t.common.copied : t.exportCommon.copyToClipboard}
           </button>
           <button className="btn" onClick={handleSaveFile}>
-            Save as .txt
+            {t.exportCommon.saveTxt}
           </button>
           <button className="btn btn-primary" onClick={handlePaste} disabled={pasting}>
-            {pasting ? 'Uploading…' : 'Get shareable paste link'}
+            {pasting ? t.exportCommon.uploading : t.exportCommon.pasteLink}
           </button>
           <button className="btn" onClick={handleGenerateImage} disabled={generatingImage}>
-            {generatingImage ? 'Rendering image…' : 'Export as image'}
+            {generatingImage ? t.exportCommon.rendering : t.exportCommon.exportImage}
           </button>
         </div>
         {pasteUrl && (
           <div className="paste-result">
             <input readOnly value={pasteUrl} onFocus={(e) => e.currentTarget.select()} />
             <button className="btn" onClick={() => window.api.clipboard.writeText(pasteUrl)}>
-              Copy link
+              {t.common.copyLink}
             </button>
             <button className="btn" onClick={() => window.api.system.openExternal(pasteUrl)}>
-              Open
+              {t.common.open}
             </button>
           </div>
         )}
-        {pasteError && <div className="sync-error">Upload failed: {pasteError}</div>}
-        {imageError && <div className="sync-error">Image render failed: {imageError}</div>}
+        {pasteError && <div className="sync-error">{t.exportCommon.uploadFailed(pasteError)}</div>}
+        {imageError && <div className="sync-error">{t.exportCommon.imageFailed(imageError)}</div>}
         {imageDataUrl && (
           <div className="image-preview">
-            <img src={imageDataUrl} alt="Wishlist image" />
+            <img src={imageDataUrl} alt={t.wishlistExport.imageAlt} />
             <button className="btn btn-primary" onClick={handleSaveImage}>
-              Save image (.jpg, {(dataUrlBytes(imageDataUrl) / 1048576).toFixed(1)} MB)
+              {t.exportCommon.saveImage((dataUrlBytes(imageDataUrl) / 1048576).toFixed(1))}
             </button>
           </div>
         )}

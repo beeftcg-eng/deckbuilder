@@ -1,3 +1,5 @@
+import { t } from './i18n'
+
 /** Where the app's self-update stands. Sent from the main process (electron/ipc/updater.ts) to the window. */
 export type UpdateStatus =
   | { state: 'disabled'; version: string; reason: string }
@@ -16,15 +18,15 @@ export function describeUpdate(status: UpdateStatus): string {
     case 'idle':
       return ''
     case 'checking':
-      return 'Checking for updates…'
+      return t.updates.checking
     case 'uptodate':
-      return 'You have the latest version.'
+      return t.updates.upToDate
     case 'downloading':
-      return `Downloading ${status.newVersion}… ${Math.round(status.percent)}%`
+      return t.updates.downloading(status.newVersion, Math.round(status.percent))
     case 'ready':
-      return `${status.newVersion} is ready to install.`
+      return t.updates.ready(status.newVersion)
     case 'error':
-      return `Couldn't check for updates: ${status.message}`
+      return t.updates.error(status.message)
   }
 }
 

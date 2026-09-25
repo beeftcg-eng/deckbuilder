@@ -1,6 +1,7 @@
 import { ipcMain, shell, dialog, BrowserWindow } from 'electron'
 import { isWebUrl } from '../lib/urls'
 import { writeFile } from 'node:fs/promises'
+import { t } from '../../src/shared/i18n'
 
 const DPASTE_URL = 'https://dpaste.com/api/v2/'
 
@@ -12,7 +13,7 @@ export function registerExportIpc(): void {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
     })
-    if (!res.ok) throw new Error(`Paste upload failed (${res.status})`)
+    if (!res.ok) throw new Error(t.main.pasteFailed(res.status))
     const url = (await res.text()).trim()
     return url
   })
@@ -30,7 +31,7 @@ export function registerExportIpc(): void {
     const win = BrowserWindow.fromWebContents(e.sender)
     const options: Electron.SaveDialogOptions = {
       defaultPath: suggestedName,
-      filters: [{ name: 'Text', extensions: ['txt'] }],
+      filters: [{ name: t.main.textFiles, extensions: ['txt'] }],
     }
     const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return false
@@ -43,7 +44,7 @@ export function registerExportIpc(): void {
     const isPng = dataUrl.startsWith('data:image/png')
     const options: Electron.SaveDialogOptions = {
       defaultPath: suggestedName,
-      filters: isPng ? [{ name: 'PNG Image', extensions: ['png'] }] : [{ name: 'JPEG Image', extensions: ['jpg', 'jpeg'] }],
+      filters: isPng ? [{ name: t.main.pngImage, extensions: ['png'] }] : [{ name: t.main.jpegImage, extensions: ['jpg', 'jpeg'] }],
     }
     const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return false

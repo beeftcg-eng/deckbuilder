@@ -5,6 +5,7 @@ import { formatPrice, totalPrice } from '../shared/collection'
 import type { ResolvedWishlistEntry } from '../shared/export'
 import { WishlistExportModal } from './WishlistExportModal'
 import type { GameId, WishlistEntry } from '../shared/types'
+import { t } from '../shared/i18n'
 
 export function WishlistPanel() {
   const wishlist = useAppStore((s) => s.wishlist)
@@ -76,9 +77,7 @@ export function WishlistPanel() {
     setPushError(null)
     try {
       const { pushedCount, failedCount } = await pushWishlistToPawmodoro(items)
-      setPushResult(
-        `Pushed ${pushedCount} card${pushedCount === 1 ? '' : 's'}${failedCount ? `, ${failedCount} failed` : ''} to your Pawmodoro checklist.`,
-      )
+      setPushResult(t.wishlist.pushed(pushedCount, failedCount))
     } catch (err) {
       setPushError(err instanceof Error ? err.message : String(err))
     }
@@ -87,18 +86,18 @@ export function WishlistPanel() {
   return (
     <div className="wishlist-panel">
       <div className="wishlist-header">
-        <h2>Card Wishlist</h2>
+        <h2>{t.wishlist.title}</h2>
         <div className="wishlist-header-actions">
           <span className="text-dim">
-            {wishlist.reduce((n, e) => n + e.quantity, 0)} card{wishlist.reduce((n, e) => n + e.quantity, 0) === 1 ? '' : 's'} wanted
+            {t.wishlist.wanted(wishlist.reduce((n, e) => n + e.quantity, 0))}
           </span>
           {wishlistPrice.total > 0 && (
-            <span className="text-dim" title="Sum of TCGplayer market prices; cards without a price aren't counted">
+            <span className="text-dim" title={t.wishlist.priceTitle}>
               ≈ {formatPrice(wishlistPrice.total)}
             </span>
           )}
           <button className="btn" onClick={() => setShowExport(true)} disabled={wishlist.length === 0}>
-            Export
+            {t.wishlist.export}
           </button>
         </div>
       </div>
@@ -106,26 +105,26 @@ export function WishlistPanel() {
       {showExport && <WishlistExportModal entries={resolvedEntries} onClose={() => setShowExport(false)} />}
 
       <div className="pawmodoro-box">
-        <div className="pawmodoro-box-title">Pawmodoro Cloud Sync</div>
+        <div className="pawmodoro-box-title">{t.wishlist.cloudSync}</div>
         {pawmodoroConfig.connected ? (
           <>
-            <div className="text-dim">Connected as {pawmodoroConfig.email}</div>
+            <div className="text-dim">{t.pawmodoro.connectedAs(pawmodoroConfig.email)}</div>
             <div className="wishlist-actions">
               <button className="btn btn-primary" onClick={handlePush} disabled={pushingWishlist || unpushed.length === 0}>
-                {pushingWishlist ? 'Pushing…' : `Push ${unpushed.length} new card${unpushed.length === 1 ? '' : 's'} to checklist`}
+                {pushingWishlist ? t.wishlist.pushing : t.wishlist.push(unpushed.length)}
               </button>
             </div>
             {pushResult && <div className="text-dim">{pushResult}</div>}
-            {pushError && <div className="sync-error">Couldn't push to Pawmodoro: {pushError}</div>}
+            {pushError && <div className="sync-error">{t.wishlist.pushFailed(pushError)}</div>}
           </>
         ) : (
-          <div className="text-dim">Log in to your Pawmodoro account (👤 button in the sidebar) to push wishlist cards to your checklist.</div>
+          <div className="text-dim">{t.wishlist.logIn}</div>
         )}
       </div>
 
       <div className="wishlist-groups">
         {wishlist.length === 0 && (
-          <div className="text-dim">No cards wishlisted yet — click the ☆ on any card in the browser to add it here.</div>
+          <div className="text-dim">{t.wishlist.empty}</div>
         )}
         {[...grouped.entries()].map(([gameId, entries]) => {
           const adapter = getAdapter(gameId)
@@ -153,13 +152,13 @@ export function WishlistPanel() {
                       )}
                     </div>
                     {entry.pushedTaskId && (
-                      <span className="wishlist-pushed" title="Already on your Pawmodoro checklist">
-                        ✓ in Pawmodoro
+                      <span className="wishlist-pushed" title={t.wishlist.inPawmodoroTitle}>
+                        {t.wishlist.inPawmodoro}
                       </span>
                     )}
                     {card?.price != null && <span className="text-dim">{formatPrice(card.price * entry.quantity)}</span>}
-                    <button className="btn" title="Move to your collection and take it off the wishlist" onClick={() => markGotIt(entry.id)}>
-                      ✓ Got it
+                    <button className="btn" title={t.wishlist.gotItTitle} onClick={() => markGotIt(entry.id)}>
+                      {t.wishlist.gotIt}
                     </button>
                     <div className="stepper">
                       <button className="btn stepper-btn" onClick={() => setWishlistQuantity(entry.id, entry.quantity - 1)}>
@@ -170,7 +169,7 @@ export function WishlistPanel() {
                         +
                       </button>
                     </div>
-                    <button className="deck-row-delete" title="Remove from wishlist" onClick={() => removeFromWishlist(entry.id)}>
+                    <button className="deck-row-delete" title={t.wishlist.remove} onClick={() => removeFromWishlist(entry.id)}>
                       ×
                     </button>
                   </div>

@@ -15,6 +15,7 @@ import { useUpdaterListener } from './state/updater'
 import { useDeckbuilderSyncListener } from './state/deckbuilderSync'
 import { currentDeckFor } from './shared/decks'
 import { UpdateBanner } from './components/UpdateBanner'
+import { t } from './shared/i18n'
 
 export default function App() {
   const initialize = useAppStore((s) => s.initialize)
@@ -34,6 +35,8 @@ export default function App() {
   const deckViewing = useAppStore((s) => s.deckViewing)
   const catalogs = useAppStore((s) => s.catalogs)
   const syncMeta = useAppStore((s) => s.syncMeta)
+  // Keying the screens on it re-mounts them on a language change, so every string (and memoized legality message) is redone.
+  const language = useAppStore((s) => s.language)
 
   const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist && !showTrade && !showBinders
   // On mobile (app.css), a side panel takes the whole screen instead of squeezing next to the
@@ -82,11 +85,11 @@ export default function App() {
   }, [currentGameId, syncMeta[currentGameId]?.count])
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" key={language}>
       {error && (
         <div className="error-banner" role="alert">
           <span>{error}</span>
-          <button className="deck-row-delete" title="Dismiss" onClick={() => setError(null)}>
+          <button className="deck-row-delete" title={t.common.dismiss} onClick={() => setError(null)}>
             ×
           </button>
         </div>
@@ -94,7 +97,7 @@ export default function App() {
       {notice && !error && (
         <div className="error-banner notice-banner" role="status">
           <span>{notice}</span>
-          <button className="deck-row-delete" title="Dismiss" onClick={() => setNotice(null)}>
+          <button className="deck-row-delete" title={t.common.dismiss} onClick={() => setNotice(null)}>
             ×
           </button>
         </div>
@@ -103,7 +106,7 @@ export default function App() {
       <button
         className="mobile-menu-btn"
         onClick={() => setMobileSidebarOpen((v) => !v)}
-        aria-label={mobileSidebarOpen ? 'Close menu' : 'Open menu'}
+        aria-label={mobileSidebarOpen ? t.app.closeMenu : t.app.openMenu}
         aria-expanded={mobileSidebarOpen}
       >
         {mobileSidebarOpen ? '✕' : '☰'}
@@ -129,8 +132,9 @@ export default function App() {
         ) : (
           <div className="welcome-screen">
             <p className="text-dim">
-              Pick or create a deck in the sidebar to start building —<br />
-              you can still browse and wishlist cards without one.
+              {t.app.welcome1}
+              <br />
+              {t.app.welcome2}
             </p>
           </div>
         )}

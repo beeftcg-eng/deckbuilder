@@ -16,16 +16,18 @@ import { PairingsSyncReminder } from './PairingsSyncReminder'
 import { DeckIcon } from './DeckIcon'
 import { currentDeckFor } from '../shared/decks'
 import { resolveDeckIcon } from '../shared/deckIcon'
-import { DECK_CARD_SORT_LABELS, sortDeckCards, type DeckCardSort } from '../shared/deckEdits'
+import { DECK_CARD_SORTS, sortDeckCards, type DeckCardSort } from '../shared/deckEdits'
 import type { Card, Deck, DeckZoneRule, Format } from '../shared/types'
+import { t, zoneLabel } from '../shared/i18n'
+import { formatDescription, formatLabel } from '../shared/formatText'
 
 /** What a zone's header says about its size, e.g. "/40", ", at least 60", ", up to 15". */
 function zoneCountHint(zone: DeckZoneRule): string {
   if (zone.exactCount != null) return `/${zone.exactCount}`
-  if (zone.allowedCounts) return `, needs ${zone.allowedCounts.join(' or ')}`
+  if (zone.allowedCounts) return t.deckEditor.needs(zone.allowedCounts.join(t.legality.or))
   if (zone.minCount != null && zone.maxCount != null) return `, ${zone.minCount}–${zone.maxCount}`
-  if (zone.minCount != null) return `, at least ${zone.minCount}`
-  if (zone.maxCount != null) return `, up to ${zone.maxCount}`
+  if (zone.minCount != null) return t.deckEditor.atLeast(zone.minCount)
+  if (zone.maxCount != null) return t.deckEditor.upTo(zone.maxCount)
   return ''
 }
 
@@ -35,7 +37,7 @@ export function DeckPanel() {
   if (!deck) {
     return (
       <div className="deck-panel empty-state">
-        <p>Select or create a deck to start building.</p>
+        <p>{t.deckEditor.selectDeck}</p>
       </div>
     )
   }
@@ -98,30 +100,30 @@ function DeckEditor({ deck }: { deck: Deck }) {
   function commitName() {
     const trimmed = nameDraft?.trim()
     setNameDraft(null)
-    if (trimmed && trimmed !== deck.name) updateDeck((d) => ({ ...d, name: trimmed }), 'Rename deck')
+    if (trimmed && trimmed !== deck.name) updateDeck((d) => ({ ...d, name: trimmed }), t.deckEditor.undoRename)
   }
 
   async function handleWishlistDeck() {
     const count = await addDeckToWishlist(deck)
-    flash(count > 0 ? `★ Added ${count} card${count === 1 ? '' : 's'} to your wishlist.` : 'This deck has no cards yet.')
+    flash(count > 0 ? t.deckEditor.wishlistedDeck(count) : t.deckView.empty)
   }
 
   async function handleWishlistMissing() {
     const count = await wishlistMissing(deck)
-    flash(count > 0 ? `★ Wishlisted ${count} missing card${count === 1 ? '' : 's'}.` : 'Nothing to add — you own or have wishlisted everything.')
+    flash(count > 0 ? t.deckEditor.wishlistedMissing(count) : t.deckEditor.nothingToWishlist)
   }
 
   async function handleMarkOwned() {
     if (markingOwned) return
     if (missingCopies === 0) {
-      flash('You already own every card in this deck.')
+      flash(t.deckEditor.ownAll)
       return
     }
-    if (!confirm(`Add the ${missingCopies} missing card${missingCopies === 1 ? '' : 's'} to your collection as owned?`)) return
+    if (!confirm(t.deckEditor.markOwnedConfirm(missingCopies))) return
     setMarkingOwned(true)
     try {
       const count = await markDeckOwned(deck)
-      flash(`✓ Marked ${count} card${count === 1 ? '' : 's'} as owned.`)
+      flash(t.deckEditor.markedOwned(count))
     } finally {
       setMarkingOwned(false)
     }
@@ -139,61 +141,62 @@ function DeckEditor({ deck }: { deck: Deck }) {
           onBlur={commitName}
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         />
-        <select value={deck.formatId} disabled={locked} onChange={(e) => updateDeck((d) => ({ ...d, formatId: e.target.value }), 'Change format')}>
+        <select value={deck.formatId} disabled={locked} onChange={(e) => updateDeck((d) => ({ ...d, formatId: e.target.value }), t.deckEditor.undoFormat)}>
           {gameFormats.map((f) => (
-            <option key={f.id} value={f.id} title={f.description}>
-              {f.label}
+            <option key={f.id} value={f.id} title={formatDescription(deck.gameId, f)}>
+              {formatLabel(deck.gameId, f)}
             </option>
           ))}
         </select>
         <DeckLockButton deck={deck} />
         <button className="btn btn-primary" onClick={() => setShowExport(true)}>
-          Export
+          {t.deckEditor.export}
         </button>
       </div>
 
-      {locked && <div className="lock-banner">🔒 This deck is locked, so it can’t be changed. Press “Locked” above to unlock it.</div>}
+      {locked && <div className="lock-banner">{t.deckEditor.lockedBanner}</div>}
       <PairingsSyncReminder deck={deck} />
 
       <div className="deck-actions">
-        <button className="btn" onClick={() => setDeckViewing(true)} title="See the finished deck: card images, a list, or plain text">
-          ⛶ View deck
+        <button className="btn" onClick={() => setDeckViewing(true)} title={t.deckEditor.viewTitle}>
+          {t.deckEditor.view}
         </button>
-        <button className="btn" onClick={handleWishlistDeck} title="Add every card in this deck to your wishlist">
-          ☆ Wishlist deck
+        <button className="btn" onClick={handleWishlistDeck} title={t.deckEditor.wishlistDeckTitle}>
+          {t.deckEditor.wishlistDeck}
         </button>
         <button
           className="btn"
           onClick={handleWishlistMissing}
           disabled={toWishlistCopies === 0}
-          title="Add only the cards you don't own and haven't already wishlisted"
+          title={t.deckEditor.wishlistMissingTitle}
         >
-          ☆ Wishlist missing{toWishlistCopies > 0 ? ` (${toWishlistCopies})` : ''}
+          {t.deckEditor.wishlistMissing}
+          {toWishlistCopies > 0 ? ` (${toWishlistCopies})` : ''}
         </button>
-        <button className="btn" onClick={handleMarkOwned} disabled={markingOwned} title="Mark every card in this deck as owned">
-          {markingOwned ? 'Marking…' : '✓ I own this deck'}
+        <button className="btn" onClick={handleMarkOwned} disabled={markingOwned} title={t.deckEditor.markOwnedTitle}>
+          {markingOwned ? t.deckEditor.marking : t.deckEditor.markOwned}
         </button>
-        <button className="btn" onClick={() => setShowSampleHand(true)} title="Shuffle the main deck and draw an opening hand">
-          Sample hand
+        <button className="btn" onClick={() => setShowSampleHand(true)} title={t.deckEditor.sampleHandTitle}>
+          {t.deckEditor.sampleHand}
         </button>
-        <button className="btn" onClick={() => duplicateDeck(deck.id)} title="Make an editable copy of this deck">
-          Duplicate
+        <button className="btn" onClick={() => duplicateDeck(deck.id)} title={t.deckEditor.duplicateTitle}>
+          {t.deckEditor.duplicate}
         </button>
         <select
           value=""
           disabled={locked}
-          title="Put the cards in order once (you can still drag them afterwards; Undo puts them back)"
+          title={t.deckEditor.sortTitle}
           onChange={(e) => {
             const sort = e.target.value as DeckCardSort
-            updateDeck((d) => sortDeckCards(d, sort, cardsById, adapter.typeOrder), `Sort by ${DECK_CARD_SORT_LABELS[sort].toLowerCase()}`)
+            updateDeck((d) => sortDeckCards(d, sort, cardsById, adapter.typeOrder), t.deckEditor.undoSort(t.deckEditor.sorts[sort]))
           }}
         >
           <option value="" disabled>
-            Sort cards…
+            {t.deckEditor.sortCards}
           </option>
-          {(Object.keys(DECK_CARD_SORT_LABELS) as DeckCardSort[]).map((sort) => (
+          {DECK_CARD_SORTS.map((sort) => (
             <option key={sort} value={sort}>
-              {DECK_CARD_SORT_LABELS[sort]}
+              {t.deckEditor.sorts[sort]}
             </option>
           ))}
         </select>
@@ -201,7 +204,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
 
       {message && <div className="text-dim">{message}</div>}
 
-      {format?.description && <div className="format-description text-dim">{format.description}</div>}
+      {format?.description && <div className="format-description text-dim">{formatDescription(deck.gameId, format)}</div>}
 
       {result && (
         <LegalityPanel
@@ -220,7 +223,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
             return (
               <div className="deck-zone" key={zone.id}>
                 <div className="deck-zone-header">
-                  {zone.label} ({total}
+                  {zoneLabel(zone.label)} ({total}
                   {zone.exactCount != null ? `/${zone.exactCount}` : ''})
                 </div>
                 <div className="rune-chips">
@@ -249,10 +252,10 @@ function DeckEditor({ deck }: { deck: Deck }) {
           return (
             <div className="deck-zone" key={zone.id}>
               <div className="deck-zone-header">
-                {zone.label} ({total}
+                {zoneLabel(zone.label)} ({total}
                 {zoneCountHint(zone)})
               </div>
-              {entries.length === 0 && <div className="text-dim deck-zone-empty">Empty</div>}
+              {entries.length === 0 && <div className="text-dim deck-zone-empty">{t.deckEditor.empty}</div>}
               <div className="deck-zone-entries">
                 {entries.map((entry) => {
                   const card = cardsById.get(entry.cardId)
@@ -269,7 +272,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
                       className={`deck-entry ${dragging ? 'dragging' : ''} ${dropHere ? `drop-${dropTarget.position}` : ''}`}
                       key={entry.cardId}
                       draggable={!locked}
-                      title={locked ? undefined : 'Drag to reorder'}
+                      title={locked ? undefined : t.deckEditor.dragToReorder}
                       onDragStart={(e) => {
                         setDragEntry({ zoneId: zone.id, cardId: entry.cardId })
                         if (e.dataTransfer) {
@@ -301,14 +304,14 @@ function DeckEditor({ deck }: { deck: Deck }) {
                       {card.imageUrlSmall && <img className="deck-entry-thumb" src={card.imageUrlSmall} alt="" loading="lazy" />}
                       <span className="deck-entry-name">{card.name}</span>
                       {tracking && owned < needed && (
-                        <span className="deck-entry-short" title={`You own ${owned} of the ${needed} this deck uses`}>
-                          own {owned}/{needed}
+                        <span className="deck-entry-short" title={t.deckEditor.ownShortTitle(owned, needed)}>
+                          {t.deckEditor.ownShort(owned, needed)}
                         </span>
                       )}
                       <button
                         className={`btn icon-btn ${iconCard?.id === card.id ? 'icon-btn-active' : ''}`}
                         disabled={locked}
-                        title={iconCard?.id === card.id && deck.iconCardId === card.id ? 'This is the deck icon (click to reset to the automatic one)' : 'Use this card as the deck icon'}
+                        title={iconCard?.id === card.id && deck.iconCardId === card.id ? t.deckEditor.isIcon : t.deckEditor.useAsIcon}
                         onClick={() => setDeckIcon(deck.iconCardId === card.id ? null : card.id)}
                       >
                         🖼
@@ -321,20 +324,20 @@ function DeckEditor({ deck }: { deck: Deck }) {
                             key={target.id}
                             className="btn move-btn"
                             disabled={locked || full}
-                            title={full ? `${target.label} already has this card` : `Move one copy to ${target.label}`}
+                            title={full ? t.deckEditor.alreadyHas(zoneLabel(target.label)) : t.deckEditor.moveOneTo(zoneLabel(target.label))}
                             onClick={() => moveCard(zone.id, target, card)}
                           >
-                            → {target.label}
+                            → {zoneLabel(target.label)}
                           </button>
                         )
                       })}
                       <button
                         className="btn move-btn"
                         disabled={locked}
-                        title={locked ? 'Unlock the deck to move cards out of it' : 'Move copies to a binder or another deck'}
+                        title={locked ? t.deckEditor.unlockToMove : t.deckEditor.moveOutTitle}
                         onClick={() => setMovingOut({ zoneId: zone.id, card, quantity: entry.quantity })}
                       >
-                        Move…
+                        {t.deckEditor.moveOut}
                       </button>
                       <div className="stepper">
                         <button className="btn stepper-btn" disabled={locked} onClick={() => setCardQuantity(zone.id, card, entry.quantity - 1)}>

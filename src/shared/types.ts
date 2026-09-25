@@ -236,6 +236,8 @@ export interface AppSettings {
   deckViewMode?: DeckViewMode
   /** Colour theme id (see shared/themes.ts). */
   theme?: string
+  /** UI language (see shared/i18n). Unset until picked: the first launch follows the system's language. */
+  language?: 'en' | 'es'
   /** Local copy of the last trade-profile visibility pushed to the cloud (see shared/types.ts TradeProfile). */
   tradeProfile?: TradeProfile
   /** Yu-Gi-Oh artwork picked per printing (artChoice.ts printingKey -> artwork id). */

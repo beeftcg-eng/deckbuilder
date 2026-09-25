@@ -1,3 +1,5 @@
+import { t } from './i18n'
+
 /** The app's colour themes. Each one is a value for every CSS variable in index.css, applied in one go (lib/theme.ts). */
 
 export interface ThemeColors {
@@ -62,6 +64,11 @@ export const THEMES: readonly Theme[] = [
 ]
 
 export const DEFAULT_THEME_ID = 'midnight'
+
+/** A theme's name in the current language. */
+export function themeLabel(theme: Theme): string {
+  return t.themes[theme.id] ?? theme.label
+}
 
 export function isThemeId(value: unknown): value is string {
   return typeof value === 'string' && THEMES.some((t) => t.id === value)
