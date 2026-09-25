@@ -38,7 +38,7 @@ export function PairingsRecordStrip({ deck }: { deck: Deck }) {
   else if (!summary)
     body = (
       <span className="text-dim">
-        No Pairings results for this deck yet. In Pairings, open Decks → Import from Brewhouse to link it, then log results with it.
+        No Pairings results for this deck yet. In Pairings, go to Stats → Manage your decks → Connect Brewhouse and import it, then log results with it (⚙ shows the steps).
       </span>
     )
   else

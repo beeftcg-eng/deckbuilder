@@ -3,6 +3,7 @@ import { useAppStore, useCardsById, useOrderedGames, useVisibleGames } from '../
 import { ImportDeckModal } from './ImportDeckModal'
 import { PatchNotesModal } from './PatchNotesModal'
 import { PawmodoroAccountModal } from './PawmodoroAccountModal'
+import { PairingsAccountModal } from './PairingsAccountModal'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
 import { THEMES, getTheme } from '../shared/themes'
 import { resolveDeckIcon } from '../shared/deckIcon'
@@ -79,6 +80,8 @@ export function Sidebar() {
   const [showImport, setShowImport] = useState(false)
   const [showPatchNotes, setShowPatchNotes] = useState(false)
   const [showAccount, setShowAccount] = useState(false)
+  const [showPairings, setShowPairings] = useState(false)
+  const pairingsConfig = useAppStore((s) => s.pairingsConfig)
   const pawmodoroConfig = useAppStore((s) => s.pawmodoroConfig)
   const loadPawmodoroConfig = useAppStore((s) => s.loadPawmodoroConfig)
 
@@ -162,6 +165,18 @@ export function Sidebar() {
         title={pawmodoroConfig.connected ? 'Manage your Pawmodoro account' : 'Log in to sync decks, collection and wishlist to your phone'}
       >
         {pawmodoroConfig.connected ? `👤 ${pawmodoroConfig.email}` : '👤 Log in'}
+      </button>
+
+      <button
+        className="wishlist-nav-btn"
+        onClick={() => setShowPairings(true)}
+        title={
+          pairingsConfig.connected
+            ? `Pairings connected as ${pairingsConfig.email}`
+            : 'Show your tournament results from Pairings on your decks: how to connect'
+        }
+      >
+        {pairingsConfig.connected ? '🏆 Pairings: connected' : '🏆 Connect Pairings'}
       </button>
 
       <button className={`wishlist-nav-btn ${showWishlist ? 'active' : ''}`} onClick={() => setShowWishlist(!showWishlist)}>
@@ -457,6 +472,7 @@ export function Sidebar() {
       {showImport && <ImportDeckModal gameId={currentGameId} onClose={() => setShowImport(false)} />}
       {showPatchNotes && <PatchNotesModal onClose={() => setShowPatchNotes(false)} />}
       {showAccount && <PawmodoroAccountModal onClose={() => setShowAccount(false)} />}
+      {showPairings && <PairingsAccountModal onClose={() => setShowPairings(false)} />}
     </aside>
   )
 }

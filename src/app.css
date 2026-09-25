@@ -873,6 +873,26 @@
   font-size: 13px;
 }
 
+.pr-steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pr-steps li {
+  line-height: 1.45;
+}
+
+.pr-steps li .pawmodoro-form {
+  margin-top: 8px;
+}
+
+.pr-steps li.done::marker {
+  color: var(--accent);
+}
+
 .pawmodoro-form {
   display: flex;
   flex-wrap: wrap;
