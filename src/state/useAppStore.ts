@@ -13,6 +13,7 @@ import type {
   Format,
   GameId,
   PairingsConfig,
+  PairingsLink,
   PairingsResult,
   PawmodoroConfig,
   SyncProgress,
@@ -30,7 +31,7 @@ import { currentDeckFor } from '../shared/decks'
 import { applyVisibleOrder, reorderByDrop, type DeckSortMode } from '../shared/deckOrder'
 import { orderGames } from '../shared/gameOrder'
 import { applyTheme } from '../lib/theme'
-import { withSummary } from '../shared/deckSummary'
+import { withListHash, withSummary } from '../shared/deckSummary'
 import { staleIdRepairs, storedCardIds } from '../shared/cardIdRepair'
 import { applyArtChoices, printingKey, withArtwork } from '../shared/artChoice'
 import { addToBinder, addToDeck, deckMoveProblem, takeFromBinder, takeFromDeck, zoneForCard, type MoveEnd } from '../shared/cardMoves'
@@ -208,6 +209,8 @@ interface AppState {
   pairingsConfig: PairingsConfig
   /** Results logged in Pairings, by Brewhouse deck id; null until fetched. */
   pairingsRecords: Record<string, PairingsResult[]> | null
+  /** Every deck linked in Pairings, by Brewhouse deck id: the card list it last synced (for the sync reminder). */
+  pairingsLinks: Record<string, PairingsLink> | null
   pairingsLoading: boolean
   pairingsError: string | null
   loadPairingsConfig: () => Promise<void>
@@ -261,7 +264,7 @@ export const useAppStore = create<AppState>((set, get) => {
   /** The deck with its readable summary refreshed, when its game's cards are loaded (see deckSummary.ts). */
   function summarized(deck: Deck): Deck {
     const catalog = get().catalogs[deck.gameId]
-    if (!catalog) return deck
+    if (!catalog) return withListHash(deck)
     const formats = get().formats[deck.gameId] ?? getAdapter(deck.gameId).defaultFormats
     return withSummary(deck, catalog.byId, formats.find((f) => f.id === deck.formatId)?.label ?? null)
   }
@@ -328,6 +331,7 @@ export const useAppStore = create<AppState>((set, get) => {
     pushingWishlist: false,
     pairingsConfig: { email: '', connected: false },
     pairingsRecords: null,
+    pairingsLinks: null,
     pairingsLoading: false,
     pairingsError: null,
     forTrade: new Set(),
@@ -871,13 +875,13 @@ export const useAppStore = create<AppState>((set, get) => {
 
     connectPairings: async (email, password) => {
       const pairingsConfig = await window.api.pairings.connect(email, password)
-      set({ pairingsConfig, pairingsRecords: null, pairingsError: null })
+      set({ pairingsConfig, pairingsRecords: null, pairingsLinks: null, pairingsError: null })
       await get().loadPairingsRecords()
     },
 
     disconnectPairings: async () => {
       const pairingsConfig = await window.api.pairings.disconnect()
-      set({ pairingsConfig, pairingsRecords: null, pairingsError: null })
+      set({ pairingsConfig, pairingsRecords: null, pairingsLinks: null, pairingsError: null })
     },
 
     loadPairingsRecords: async (options) => {
@@ -888,8 +892,12 @@ export const useAppStore = create<AppState>((set, get) => {
       try {
         const records = await window.api.pairings.deckRecords()
         const byDeck: Record<string, PairingsResult[]> = {}
-        for (const r of records) byDeck[r.brewhouseDeckId] = [...(byDeck[r.brewhouseDeckId] ?? []), ...r.results]
-        set({ pairingsRecords: byDeck })
+        const links: Record<string, PairingsLink> = {}
+        for (const r of records) {
+          if (r.results.length) byDeck[r.brewhouseDeckId] = [...(byDeck[r.brewhouseDeckId] ?? []), ...r.results]
+          links[r.brewhouseDeckId] = { syncedHash: r.syncedHash, version: r.version }
+        }
+        set({ pairingsRecords: byDeck, pairingsLinks: links })
       } catch (err) {
         set({ pairingsError: errorMessage(err) })
       } finally {

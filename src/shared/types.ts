@@ -146,6 +146,8 @@ export interface DeckSummary {
   colors: string[]
   cardCount: number
   formatLabel: string | null
+  /** Fingerprint of the card list (see deckListHash); Pairings starts a new deck version when it changes. */
+  listHash?: string
 }
 
 /**
@@ -265,12 +267,26 @@ export interface PairingsResult {
   record: string
   inProgress: boolean
   matches: { opponent: string; outcome: 'W' | 'L' | 'D' | '' }[]
+  /** Which version of the deck (in Pairings) it was logged with; null for results from before versions. */
+  deckVersion: number | null
 }
 
 /** Every Pairings result logged with the Pairings deck(s) linked to one Brewhouse deck. */
 export interface PairingsDeckRecord {
   brewhouseDeckId: string
   results: PairingsResult[]
+  /**
+   * The card-list fingerprint (DeckSummary.listHash) Pairings last synced for this deck, and its
+   * current version there. Null from a Pairings database that predates deck versions.
+   */
+  syncedHash: string | null
+  version: number | null
+}
+
+/** A deck linked in Pairings: what it last synced (see PairingsDeckRecord). */
+export interface PairingsLink {
+  syncedHash: string | null
+  version: number | null
 }
 
 /** Whether your collection/wants are visible to other connected accounts, and the name shown while browsing. */

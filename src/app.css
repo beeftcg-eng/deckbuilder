@@ -2141,6 +2141,30 @@
   text-align: left;
 }
 
+.pr-sync-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pr-sync-banner.inset {
+  margin: 8px 18px 0;
+}
+
+.pr-sync-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .pr-connect {
   font-size: 12px;
 }

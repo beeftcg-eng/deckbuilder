@@ -3,7 +3,7 @@ import { matchupsOf, parseDeckRecords, parseRecord, summarizeRecord } from './pa
 import type { PairingsResult } from './types'
 
 function result(overrides: Partial<PairingsResult>): PairingsResult {
-  return { event: 'Weekly', date: '2026-09-01', game: 'Riftbound', format: 'Constructed', store: '', placement: '', record: '', inProgress: false, matches: [], ...overrides }
+  return { event: 'Weekly', date: '2026-09-01', game: 'Riftbound', format: 'Constructed', store: '', placement: '', record: '', inProgress: false, matches: [], deckVersion: null, ...overrides }
 }
 
 describe('parseRecord', () => {
@@ -55,6 +55,22 @@ describe('parseDeckRecords', () => {
     expect(out[0].results[1]).toMatchObject({ event: '', record: '' })
     expect(parseDeckRecords(null)).toEqual([])
     expect(parseDeckRecords({ decks: 'x' })).toEqual([])
+  })
+  it('reads the synced list fingerprint, version and each result\'s deck version (null from an older Pairings)', () => {
+    const out = parseDeckRecords({
+      decks: [
+        { brewhouse_deck_id: 'bh1', synced_hash: 'abc123', version: 3, results: [{ record: '2-0', deck_version: 2 }, { record: '1-1', deck_version: null }] },
+        { brewhouse_deck_id: 'bh2', synced_hash: '', version: 'x', results: [] },
+        { brewhouse_deck_id: 'bh3', results: [{ record: '1-0', deck_version: -1 }] },
+      ],
+    })
+    expect(out.map((d) => [d.brewhouseDeckId, d.syncedHash, d.version])).toEqual([
+      ['bh1', 'abc123', 3],
+      ['bh2', null, null],
+      ['bh3', null, null],
+    ])
+    expect(out[0].results.map((r) => r.deckVersion)).toEqual([2, null])
+    expect(out[2].results[0].deckVersion).toBeNull()
   })
 })
 

@@ -105,8 +105,12 @@ export function parseDeckRecords(raw: unknown): PairingsDeckRecord[] {
     const id = str((d as { brewhouse_deck_id?: unknown })?.brewhouse_deck_id)
     if (!id) continue
     const results = (d as { results?: unknown }).results
+    const hash = (d as { synced_hash?: unknown }).synced_hash
+    const version = Number((d as { version?: unknown }).version)
     out.push({
       brewhouseDeckId: id,
+      syncedHash: typeof hash === 'string' && hash ? hash : null,
+      version: Number.isInteger(version) && version > 0 ? version : null,
       results: (Array.isArray(results) ? results : []).map((r) => ({
         event: str(r?.event),
         date: str(r?.date),
@@ -116,6 +120,7 @@ export function parseDeckRecords(raw: unknown): PairingsDeckRecord[] {
         placement: str(r?.placement),
         record: str(r?.record),
         inProgress: r?.in_progress === true,
+        deckVersion: Number.isInteger(r?.deck_version) && r.deck_version > 0 ? r.deck_version : null,
         matches: (Array.isArray(r?.matches) ? r.matches : []).map((m: { opponent?: unknown; outcome?: unknown }) => {
           const outcome = str(m?.outcome)
           return { opponent: str(m?.opponent), outcome: outcome === 'W' || outcome === 'L' || outcome === 'D' ? outcome : '' }

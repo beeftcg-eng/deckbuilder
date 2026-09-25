@@ -12,6 +12,7 @@ import { DeckStats } from './DeckStats'
 import { SampleHandModal } from './SampleHandModal'
 import { BanListEditor } from './BanListEditor'
 import { DeckLockButton } from './DeckLockButton'
+import { PairingsSyncReminder } from './PairingsSyncReminder'
 import { DeckIcon } from './DeckIcon'
 import { currentDeckFor } from '../shared/decks'
 import { resolveDeckIcon } from '../shared/deckIcon'
@@ -152,6 +153,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
       </div>
 
       {locked && <div className="lock-banner">🔒 This deck is locked, so it can’t be changed. Press “Locked” above to unlock it.</div>}
+      <PairingsSyncReminder deck={deck} />
 
       <div className="deck-actions">
         <button className="btn" onClick={() => setDeckViewing(true)} title="See the finished deck: card images, a list, or plain text">

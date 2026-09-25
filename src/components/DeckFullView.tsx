@@ -11,6 +11,7 @@ import { CardDetailModal } from './CardDetailModal'
 import { DeckLockButton } from './DeckLockButton'
 import { ExportModal } from './ExportModal'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
+import { PairingsSyncReminder } from './PairingsSyncReminder'
 
 interface Props {
   deck: Deck
@@ -217,6 +218,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
       </div>
 
       <PairingsRecordStrip deck={deck} />
+      <PairingsSyncReminder deck={deck} inset />
 
       <div className="fv-body">
         {sections.length === 0 ? (
