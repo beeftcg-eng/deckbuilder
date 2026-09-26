@@ -42,6 +42,12 @@ export interface GameAdapter {
   /** Renders a deck as a plain-text decklist in this game's conventional format. */
   formatDecklistText: (deck: Deck, cardsById: Map<string, Card>) => string
   /**
+   * Export only the decklist, without the deck name / game / date lines on top: for games whose
+   * lists get pasted straight into strict importers (Riftbound's event locator) that would read
+   * those lines as cards.
+   */
+  plainExportText?: boolean
+  /**
    * Card categories to hide from the default "All types" browser view (e.g. Legend, Rune) —
    * they have their own zone/step and just clutter Main Deck browsing. Still reachable by
    * explicitly picking that category from the type dropdown.

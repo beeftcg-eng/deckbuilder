@@ -3,6 +3,7 @@ import type { GameAdapter } from './games/types'
 import { getAdapter } from './games/registry'
 
 export function buildExportText(deck: Deck, adapter: GameAdapter, formatLabel: string, cardsById: Map<string, Card>): string {
+  if (adapter.plainExportText) return adapter.formatDecklistText(deck, cardsById) + '\n'
   const header = [`${deck.name}`, `${adapter.name} — ${formatLabel}`, `Exported ${new Date().toLocaleString()}`, '']
   return header.join('\n') + '\n' + adapter.formatDecklistText(deck, cardsById)
 }

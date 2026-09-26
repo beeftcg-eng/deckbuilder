@@ -125,51 +125,75 @@ const defaultFormats: Format[] = [
   },
 ]
 
-function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
-  const lines: string[] = []
+// The name Riot's event locator and Piltover Archive look cards up by. riftcodex writes most
+// Legend/Champion titles with a dash ("Ahri - Alluring") where they use a comma ("Ahri, Alluring"),
+// and names each special printing with a suffix ("(Alternate Art)", "(Overnumbered)", "(Signature)")
+// that isn't part of the card's name at all - either one makes the other sites reject the line.
+export function riftboundDecklistName(card: Card): string {
+  return card.name.replace(/\s*\([^)]*\)\s*$/, '').replace(' - ', ', ')
+}
 
+function baseChampionName(name: string): string {
+  return name.split(/, | - /)[0].trim().toLowerCase()
+}
+
+/**
+ * The Champion the export names as the deck's chosen Champion. This app has no separate pick for
+ * it (it's just a Champion unit in the Main Deck), but the event locator and Piltover Archive need
+ * one listed under its own "Champion:" heading: the one matching the Legend if there is one, else
+ * the first Champion in the Main Deck.
+ */
+function chosenChampionId(deck: Deck, cardsById: Map<string, Card>, legendCard: Card | undefined): string | null {
+  const champions = (deck.zones.main ?? []).map((e) => cardsById.get(e.cardId)).filter((c): c is Card => !!c && c.subtypes.includes('Champion'))
+  if (champions.length === 0) return null
+  const legendBase = legendCard ? baseChampionName(legendCard.name) : null
+  return (champions.find((c) => baseChampionName(c.name) === legendBase) ?? champions[0]).id
+}
+
+/**
+ * "Legend: / Champion: / MainDeck: / Battlefields: / Runes: / Sideboard:" with "3 Name" lines -
+ * Piltover Archive's own text export, which is what Riot's event locator (and Piltover Archive's
+ * import) read. Headings must be plain words (no "(39/40)" counts), lines must be bare card names
+ * (no set codes), and runes are the rune cards' names ("6 Order Rune"). The chosen Champion is
+ * listed once under Champion and left out of MainDeck, which is why MainDeck holds 39.
+ */
+function formatDecklistText(deck: Deck, cardsById: Map<string, Card>): string {
   const legendEntry = (deck.zones.legend ?? [])[0]
   const legendCard = legendEntry ? cardsById.get(legendEntry.cardId) : undefined
-  lines.push(`Legend: ${legendCard ? `${legendCard.sourceId} ${legendCard.name}` : '(none selected)'}`)
-  lines.push('')
+  const championId = chosenChampionId(deck, cardsById, legendCard)
 
-  const mainEntries = deck.zones.main ?? []
-  const mainTotal = mainEntries.reduce((sum, e) => sum + e.quantity, 0)
-  lines.push(`Main Deck (${mainTotal}/40):`)
-  for (const entry of mainEntries) {
-    const card = cardsById.get(entry.cardId)
-    if (!card) continue
-    lines.push(`${entry.quantity}x ${card.sourceId} ${card.name}`)
-  }
-  lines.push('')
-
-  const runes = deck.freeTextZones.runes ?? []
-  const runeTotal = runes.reduce((sum, e) => sum + e.quantity, 0)
-  lines.push(`Runes (${runeTotal}/12):`)
-  for (const r of runes) lines.push(`${r.quantity}x ${r.label}`)
-  lines.push('')
-
-  const battlefields = deck.zones.battlefields ?? []
-  lines.push(`Battlefields (${battlefields.length}/3):`)
-  for (const entry of battlefields) {
-    const card = cardsById.get(entry.cardId)
-    if (!card) continue
-    lines.push(`1x ${card.sourceId} ${card.name}`)
-  }
-
-  const sideboard = deck.zones.sideboard ?? []
-  if (sideboard.length > 0) {
-    lines.push('')
-    const sideTotal = sideboard.reduce((sum, e) => sum + e.quantity, 0)
-    lines.push(`Sideboard (${sideTotal}/10):`)
-    for (const entry of sideboard) {
+  // A decklist names cards, not printings: an alt-art and a regular copy are one "3 <name>" line.
+  const linesFor = (zoneId: string, skipOneOf: string | null = null): string[] => {
+    const byName = new Map<string, number>()
+    let skipped = false
+    for (const entry of deck.zones[zoneId] ?? []) {
       const card = cardsById.get(entry.cardId)
       if (!card) continue
-      lines.push(`${entry.quantity}x ${card.sourceId} ${card.name}`)
+      let quantity = entry.quantity
+      if (!skipped && card.id === skipOneOf) {
+        quantity -= 1
+        skipped = true
+      }
+      if (quantity <= 0) continue
+      const name = riftboundDecklistName(card)
+      byName.set(name, (byName.get(name) ?? 0) + quantity)
     }
+    return [...byName].map(([name, quantity]) => `${quantity} ${name}`)
   }
 
-  return lines.join('\n')
+  const championCard = championId ? cardsById.get(championId) : undefined
+  const sections: [heading: string, lines: string[]][] = [
+    ['Legend', legendCard ? [`1 ${riftboundDecklistName(legendCard)}`] : []],
+    ['Champion', championCard ? [`1 ${riftboundDecklistName(championCard)}`] : []],
+    ['MainDeck', linesFor('main', championId)],
+    ['Battlefields', linesFor('battlefields')],
+    ['Runes', (deck.freeTextZones.runes ?? []).filter((r) => r.quantity > 0).map((r) => `${r.quantity} ${r.label} Rune`)],
+    ['Sideboard', linesFor('sideboard')],
+  ]
+  return sections
+    .filter(([, lines]) => lines.length > 0)
+    .map(([heading, lines]) => [`${heading}:`, ...lines].join('\n'))
+    .join('\n\n')
 }
 
 function getGuidedStage(deck: Deck, cardsById: Map<string, Card>): GuidedStage | null {
@@ -215,6 +239,7 @@ export const riftboundAdapter: GameAdapter = {
   openingHandSize: 4,
   fetchAllCards,
   formatDecklistText,
+  plainExportText: true,
   getGuidedStage,
   mainDeckExcludedCategories: ['Legend', 'Rune'],
 }
