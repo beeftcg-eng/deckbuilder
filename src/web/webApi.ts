@@ -596,9 +596,36 @@ const exportSaveImage = async (dataUrl: string, suggestedName: string): Promise<
   return downloadBlob(await res.blob(), suggestedName)
 }
 
+/**
+ * Image hosts that don't send CORS headers (Riftbound's cmsassets.rgpub.io, One Piece's optcgapi.com,
+ * YGOPRODeck) can be shown in an <img> but not read by a web page, so an exported deck/wishlist picture
+ * came out with no cards on the phone. Those go through wsrv.nl, a free image proxy that adds
+ * `Access-Control-Allow-Origin: *`. Hosts that already allow it (Pokémon, Scryfall) are fetched directly.
+ * The desktop app fetches from its main process instead and never needs this.
+ */
+const noCorsHosts = new Set<string>()
+
+function imageProxyUrl(url: string): string {
+  return `https://wsrv.nl/?url=${encodeURIComponent(url)}`
+}
+
+async function fetchImage(url: string): Promise<Response> {
+  const host = new URL(url).hostname
+  if (!noCorsHosts.has(host)) {
+    try {
+      const res = await fetch(url)
+      if (res.ok) return res
+    } catch {
+      // A CORS refusal shows up as a network error; retried through the proxy below.
+    }
+    noCorsHosts.add(host)
+  }
+  return fetch(imageProxyUrl(url))
+}
+
 const images = {
   fetchDataUri: async (url: string): Promise<string> => {
-    const res = await fetch(url)
+    const res = await fetchImage(url)
     if (!res.ok) throw new Error(`Image fetch failed (${res.status}): ${url}`)
     const blob = await res.blob()
     return new Promise((resolve, reject) => {
