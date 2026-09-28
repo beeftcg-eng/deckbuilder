@@ -48,6 +48,10 @@ export function CardBrowser() {
   const [colors, setColors] = useState<Set<string>>(new Set())
   const [ownedOnly, setOwnedOnly] = useState(false)
   const [showAllDuringStage, setShowAllDuringStage] = useState(false)
+  // Phone only (app.css): the filter rows fold away behind a Filters button so the cards start near the top.
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const syncProgress = useAppStore((s) => s.syncProgress[currentGameId])
+  const syncing = syncProgress != null && !syncProgress.done
   const [detailCard, setDetailCard] = useState<Card | null>(null)
 
   const deck = currentDeckFor(decks, currentDeckId, currentGameId)
@@ -187,15 +191,19 @@ export function CardBrowser() {
     return (
       <div className="card-browser empty-state" data-tour="browser">
         <p>{t.browser.noData(adapter.shortName)}</p>
-        <p className="text-dim">{t.browser.noDataHelp}</p>
+        <p className="text-dim desktop-only">{t.browser.noDataHelp}</p>
+        <button className="btn btn-primary mobile-only" disabled={syncing} onClick={() => useAppStore.getState().syncCatalog(currentGameId)}>
+          {syncing ? t.sidebar.syncing(syncProgress?.loaded ?? 0, syncProgress?.total ?? '?') : t.sidebar.syncCardData}
+        </button>
       </div>
     )
   }
 
   const visible = results.slice(0, visibleCount)
+  const activeFilterCount = types.size + kinds.size + colors.size + (setId !== 'all' ? 1 : 0) + (rarity !== 'all' ? 1 : 0) + (ownedOnly ? 1 : 0)
 
   return (
-    <div className="card-browser" data-tour="browser">
+    <div className={`card-browser ${mobileFiltersOpen ? '' : 'mobile-filters-closed'}`} data-tour="browser">
       <div className="card-browser-controls">
         <input
           className="search-input"
@@ -203,11 +211,18 @@ export function CardBrowser() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <label className="owned-only" title={Object.keys(collection).length === 0 ? t.browser.ownedNone : t.browser.ownedTitle}>
+        <button
+          className={`btn mobile-only mobile-filter-toggle ${activeFilterCount > 0 ? 'has-filters' : ''}`}
+          aria-expanded={mobileFiltersOpen}
+          onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+        >
+          {activeFilterCount > 0 ? t.mobile.filtersActive(activeFilterCount) : t.mobile.filters} {mobileFiltersOpen ? '▴' : '▾'}
+        </button>
+        <label className="owned-only mobile-filter" title={Object.keys(collection).length === 0 ? t.browser.ownedNone : t.browser.ownedTitle}>
           <input type="checkbox" checked={ownedOnly} disabled={Object.keys(collection).length === 0} onChange={(e) => setOwnedOnly(e.target.checked)} />
           {t.browser.owned}
         </label>
-        <select value={setId} onChange={(e) => setSetId(e.target.value)}>
+        <select className="mobile-filter" value={setId} onChange={(e) => setSetId(e.target.value)}>
           <option value="all">{t.browser.allSets}</option>
           {sets.map(([id, name]) => (
             <option key={id} value={id}>
@@ -216,7 +231,7 @@ export function CardBrowser() {
           ))}
         </select>
         {rarities.length > 0 && (
-          <select value={rarity} onChange={(e) => setRarity(e.target.value)}>
+          <select className="mobile-filter" value={rarity} onChange={(e) => setRarity(e.target.value)}>
             <option value="all">{t.browser.allRarities}</option>
             {rarities.map((r) => (
               <option key={r} value={r}>
@@ -244,7 +259,7 @@ export function CardBrowser() {
       )}
 
       {!stageFilter && typeChips.length > 1 && (
-        <div className="color-filter-row" role="group" aria-label={t.browser.cardType}>
+        <div className="color-filter-row mobile-filter" role="group" aria-label={t.browser.cardType}>
           <span className="filter-row-label text-dim">{t.browser.type}</span>
           {typeChips.map((type) => (
             <button key={type} className={`color-chip ${types.has(type) ? 'active' : ''}`} aria-pressed={types.has(type)} onClick={() => setTypes(toggled(types, type))}>
@@ -259,7 +274,7 @@ export function CardBrowser() {
         </div>
       )}
       {kindChips.length > 0 && (
-        <div className="color-filter-row" role="group" aria-label={t.browser.kind}>
+        <div className="color-filter-row mobile-filter" role="group" aria-label={t.browser.kind}>
           <span className="filter-row-label text-dim">{t.browser.kind}</span>
           {kindChips.map((k) => (
             <button key={k} className={`color-chip ${kinds.has(k) ? 'active' : ''}`} aria-pressed={kinds.has(k)} onClick={() => setKinds(toggled(kinds, k))}>
@@ -275,7 +290,7 @@ export function CardBrowser() {
       )}
 
       {allColors.length > 0 && (
-        <div className="color-filter-row">
+        <div className="color-filter-row mobile-filter">
           {allColors.map((color) => (
             <button
               key={color}

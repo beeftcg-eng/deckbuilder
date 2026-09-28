@@ -1946,7 +1946,9 @@
   display: contents;
 }
 
-.mobile-menu-btn {
+.mobile-topbar,
+.mobile-tabbar,
+.mobile-only {
   display: none;
 }
 
@@ -1972,21 +1974,126 @@
     overflow-x: hidden;
   }
 
-  .mobile-menu-btn {
+  /* The phone app's chrome (MobileNav.tsx): a top bar with the game picker and undo, and a
+     bottom tab bar. Both sit below the drawer/backdrop (z 40-50) so an open drawer covers them,
+     and tapping the backdrop over the tab bar closes it. They replace the old floating ☰ button,
+     which needed a 56px left gutter on every screen to not cover content. */
+  body {
+    --mobile-top: calc(52px + env(safe-area-inset-top));
+    --mobile-bottom: calc(60px + env(safe-area-inset-bottom));
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: revert;
+  }
+
+  .mobile-topbar {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 10px;
     position: fixed;
-    top: 10px;
-    left: 10px;
-    width: 40px;
-    height: 40px;
-    z-index: 60;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 35;
+    height: var(--mobile-top);
+    padding: env(safe-area-inset-top) 12px 0;
     background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-strong);
+  }
+
+  .mobile-brand {
+    font-weight: 700;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  .mobile-game-select {
+    min-width: 0;
+    max-width: 50%;
+    height: 36px;
+    font-size: 15px;
+    font-weight: 600;
+    background: var(--bg-elevated-2);
+    border-radius: 999px;
+    padding: 0 12px;
+  }
+
+  .mobile-undo {
+    margin-left: auto;
+    height: 36px;
+    padding: 0 12px;
+    background: var(--bg-elevated-2);
     border: 1px solid var(--border-strong);
-    border-radius: var(--radius);
+    border-radius: 999px;
     color: var(--text);
-    font-size: 18px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .mobile-tabbar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 35;
+    height: var(--mobile-bottom);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--border-strong);
+  }
+
+  .mobile-tabbar button {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 2px;
+  }
+
+  .mobile-tabbar button.active {
+    color: var(--accent);
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+
+  .mobile-tab-icon {
+    position: relative;
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .mobile-tab-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-tab-badge {
+    position: absolute;
+    top: -6px;
+    left: 14px;
+    min-width: 18px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
   }
 
   .mobile-sidebar-backdrop {
@@ -2020,7 +2127,107 @@
   .sidebar {
     width: 100%;
     height: 100%;
-    padding-top: 56px; /* clears the fixed menu button, which stays visible while the drawer is open */
+    padding-top: calc(16px + env(safe-area-inset-top));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    gap: 12px;
+  }
+
+  /* In the drawer, what you reach for most (game, your decks) comes first and the settings last,
+     instead of theme and language at the top and the deck list several screens down. Wishlist
+     and My Decks are tabs in the bottom bar, so their duplicate drawer buttons go. */
+  .sidebar > .sidebar-title { order: 0; }
+  .sidebar > .game-tabs { order: 1; }
+  .sidebar > .game-manage-toggle { order: 2; }
+  .sidebar > .game-manage { order: 3; }
+  .sidebar > .deck-list-header { order: 4; }
+  .sidebar > .undo-btn { order: 5; }
+  .sidebar > .deck-list-tools { order: 6; }
+  .sidebar > .deck-list { order: 7; }
+  .sidebar > .wishlist-nav-btn { order: 8; }
+  .sidebar > .sync-box { order: 9; }
+  .sidebar > .theme-row { order: 10; }
+  .sidebar > .backup-box { order: 11; }
+  .sidebar > .version-box { order: 12; }
+  .sidebar > .wishlist-nav-btn[data-nav='wishlist'],
+  .sidebar > .wishlist-nav-btn[data-nav='myDecks'] {
+    display: none;
+  }
+
+  /* Five games side by side as chips instead of a tall stacked list. */
+  .sidebar > .game-tabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .sidebar > .game-tabs .game-tab {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 8px 14px;
+    border-radius: 999px;
+  }
+
+  .sidebar .wishlist-nav-btn,
+  .sidebar .deck-row {
+    min-height: 44px;
+  }
+
+  .sidebar .deck-list {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  /* Undo lives in the top bar on the phone. */
+  .sidebar > .undo-btn {
+    display: none;
+  }
+
+  /* Deck view (DeckFullView): the header's button row wraps instead of pushing Edit deck off the
+     right edge, and Edit deck comes first, full width. */
+  .fv-header {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .fv-actions,
+  .fv-modes {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .fv-actions .btn,
+  .fv-modes .btn {
+    flex: 1 1 auto;
+  }
+
+  .fv-actions .btn-primary {
+    order: -1;
+    flex-basis: 100%;
+  }
+
+  .fv-body {
+    padding: 8px 12px 24px;
+  }
+
+  /* Deck editor rows: the card name gets its own line, the buttons go on the line under it. */
+  .deck-entry {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 8px;
+  }
+
+  .deck-entry-name {
+    flex: 1 1 calc(100% - 60px);
+    font-size: 14px;
+  }
+
+  .deck-entry .stepper {
+    margin-left: auto;
+  }
+
+  .move-btn {
+    font-size: 13px;
   }
 
   /* The card browser and whichever panel sits next to it (deck editor, collection, wishlist,
@@ -2037,6 +2244,8 @@
   .app-shell {
     height: auto;
     min-height: 100vh;
+    padding-top: var(--mobile-top);
+    padding-bottom: var(--mobile-bottom);
     /* Backstop, not the fix: something overflowing the viewport width (the search/filter row
        below is one real example that did) would otherwise drag the *entire page* into
        horizontal scroll - images, sidebar drawer, everything - since nothing above .app-shell
@@ -2059,8 +2268,15 @@
     flex: none;
     overflow: visible;
     border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: 12px 12px 12px 56px; /* left space for the fixed menu button */
+    border-bottom: none;
+    padding: 12px;
+  }
+
+  /* Cards and Deck are separate tabs while editing (MobileView in MobileNav.tsx), not one page
+     with the deck buried under every loaded card. */
+  .mobile-view-cards > :not(.card-browser),
+  .mobile-view-deck > .card-browser {
+    display: none;
   }
 
   /* A search box + two <select>s + a checkbox in one non-wrapping row is wider than a phone
@@ -2071,9 +2287,72 @@
     flex-wrap: wrap;
   }
 
+  /* Search + Filters button share the first line; the filters (when open) wrap onto the lines below. */
   .search-input {
-    flex: 1 1 100%;
+    flex: 1 1 calc(100% - 150px);
     min-width: 0;
+    height: 42px;
+    font-size: 16px; /* under 16px, iOS Safari zooms the whole page in when the field is focused */
+  }
+
+  .mobile-filter-toggle {
+    height: 42px;
+    white-space: nowrap;
+  }
+
+  .mobile-filter-toggle.has-filters {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .mobile-filters-closed .mobile-filter {
+    display: none;
+  }
+
+  .card-browser-controls {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .card-browser-controls .owned-only {
+    flex: 0 0 auto;
+    min-height: 40px;
+  }
+
+  .card-browser-controls select {
+    flex: 1 1 40%;
+    max-width: none;
+    height: 40px;
+  }
+
+  .color-filter-row {
+    gap: 8px;
+  }
+
+  .color-chip {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .btn {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+
+  .stepper-btn,
+  .stepper-mini {
+    width: 36px;
+    height: 36px;
+    min-height: 0;
+    padding: 0;
+    font-size: 18px;
   }
 
   .card-grid {
@@ -2109,13 +2388,49 @@
     /* The menu button is 40px wide starting at left:10px (see .mobile-menu-btn), so it actually
        spans to x:50 - 44px of clearance still let it overlap a title's first letter or two.
        56px matches the gap .card-browser already uses above. */
-    padding-left: 56px;
+    padding: 12px;
+  }
+
+  .welcome-screen {
+    padding: 24px 16px;
+  }
+
+  .mobile-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    max-width: 320px;
+    margin: 0 auto;
+  }
+
+  .empty-state {
+    padding: 32px 16px;
+  }
+
+  .empty-state .btn {
+    margin-top: 8px;
+  }
+
+  /* Banners that sit at the screen's edges move clear of the top and bottom bars. */
+  .error-banner {
+    bottom: calc(var(--mobile-bottom) + 10px);
+    max-width: calc(100vw - 24px);
+  }
+
+  .update-banner {
+    top: calc(var(--mobile-top) + 8px);
+    max-width: calc(100vw - 24px);
   }
 
   /* Fixed 230px tiles (sized for a desktop card-browser pane) only fit one per row on a phone -
      let them flex down to about half the screen width instead, so two fit per row. */
   .card-tile {
-    flex: 1 1 140px;
+    flex: 1 1 150px;
+  }
+
+  .card-grid {
+    gap: 12px;
   }
 
   /* Above the drawer/backdrop/menu button (z-index 40-60) - a modal opened from inside the

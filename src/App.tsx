@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './app.css'
 import { Sidebar } from './components/Sidebar'
 import { CardBrowser } from './components/CardBrowser'
@@ -16,6 +16,7 @@ import { useDeckbuilderSyncListener } from './state/deckbuilderSync'
 import { currentDeckFor } from './shared/decks'
 import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeTour } from './components/WelcomeTour'
+import { MobileNav, type MobileView } from './components/MobileNav'
 import { t } from './shared/i18n'
 
 export default function App() {
@@ -50,6 +51,12 @@ export default function App() {
   // desktop regardless of this. Any navigation inside the sidebar (picking a game/deck, opening
   // a panel) closes it so the tap that navigated also gets you to the content.
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  // Phone only: with a deck open for editing, the card browser and the deck are two screens
+  // (the Cards and Deck tabs) instead of the deck sitting below every loaded card. Desktop shows
+  // both side by side whatever this says - the classes it sets only do anything in app.css's
+  // mobile media query.
+  const [mobileView, setMobileView] = useState<MobileView>('cards')
+  const cardsScrollY = useRef(0)
 
   useSyncProgressListener()
   useUpdaterListener()
@@ -77,6 +84,24 @@ export default function App() {
   useEffect(() => {
     setMobileSidebarOpen(false)
   }, [currentGameId, currentDeckId, showMyDecks, showCollection, showWishlist, showTrade, showBinders])
+
+  // Opening or viewing a deck (sidebar, My Decks, a new deck) lands on the Deck tab.
+  useEffect(() => {
+    if (currentDeckId) changeMobileView('deck')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDeckId])
+  useEffect(() => {
+    if (viewingDeck) changeMobileView('deck')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingDeck])
+
+  // The phone page scrolls as a whole, so switching tabs keeps the card list's place and starts
+  // everything else at the top.
+  function changeMobileView(next: MobileView) {
+    if (mobileView === 'cards' && next !== 'cards') cardsScrollY.current = window.scrollY
+    setMobileView(next)
+    requestAnimationFrame(() => window.scrollTo(0, next === 'cards' ? cardsScrollY.current : 0))
+  }
 
   useEffect(() => {
     const meta = syncMeta[currentGameId]
@@ -106,19 +131,17 @@ export default function App() {
       )}
       <UpdateBanner />
       {showTour && <WelcomeTour />}
-      <button
-        className="mobile-menu-btn"
-        onClick={() => setMobileSidebarOpen((v) => !v)}
-        aria-label={mobileSidebarOpen ? t.app.closeMenu : t.app.openMenu}
-        aria-expanded={mobileSidebarOpen}
-      >
-        {mobileSidebarOpen ? '✕' : '☰'}
-      </button>
+      <MobileNav
+        view={mobileView}
+        onViewChange={changeMobileView}
+        menuOpen={mobileSidebarOpen}
+        onMenuToggle={() => setMobileSidebarOpen((v) => !v)}
+      />
       {mobileSidebarOpen && <div className="mobile-sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)} />}
       <div className={`sidebar-wrap ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
         <Sidebar />
       </div>
-      <main className={`app-main ${viewingDeck ? 'app-main-viewing' : ''} ${hasSidePanel ? 'app-main-has-panel' : ''}`}>
+      <main className={`app-main ${viewingDeck ? 'app-main-viewing' : ''} ${hasSidePanel ? 'app-main-has-panel' : `mobile-view-${mobileView}`}`}>
         <CardBrowser />
         {showMyDecks ? (
           <MyDecksPanel />
@@ -134,11 +157,20 @@ export default function App() {
           deckViewing ? <DeckViewPage /> : <DeckPanel />
         ) : (
           <div className="welcome-screen">
-            <p className="text-dim">
+            <p className="text-dim desktop-only">
               {t.app.welcome1}
               <br />
               {t.app.welcome2}
             </p>
+            <div className="mobile-only mobile-welcome">
+              <p className="text-dim">{t.mobile.welcome}</p>
+              <button className="btn btn-primary" onClick={() => useAppStore.getState().createDeck(currentGameId)}>
+                {t.mobile.newDeck}
+              </button>
+              <button className="btn" onClick={() => useAppStore.getState().setShowMyDecks(true)}>
+                {t.mobile.myDecks}
+              </button>
+            </div>
           </div>
         )}
       </main>

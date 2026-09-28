@@ -189,12 +189,12 @@ export function Sidebar() {
         {pairingsConfig.connected ? t.sidebar.pairingsConnected : t.sidebar.connectPairings}
       </button>
 
-      <button data-tour="nav" className={`wishlist-nav-btn ${showWishlist ? 'active' : ''}`} onClick={() => setShowWishlist(!showWishlist)}>
+      <button data-tour="nav" data-nav="wishlist" className={`wishlist-nav-btn ${showWishlist ? 'active' : ''}`} onClick={() => setShowWishlist(!showWishlist)}>
         {t.sidebar.wishlist}
         {wishlist.length > 0 ? ` (${wishlist.reduce((n, e) => n + e.quantity, 0)})` : ''}
       </button>
 
-      <button data-tour="nav" className={`wishlist-nav-btn ${showMyDecks ? 'active' : ''}`} onClick={() => setShowMyDecks(!showMyDecks)}>
+      <button data-tour="nav" data-nav="myDecks" className={`wishlist-nav-btn ${showMyDecks ? 'active' : ''}`} onClick={() => setShowMyDecks(!showMyDecks)}>
         {t.sidebar.myDecks}
         {decks.length > 0 ? ` (${decks.length})` : ''}
       </button>

@@ -34,6 +34,22 @@ export const en = {
     welcome2: 'you can still browse and wishlist cards without one.',
   },
 
+  /** Phone app only: the top bar, bottom tab bar and card-browser filter toggle (MobileNav.tsx). */
+  mobile: {
+    navigation: 'Main navigation',
+    game: 'Game',
+    undo: 'Undo',
+    cards: 'Cards',
+    deck: 'Deck',
+    myDecks: 'My Decks',
+    wishlist: 'Wishlist',
+    more: 'More',
+    filters: 'Filters',
+    filtersActive: (n: number) => `Filters (${n})`,
+    newDeck: '+ New deck',
+    welcome: 'No deck open yet. Start a new one, or pick one from My Decks.',
+  },
+
   sidebar: {
     neverSynced: 'never synced',
     justNow: 'just now',

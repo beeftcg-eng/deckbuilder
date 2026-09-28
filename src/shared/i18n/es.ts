@@ -34,6 +34,21 @@ export const es: Messages = {
     welcome2: 'también puedes explorar cartas y añadirlas a tu lista de deseos sin uno.',
   },
 
+  mobile: {
+    navigation: 'Navegación principal',
+    game: 'Juego',
+    undo: 'Deshacer',
+    cards: 'Cartas',
+    deck: 'Mazo',
+    myDecks: 'Mis mazos',
+    wishlist: 'Deseos',
+    more: 'Más',
+    filters: 'Filtros',
+    filtersActive: (n) => `Filtros (${n})`,
+    newDeck: '+ Nuevo mazo',
+    welcome: 'Todavía no hay un mazo abierto. Crea uno nuevo o elige uno en Mis mazos.',
+  },
+
   sidebar: {
     neverSynced: 'nunca sincronizado',
     justNow: 'justo ahora',
