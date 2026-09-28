@@ -92,6 +92,7 @@ export const es: Messages = {
     deleteDeck: 'Borrar mazo (Ctrl+Z lo deshace)',
     deleteConfirm: (name) => `¿Borrar "${name}"?`,
     backupTitle: 'Copia de seguridad de mazos, lista de deseos y colección',
+    backupsToggle: '💾 Copias de seguridad',
     backup: 'Copia de seguridad…',
     restore: 'Restaurar…',
     autoBackupsTitle: 'Las instantáneas se toman automáticamente al abrir la app y antes de cada cambio',
@@ -788,7 +789,7 @@ export const es: Messages = {
       'Registra tus eventos en **Pairings**, el registro de torneos, y conéctalo aquí: cada mazo muestra su historial, y **📊 Estadísticas** en la vista del mazo muestra su porcentaje de victorias, enfrentamientos, cómo le va yendo primero o segundo y cada versión.',
     settingsTitle: 'Hazla tuya',
     settingsBody:
-      'Elige un tema de colores y tu idioma. Abajo del todo en la barra lateral, **Copia de seguridad…** guarda todo en un archivo (además se guardan instantáneas automáticas).',
+      'Elige un tema de colores y tu idioma. Abajo del todo en la barra lateral, **💾 Copias de seguridad** abre **Copia de seguridad…**, que guarda todo en un archivo (además se guardan instantáneas automáticas).',
     doneTitle: '¡Todo listo!',
     doneBody: 'Ese es el recorrido. Puedes repetirlo cuando quieras desde **👋 Recorrido de bienvenida** abajo en la barra lateral. ¡A construir!',
   },

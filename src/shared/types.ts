@@ -341,6 +341,8 @@ export interface TraderProfile {
 export interface TradeMatchCard {
   gameId: GameId
   cardName: string
+  /** Copies they have for trade / copies they want, summed over printings. Absent from a cloud schema older than this field. */
+  quantity?: number
 }
 
 /** Someone whose for-trade list covers something you want, or who wants something you have for trade (or both — `mutual`). */

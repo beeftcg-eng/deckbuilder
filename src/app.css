@@ -88,17 +88,34 @@
 .backup-box {
   background: var(--bg-elevated-2);
   border-radius: var(--radius);
-  padding: 10px;
+  padding: 4px 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   flex-shrink: 0;
 }
 
-.backup-box-title {
+.backup-box.open {
+  padding-bottom: 10px;
+}
+
+/* Collapsed by default: one thin row, so the deck list above keeps the room. */
+.backup-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: var(--text-dim);
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.backup-toggle:hover {
+  color: var(--text);
 }
 
 .backup-actions {
@@ -142,12 +159,21 @@
   padding: 0 4px;
 }
 
+/* The sidebar scrolls as a whole once it's taller than the window, and in a column like that
+   every item may shrink by default. Only the deck list (which scrolls itself) should give up
+   height, and never below a handful of rows; otherwise it and the Undo button get squashed to
+   a sliver on an ordinary-height window. */
+.sidebar > :not(.deck-list) {
+  flex-shrink: 0;
+}
+
 .deck-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
   overflow-y: auto;
   flex: 1;
+  min-height: 220px;
 }
 
 .deck-list-empty {

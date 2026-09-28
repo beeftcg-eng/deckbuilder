@@ -92,6 +92,7 @@ export const en = {
     deleteDeck: 'Delete deck (Ctrl+Z undoes it)',
     deleteConfirm: (name: string) => `Delete "${name}"?`,
     backupTitle: 'Backup decks, wishlist & collection',
+    backupsToggle: '💾 Backups',
     backup: 'Backup…',
     restore: 'Restore…',
     autoBackupsTitle: 'Snapshots are taken automatically on launch and before edits',
@@ -744,7 +745,7 @@ export const en = {
       'Log your events in **Pairings**, the tournament tracker, and connect it here: each deck shows its record, and **📊 Deck stats** in the deck view shows its win rate, matchups, going first or second, and every version.',
     settingsTitle: 'Make it yours',
     settingsBody:
-      'Pick a colour theme and your language. Down at the bottom of the sidebar, **Backup…** saves everything to a file (automatic snapshots are kept too).',
+      'Pick a colour theme and your language. Down at the bottom of the sidebar, **💾 Backups** opens **Backup…**, which saves everything to a file (automatic snapshots are kept too).',
     doneTitle: 'You’re all set',
     doneBody: 'That’s the tour. You can take it again any time from **👋 Welcome tour** at the bottom of the sidebar. Happy brewing!',
   },

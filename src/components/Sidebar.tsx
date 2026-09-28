@@ -81,6 +81,7 @@ export function Sidebar() {
   const setShowTour = useAppStore((s) => s.setShowTour)
   const cardsById = useCardsById(currentGameId)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
+  const [showBackups, setShowBackups] = useState(false)
   const [deckFilter, setDeckFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [showPatchNotes, setShowPatchNotes] = useState(false)
@@ -440,19 +441,26 @@ export function Sidebar() {
         ))}
       </div>
 
-      <div className="backup-box" data-tour="backup">
-        <div className="backup-box-title">{t.sidebar.backupTitle}</div>
-        <div className="backup-actions">
-          <button className="btn" onClick={handleBackupExport}>
-            {t.sidebar.backup}
-          </button>
-          <button className="btn" onClick={handleBackupImport}>
-            {t.sidebar.restore}
-          </button>
-        </div>
-        <button className="btn" onClick={() => window.api.backup.openFolder()} title={t.sidebar.autoBackupsTitle}>
-          {t.sidebar.openAutoBackups}
+      <div className={`backup-box ${showBackups ? 'open' : ''}`} data-tour="backup">
+        <button className="backup-toggle" aria-expanded={showBackups} title={t.sidebar.backupTitle} onClick={() => setShowBackups(!showBackups)}>
+          <span>{t.sidebar.backupsToggle}</span>
+          <span className="text-dim">{showBackups ? '▾' : '▸'}</span>
         </button>
+        {showBackups && (
+          <>
+            <div className="backup-actions">
+              <button className="btn" onClick={handleBackupExport}>
+                {t.sidebar.backup}
+              </button>
+              <button className="btn" onClick={handleBackupImport}>
+                {t.sidebar.restore}
+              </button>
+            </div>
+            <button className="btn" onClick={() => window.api.backup.openFolder()} title={t.sidebar.autoBackupsTitle}>
+              {t.sidebar.openAutoBackups}
+            </button>
+          </>
+        )}
         {backupStatus && <div className="text-dim">{backupStatus}</div>}
       </div>
 

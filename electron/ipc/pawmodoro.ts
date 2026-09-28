@@ -171,16 +171,16 @@ export function registerPawmodoroIpc(): void {
       user_id: string
       display_name: string
       email: string
-      they_have_what_i_want: Array<{ game_id: string; card_name: string }>
-      i_have_what_they_want: Array<{ game_id: string; card_name: string }>
+      they_have_what_i_want: Array<{ game_id: string; card_name: string; quantity?: number }>
+      i_have_what_they_want: Array<{ game_id: string; card_name: string; quantity?: number }>
       mutual: boolean
     }>
     return rows.map((r) => ({
       userId: r.user_id,
       displayName: r.display_name,
       email: r.email,
-      theyHaveWhatIWant: r.they_have_what_i_want.map((c) => ({ gameId: c.game_id as TradeMatch['theyHaveWhatIWant'][number]['gameId'], cardName: c.card_name })),
-      iHaveWhatTheyWant: r.i_have_what_they_want.map((c) => ({ gameId: c.game_id as TradeMatch['iHaveWhatTheyWant'][number]['gameId'], cardName: c.card_name })),
+      theyHaveWhatIWant: r.they_have_what_i_want.map((c) => ({ gameId: c.game_id as TradeMatch['theyHaveWhatIWant'][number]['gameId'], cardName: c.card_name, quantity: c.quantity })),
+      iHaveWhatTheyWant: r.i_have_what_they_want.map((c) => ({ gameId: c.game_id as TradeMatch['iHaveWhatTheyWant'][number]['gameId'], cardName: c.card_name, quantity: c.quantity })),
       mutual: r.mutual,
     }))
   })

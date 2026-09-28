@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
-import type { TradeMatch, TraderProfile } from '../shared/types'
+import type { TradeMatch, TradeMatchCard, TraderProfile } from '../shared/types'
 import { t } from '../shared/i18n'
 import { Rich } from './Rich'
 
@@ -219,7 +219,7 @@ function TraderCard({ trader }: { trader: TraderProfile }) {
           {trader.wants.map((c) => (
             <div key={`${c.gameId}:${c.cardId}`} className="wishlist-row">
               <span className="wishlist-row-name">
-                {c.cardName} <span className="text-dim">— {gameShortName(c.gameId)}</span>
+                {c.cardName} <span className="text-dim">— {gameShortName(c.gameId)} · {c.quantity}×</span>
               </span>
             </div>
           ))}
@@ -242,6 +242,11 @@ function TraderCard({ trader }: { trader: TraderProfile }) {
   )
 }
 
+/** "Card ×N" when the cloud schema reports a quantity (an older one doesn't), else just the name. */
+function matchCardLabel(c: TradeMatchCard): string {
+  return c.quantity ? `${c.cardName} ×${c.quantity}` : c.cardName
+}
+
 function MatchCard({ match }: { match: TradeMatch }) {
   return (
     <div className="wishlist-group">
@@ -250,10 +255,10 @@ function MatchCard({ match }: { match: TradeMatch }) {
         {match.displayName || match.email} <span className="text-dim">— {match.email}</span>
       </div>
       {match.theyHaveWhatIWant.length > 0 && (
-        <div className="text-dim">{t.trade.theyHave(match.theyHaveWhatIWant.map((c) => c.cardName).join(', '))}</div>
+        <div className="text-dim">{t.trade.theyHave(match.theyHaveWhatIWant.map(matchCardLabel).join(', '))}</div>
       )}
       {match.iHaveWhatTheyWant.length > 0 && (
-        <div className="text-dim">{t.trade.youHave(match.iHaveWhatTheyWant.map((c) => c.cardName).join(', '))}</div>
+        <div className="text-dim">{t.trade.youHave(match.iHaveWhatTheyWant.map(matchCardLabel).join(', '))}</div>
       )}
     </div>
   )
