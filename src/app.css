@@ -1938,6 +1938,89 @@
   display: flex;
 }
 
+/* Comparing decks (CompareDecksModal). */
+.compare-modal {
+  width: 620px;
+  gap: 10px;
+}
+
+.compare-source {
+  display: flex;
+  gap: 6px;
+}
+
+.compare-paste {
+  width: 100%;
+  resize: vertical;
+}
+
+.compare-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.compare-tools {
+  display: flex;
+  gap: 6px;
+}
+
+.compare-in,
+.compare-add > b {
+  color: var(--success);
+}
+
+.compare-out,
+.compare-remove > b {
+  color: var(--danger);
+}
+
+.compare-body {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.compare-zone h3 {
+  margin: 10px 0 4px;
+  font-size: 14px;
+}
+
+.compare-zone ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compare-zone li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.compare-zone li > b {
+  min-width: 26px;
+  text-align: right;
+}
+
+.compare-zone li img {
+  width: 26px;
+  border-radius: 3px;
+}
+
+.compare-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* A deck's notes in the deck view (DeckNotes). */
 .deck-notes {
   margin: 8px 18px 0;

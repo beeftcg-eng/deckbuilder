@@ -34,6 +34,24 @@ export const en = {
     welcome2: 'you can still browse and wishlist cards without one.',
   },
 
+  /** Comparing two decks (CompareDecksModal.tsx). */
+  compare: {
+    button: '⇄ Compare',
+    buttonTitle: 'See what changes between this deck and another one, or a pasted list',
+    title: (name: string) => `Compare ${name}`,
+    with: 'Compare with',
+    anotherDeck: 'Another of my decks',
+    pasteList: 'A pasted list',
+    pastePlaceholder: (game: string) => `Paste a ${game} decklist (a tournament winner's, a friend's…). It isn't imported.`,
+    pastedList: 'the pasted list',
+    heading: (from: string, to: string) => `From ${from} to ${to}:`,
+    swap: 'Swap',
+    swapTitle: 'Compare the other way round',
+    copy: 'Copy changes',
+    same: 'Same cards: nothing to change.',
+    noCards: (game: string) => `No ${game} cards recognised in that list yet.`,
+  },
+
   /** A deck's own notes (DeckNotes.tsx). */
   deckNotes: {
     title: '📝 Notes',

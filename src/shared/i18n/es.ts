@@ -34,6 +34,23 @@ export const es: Messages = {
     welcome2: 'también puedes explorar cartas y añadirlas a tu lista de deseos sin uno.',
   },
 
+  compare: {
+    button: '⇄ Comparar',
+    buttonTitle: 'Mira qué cambia entre este mazo y otro, o una lista pegada',
+    title: (name) => `Comparar ${name}`,
+    with: 'Comparar con',
+    anotherDeck: 'Otro de mis mazos',
+    pasteList: 'Una lista pegada',
+    pastePlaceholder: (game) => `Pega una lista de ${game} (la de un ganador de torneo, la de un amigo…). No se importa.`,
+    pastedList: 'la lista pegada',
+    heading: (from, to) => `De ${from} a ${to}:`,
+    swap: 'Invertir',
+    swapTitle: 'Comparar al revés',
+    copy: 'Copiar cambios',
+    same: 'Las mismas cartas: no hay nada que cambiar.',
+    noCards: (game) => `Todavía no se reconoce ninguna carta de ${game} en esa lista.`,
+  },
+
   deckNotes: {
     title: '📝 Notas',
     empty: 'Todavía no hay notas: tu plan de side, qué mulliganear, cómo van los enfrentamientos…',
