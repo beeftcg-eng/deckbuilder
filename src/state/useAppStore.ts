@@ -311,6 +311,22 @@ export const useAppStore = create<AppState>((set, get) => {
     return withSummary(deck, catalog.byId, formats.find((f) => f.id === deck.formatId)?.label ?? null)
   }
 
+  const PRICE_CHECK_EVERY_MS = 6 * 60 * 60 * 1000
+  let lastPriceCheck = 0
+  /** Applies the day's published prices to each downloaded game's saved cards (priceRefresh.ts). */
+  async function refreshAllPrices(): Promise<void> {
+    if (Date.now() - lastPriceCheck < PRICE_CHECK_EVERY_MS) return
+    lastPriceCheck = Date.now()
+    for (const adapter of GAME_LIST) {
+      const gameId = adapter.id
+      if (!get().syncMeta[gameId]?.count) continue
+      const progress = get().syncProgress[gameId]
+      if (progress && !progress.done) continue // a full download is on its way anyway
+      const result = await window.api.cards.refreshPrices(gameId).catch(() => null)
+      if (result?.changed && get().catalogs[gameId]) await get().loadCatalog(gameId)
+    }
+  }
+
   async function persistDeck(deck: Deck, options?: { keepUpdatedAt?: boolean }): Promise<void> {
     try {
       const saved = await window.api.decks.save(summarized(deck), options)
@@ -434,6 +450,15 @@ export const useAppStore = create<AppState>((set, get) => {
           ...GAME_LIST.map((adapter) => get().loadMeta(adapter.id)),
           ...GAME_LIST.map((adapter) => get().loadFormats(adapter.id)),
         ])
+
+        // Prices: today's are applied to every downloaded game in the background (no re-download),
+        // and again when you come back to the app after a while.
+        void refreshAllPrices()
+        if (typeof document !== 'undefined') {
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') void refreshAllPrices()
+          })
+        }
 
         // Pairings results: fetched once in the background, then again when you come back to the
         // window (a result logged in Pairings meanwhile shows up), at most once a minute.

@@ -55,12 +55,12 @@ function normalizeCard(raw: RiftboundApiCard): Card {
     legality: null,
     // riftcodex has no prices; fetchAllCards fills them in from the price file by tcgplayer_id.
     price: null,
+    ...(raw.tcgplayer_id ? { tcgplayerId: String(raw.tcgplayer_id) } : {}),
   }
 }
 
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   const cards: Card[] = []
-  const productIds = new Map<string, string>() // card id -> TCGplayer product id
   let page = 1
   let pages = 1
 
@@ -68,17 +68,13 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
     const url = `${API_BASE}?size=${PAGE_SIZE}&page=${page}`
     const res = await fetchJson<RiftboundApiResponse>(url)
     pages = res.pages
-    for (const raw of res.items) {
-      const card = normalizeCard(raw)
-      cards.push(card)
-      if (raw.tcgplayer_id) productIds.set(card.id, String(raw.tcgplayer_id))
-    }
+    for (const raw of res.items) cards.push(normalizeCard(raw))
     onProgress({ loaded: cards.length, total: res.total })
     page += 1
   } while (page <= pages)
 
   // TCGplayer market prices, from the price file the phone app's deploy publishes.
-  return applyPriceFile(cards, await loadPriceFile('riftbound'), (card) => riftboundKeys(productIds.get(card.id), card.sourceId))
+  return applyPriceFile(cards, await loadPriceFile('riftbound'), (card) => riftboundKeys(card.tcgplayerId, card.sourceId))
 }
 
 const deckRules: DeckRules = {

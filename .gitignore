@@ -28,3 +28,4 @@ release
 
 # scripts/build-ygo-art-map.py progress (resumable)
 .ygo-art-cache.json
+.prices/

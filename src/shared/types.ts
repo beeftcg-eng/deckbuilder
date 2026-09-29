@@ -41,6 +41,8 @@ export interface Card {
    * before prices were added don't have the field until the next sync.
    */
   price?: number | null
+  /** Riftbound: TCGplayer's product id, which daily price updates are matched by (see priceRefresh.ts). */
+  tcgplayerId?: string
   /**
    * Alternate "flavor" names this card has also been printed under — Secret Lair drops and
    * Universes Beyond crossovers often reprint an existing card with a different name (e.g.
@@ -218,6 +220,14 @@ export interface CardCacheMeta {
   gameId: GameId
   count: number
   lastSynced: string | null
+}
+
+/** What a daily price refresh changed (see priceRefresh.ts). */
+export interface PriceRefreshResult {
+  /** When the price file used was built. */
+  updatedAt: string
+  /** Cards whose price changed. */
+  changed: number
 }
 
 export interface WishlistEntry {

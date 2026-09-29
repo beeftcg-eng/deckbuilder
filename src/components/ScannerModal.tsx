@@ -23,6 +23,7 @@ import {
   type Rect,
 } from '../lib/scan/scanner'
 import { printedNumber, variantName } from '../shared/scan/scanIndex'
+import { playChime, unlockChime } from '../lib/scan/chime'
 import { t } from '../shared/i18n'
 
 type Phase = 'looking' | 'reading' | 'checking' | 'steady'
@@ -52,9 +53,18 @@ interface Added {
 }
 
 const AUTO_ADD_KEY = 'brewhouse.scanner.autoAdd'
+const SOUND_KEY = 'brewhouse.scanner.sound'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 /** Resolves once the browser has drawn the latest state (so a status change is visible before heavy work). */
 const nextPaint = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)))
+
+function readSound(): boolean {
+  try {
+    return localStorage.getItem(SOUND_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
 
 function readAutoAdd(): boolean {
   try {
@@ -94,6 +104,9 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   const [quantity, setQuantity] = useState(1)
   const [target, setTarget] = useState<Target>('collection')
   const [autoAdd, setAutoAdd] = useState(readAutoAdd)
+  const [sound, setSound] = useState(readSound)
+  const soundRef = useRef(sound)
+  soundRef.current = sound
   const [session, setSession] = useState<Added[]>([])
   const [showSession, setShowSession] = useState(false)
   const [showAll, setShowAll] = useState(false)
@@ -287,7 +300,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
         const tv = performance.now()
         const token = ++resultToken.current
         if (!autoAddRef.current || !needsPicture) {
-          navigator.vibrate?.(35)
+          signalFound()
           if (!needsPicture && autoAddRef.current && isConfident(textRanked, reading)) {
             addRef.current(textRanked[0].card, 1)
             justAdded = name
@@ -311,7 +324,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
         if (!ranked.length) continue
         const confident = isConfident(ranked, reading)
         if (autoAddRef.current) {
-          navigator.vibrate?.(35)
+          signalFound()
           if (confident) {
             addRef.current(ranked[0].card, 1)
             justAdded = name
@@ -331,6 +344,12 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
       cancelled = true
     }
   }, [model, index, cameraReady])
+
+  /** A card was recognised: buzz, and chime unless the sound is switched off. */
+  function signalFound() {
+    navigator.vibrate?.(35)
+    if (soundRef.current) playChime()
+  }
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   function flash(text: string) {
@@ -391,6 +410,20 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
     }
   }
 
+  function toggleSound() {
+    const on = !sound
+    setSound(on)
+    if (on) {
+      unlockChime()
+      playChime()
+    }
+    try {
+      localStorage.setItem(SOUND_KEY, on ? '1' : '0')
+    } catch {
+      // Private mode: the switch just isn't remembered.
+    }
+  }
+
   function toggleAutoAdd(on: boolean) {
     setAutoAdd(on)
     try {
@@ -424,7 +457,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   else status = phase === 'reading' ? t.scanner.reading : phase === 'checking' ? t.scanner.checking : phase === 'steady' ? t.scanner.holdSteady : t.scanner.looking
 
   return createPortal(
-    <div className="scanner-layer" role="dialog" aria-label={t.scanner.title}>
+    <div className="scanner-layer" role="dialog" aria-label={t.scanner.title} onPointerDown={unlockChime}>
       <header className="scanner-bar">
         <button className="btn" onClick={onClose}>
           {t.common.close}
@@ -443,6 +476,9 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
             </button>
           ))}
         </div>
+        <button className="btn" onClick={toggleSound} aria-pressed={sound} title={sound ? t.scanner.soundOn : t.scanner.soundOff} aria-label={sound ? t.scanner.soundOn : t.scanner.soundOff}>
+          {sound ? '🔊' : '🔇'}
+        </button>
         {torch.supported && (
           <button className={`btn ${torch.on ? 'btn-primary' : ''}`} onClick={toggleTorch} aria-pressed={torch.on}>
             🔦 {t.scanner.light}

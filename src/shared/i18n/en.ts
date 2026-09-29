@@ -133,6 +133,8 @@ export const en = {
     backToScan: 'Back to scanning',
     autoAdd: 'Add automatically when sure',
     light: 'Light',
+    soundOn: 'Sound on: a chime when a card is recognised (tap to mute)',
+    soundOff: 'Sound off (tap for a chime when a card is recognised)',
     session: (n: number) => `Added this session: ${n}`,
     undo: 'Undo',
     oneMore: '+1',

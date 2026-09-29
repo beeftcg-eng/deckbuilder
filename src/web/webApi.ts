@@ -21,6 +21,7 @@ import type {
   PairingsConfig,
   PairingsDeckRecord,
   PawmodoroConfig,
+  PriceRefreshResult,
   SharedDeck,
   SyncProgress,
   TradeListing,
@@ -47,6 +48,7 @@ import { idbGet, idbGetAll, idbSet, idbDelete, idbReplaceAll } from './idb'
 import { WebSyncStore } from './webSyncStore'
 import { t } from '../shared/i18n'
 import { fetchSharedDeck } from '../shared/deckShare'
+import { applyPriceUpdate, fetchPriceUpdate } from '../shared/priceRefresh'
 
 const RELEASES_REPO = 'beeftcg-eng/deckbuilder-releases'
 
@@ -55,6 +57,8 @@ const RELEASES_REPO = 'beeftcg-eng/deckbuilder-releases'
 interface CardCache {
   cards: Card[]
   lastSynced: string | null
+  /** When the price file last applied by a daily price refresh was built (priceRefresh.ts). */
+  pricesUpdatedAt?: string
 }
 
 async function readCardCache(gameId: GameId): Promise<CardCache> {
@@ -104,6 +108,15 @@ const cards = {
     nameLookup.delete(gameId) // rebuilt from the new catalog on next use
     broadcast({ gameId, loaded: finalCards.length, total: finalCards.length, done: true })
     return { gameId, count: finalCards.length, lastSynced: cache.lastSynced }
+  },
+  refreshPrices: async (gameId: GameId): Promise<PriceRefreshResult | null> => {
+    const cache = await readCardCache(gameId)
+    if (!cache.cards.length) return null
+    const file = await fetchPriceUpdate(gameId, cache.pricesUpdatedAt)
+    if (!file) return null
+    const { cards: updated, changed } = applyPriceUpdate(cache.cards, file)
+    await idbSet('cards', gameId, { ...cache, cards: updated, pricesUpdatedAt: file.updatedAt })
+    return { updatedAt: file.updatedAt, changed }
   },
   onSyncProgress: (callback: (progress: SyncProgress) => void): (() => void) => {
     progressListeners.add(callback)

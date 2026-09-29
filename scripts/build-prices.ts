@@ -4,7 +4,12 @@
  * catalog. Run by .github/workflows/deploy-pwa.yml when the phone app is deployed (and daily), so the
  * files sit on the phone app's own site: tcgcsv doesn't allow a web page to read it directly.
  *
- *   node --experimental-strip-types scripts/build-prices.ts dist-web/prices
+ *   npx rolldown scripts/build-prices.ts --platform node --format esm -o .prices/build-prices.mjs
+ *   node .prices/build-prices.mjs dist-web/prices
+ *
+ * One Piece and Magic already get prices from their own card sources (optcgapi, Scryfall); for them
+ * this runs the app's own download code and publishes each card's price by card id, so the apps can
+ * refresh prices daily without re-downloading those catalogs (priceRefresh.ts).
  *
  * A game that fails is skipped with a warning rather than failing the deploy; the apps then keep the
  * prices they already had.
@@ -12,6 +17,10 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pokemonKey, pokemonPromoKey, riftboundKey, splitYugiohCode, yugiohExactKey, yugiohKey, type PriceFile } from '../src/shared/priceKeys.ts'
+import { getAdapter } from '../src/shared/games/registry.ts'
+import { uniquifyCardIds } from '../src/shared/cardIds.ts'
+import { idKey } from '../src/shared/priceRefresh.ts'
+import type { GameId } from '../src/shared/types.ts'
 
 const BASE = 'https://tcgcsv.com/tcgplayer'
 const CATEGORY = { riftbound: 89, pokemon: 3, yugioh: 2 } as const
@@ -140,6 +149,16 @@ async function rates(): Promise<Record<string, number>> {
   return res.rates
 }
 
+/** Prices from the app's own download of a game (the ids match the app's, uniquified the same way). */
+function byCardId(game: GameId): () => Promise<Record<string, number>> {
+  return async () => {
+    const cards = uniquifyCardIds(await getAdapter(game).fetchAllCards(() => {}))
+    const prices: Record<string, number> = {}
+    for (const card of cards) if (card.price != null && card.price > 0) prices[idKey(card)] = Math.round(card.price * 100) / 100
+    return prices
+  }
+}
+
 const out = process.argv[2] ?? 'dist-web/prices'
 await mkdir(out, { recursive: true })
 try {
@@ -150,7 +169,7 @@ try {
 } catch (err) {
   console.warn(`::warning::exchange rates skipped: ${err instanceof Error ? err.message : err}`)
 }
-for (const [game, build] of Object.entries({ riftbound, pokemon, yugioh })) {
+for (const [game, build] of Object.entries({ riftbound, pokemon, yugioh, onepiece: byCardId('onepiece'), mtg: byCardId('mtg') })) {
   try {
     const prices = await build()
     const count = Object.keys(prices).length

@@ -46,7 +46,8 @@ jobs:
       # TCGplayer market prices for Riftbound, Pokémon and Yu-Gi-Oh! (from tcgcsv.com), published next to
       # the app as prices/<game>.json - tcgcsv doesn't let a web page read it directly. A game that fails
       # is skipped with a warning; the apps keep the prices they already had.
-      - run: node --experimental-strip-types scripts/build-prices.ts dist-web/prices
+      # (Bundled first: it reuses the app's own One Piece and Magic download code.)
+      - run: npx rolldown scripts/build-prices.ts --platform node --format esm -o .prices/build-prices.mjs && node .prices/build-prices.mjs dist-web/prices
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

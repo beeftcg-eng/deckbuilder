@@ -2,7 +2,8 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
-import type { Card, CardCacheMeta, GameId, SyncProgress } from '../../src/shared/types'
+import type { Card, CardCacheMeta, GameId, PriceRefreshResult, SyncProgress } from '../../src/shared/types'
+import { applyPriceUpdate, fetchPriceUpdate } from '../../src/shared/priceRefresh'
 import { getAdapter } from '../../src/shared/games/registry'
 import { uniquifyCardIds } from '../../src/shared/cardIds'
 import { carryOverPrices } from '../../src/shared/carryOverPrices'
@@ -11,6 +12,8 @@ import { cardsCacheDir, ensureDataDirs } from '../lib/paths'
 interface CacheFile {
   cards: Card[]
   lastSynced: string
+  /** When the price file last applied by a daily price refresh was built (priceRefresh.ts). */
+  pricesUpdatedAt?: string
 }
 
 function cacheFilePath(gameId: GameId): string {
@@ -45,6 +48,17 @@ export function registerCardDataIpc(): void {
   ipcMain.handle('cards:load', async (_e, gameId: GameId): Promise<Card[]> => {
     const cache = await readCache(gameId)
     return cache?.cards ?? []
+  })
+
+  // Today's prices into the saved catalog, without re-downloading it. Null when there's nothing newer.
+  ipcMain.handle('cards:refreshPrices', async (_e, gameId: GameId): Promise<PriceRefreshResult | null> => {
+    const cache = await readCache(gameId)
+    if (!cache?.cards.length) return null
+    const file = await fetchPriceUpdate(gameId, cache.pricesUpdatedAt)
+    if (!file) return null
+    const { cards, changed } = applyPriceUpdate(cache.cards, file)
+    await writeFile(cacheFilePath(gameId), JSON.stringify({ ...cache, cards, pricesUpdatedAt: file.updatedAt } satisfies CacheFile), 'utf-8')
+    return { updatedAt: file.updatedAt, changed }
   })
 
   ipcMain.handle('cards:sync', async (_e, gameId: GameId): Promise<CardCacheMeta> => {

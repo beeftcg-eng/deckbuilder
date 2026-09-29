@@ -129,6 +129,8 @@ export const es: Messages = {
     backToScan: 'Volver a escanear',
     autoAdd: 'Añadir automáticamente cuando esté seguro',
     light: 'Luz',
+    soundOn: 'Sonido activado: suena al reconocer una carta (toca para silenciar)',
+    soundOff: 'Sonido desactivado (toca para que suene al reconocer una carta)',
     session: (n) => `Añadidas en esta sesión: ${n}`,
     undo: 'Deshacer',
     oneMore: '+1',

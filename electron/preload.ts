@@ -11,6 +11,7 @@ import type {
   PairingsConfig,
   PairingsDeckRecord,
   PawmodoroConfig,
+  PriceRefreshResult,
   SharedDeck,
   SyncProgress,
   TradeListing,
@@ -28,6 +29,8 @@ const api = {
     meta: (gameId: GameId): Promise<CardCacheMeta> => ipcRenderer.invoke('cards:meta', gameId),
     load: (gameId: GameId): Promise<Card[]> => ipcRenderer.invoke('cards:load', gameId),
     sync: (gameId: GameId): Promise<CardCacheMeta> => ipcRenderer.invoke('cards:sync', gameId),
+    /** Applies today's published prices to the saved catalog (no re-download). Null when nothing newer. */
+    refreshPrices: (gameId: GameId): Promise<PriceRefreshResult | null> => ipcRenderer.invoke('cards:refreshPrices', gameId),
     onSyncProgress: (callback: (progress: SyncProgress) => void): (() => void) => {
       const listener = (_e: unknown, progress: SyncProgress) => callback(progress)
       ipcRenderer.on('cards:syncProgress', listener)
