@@ -86,7 +86,7 @@ Main:
 1 Fezandipiti ex ASC 142
 
 Trainer:
-4 Arven PAF 235
+4 Arven SVI 166
 4 Iono PAF 80
 2 Boss's Orders ASC 183
 2 Dawn PFL 87

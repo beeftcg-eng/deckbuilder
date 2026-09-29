@@ -34,6 +34,9 @@ export function rarityRank(rarity: string | null): number {
 export function isAlternateArt(card: Card): boolean {
   if (/_p\d+$/i.test(card.id)) return true // One Piece parallels: onepiece:OP01-003_p1
   if (card.sourceId.includes('*')) return true // Riftbound alternate numbering: unl-229*-219
+  // Riftbound overnumbered: ven-185-166 is card 185 of a 166-card set, a special printing even where its rarity says Rare.
+  const numbered = /^[a-z]+-(\d+)[a-z]*-(\d+)$/.exec(card.sourceId)
+  if (card.gameId === 'riftbound' && numbered && Number(numbered[1]) > Number(numbered[2])) return true
   const rarity = (card.rarity ?? '').toLowerCase()
   return ['showcase', 'promo', 'pr', 'p'].includes(rarity) || rarity.includes('alternate') || rarity.includes('alt art')
 }
@@ -47,8 +50,9 @@ export interface PrintingPrefs {
 
 /**
  * The best printing among `cards`: legal in the format first, then one you already own (so an imported list
- * uses the cards you actually have), then a regular one over alternate art, then the lowest rarity; ties keep
- * the catalog's order. Undefined for an empty list.
+ * uses the cards you actually have), then a regular one over alternate art, then the lowest rarity, then the
+ * cheapest (a Magic name has dozens of Common printings, and the first listed was often a prerelease promo
+ * or a 1983 basic land); ties keep the catalog's order. Undefined for an empty list.
  */
 export function choosePrinting(cards: readonly Card[] | undefined, prefs: PrintingPrefs = {}): Card | undefined {
   if (!cards || cards.length === 0) return undefined
@@ -57,6 +61,7 @@ export function choosePrinting(cards: readonly Card[] | undefined, prefs: Printi
     prefs.owned && prefs.owned(card) > 0 ? 0 : 1,
     isAlternateArt(card) ? 1 : 0,
     rarityRank(card.rarity),
+    card.price ?? Number.POSITIVE_INFINITY,
   ]
   let best = cards[0]
   let bestKey = key(best)

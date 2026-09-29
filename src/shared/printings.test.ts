@@ -42,6 +42,26 @@ describe('choosePrinting', () => {
     expect(choosePrinting([promo, showcase, common])).toBe(common)
     expect(choosePrinting([showcase, promo])).toBe(showcase) // rank: Showcase (6) < Promo (7)
   })
+  it('takes the cheapest of equally plain printings (Magic lists dozens of Commons)', () => {
+    const promo = makeCard('mtg', { name: 'Lightning Bolt', rarity: 'Common', setCode: 'PTC', price: 19.98 })
+    const reprint = makeCard('mtg', { name: 'Lightning Bolt', rarity: 'Common', setCode: 'CLB', price: 0.73 })
+    const unpriced = makeCard('mtg', { name: 'Lightning Bolt', rarity: 'Common', setCode: 'LEA', price: null })
+    expect(choosePrinting([promo, unpriced, reprint])).toBe(reprint)
+    // Price only breaks ties: a cheap alternate art or a pricier printing you own still loses / wins as before.
+    const cheapAlt = makeCard('onepiece', { id: 'onepiece:OP01-001_p1', sourceId: 'OP01-001', name: 'Zoro', rarity: 'L', price: 0.1 })
+    const regular = makeCard('onepiece', { sourceId: 'OP01-001', name: 'Zoro', rarity: 'L', price: 5 })
+    expect(choosePrinting([cheapAlt, regular])).toBe(regular)
+    expect(choosePrinting([reprint, promo], { owned: (c) => (c === promo ? 1 : 0) })).toBe(promo)
+  })
+
+  it('Riftbound: an overnumbered printing (card 185 of a 166-card set) counts as special', () => {
+    const over = makeCard('riftbound', { name: 'Kayle, Justified', sourceId: 'ven-185-166', rarity: 'Rare', price: 166.73 })
+    const plain = makeCard('riftbound', { name: 'Kayle, Justified', sourceId: 'ven-134-166', rarity: 'Rare', price: 0.31 })
+    expect(isAlternateArt(over)).toBe(true)
+    expect(isAlternateArt(plain)).toBe(false)
+    expect(choosePrinting([over, plain])).toBe(plain)
+  })
+
   it('falls back to the catalog order for equally plain printings, and handles empty lists', () => {
     const a = makeCard('pokemon', { name: 'X', rarity: 'Common' })
     const b = makeCard('pokemon', { name: 'X', rarity: 'Common' })
