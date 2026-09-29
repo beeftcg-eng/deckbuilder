@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buyList, cheapestPrinting, massEntryText } from './buyList'
+import { buyList, cheapestPrinting, massEntryText, withCheapestPrintings } from './buyList'
 import { poolKey } from './collection'
 import { catalogOf, makeCard, makeDeck } from './testFixtures'
 
@@ -57,5 +57,28 @@ describe('buyList', () => {
     expect(massEntryText(rows).split('\n')[0]).toBe('4 Lightning Bolt [2XM]')
     const alt = makeCard('riftbound', { name: 'Poppy - Paragon (Alternate Art)', price: 2 })
     expect(massEntryText([{ card: alt, deckCard: alt, quantity: 1, unitPrice: 2 }])).toBe('1 Poppy - Paragon')
+  })
+})
+
+describe('withCheapestPrintings', () => {
+  const cardsById = catalogOf(mtg)
+
+  it('moves each card to its cheapest printing, merging copies that land on the same one', () => {
+    const deck = makeDeck('mtg', { main: [[boltPricey, 2], [island, 10], [boltCheap, 1]] })
+    const result = withCheapestPrintings(deck, cardsById, mtg, () => 0)
+    expect(result.deck.zones.main).toEqual([
+      { cardId: boltCheap.id, quantity: 3 },
+      { cardId: island.id, quantity: 10 },
+    ])
+    expect(result.changedCopies).toBe(2)
+    expect(result.before).toBeCloseTo(2 * 12 + 1 + 0.9)
+    expect(result.after).toBeCloseTo(3 * 0.9 + 1)
+  })
+
+  it('keeps a printing you own and skips replacements that aren’t legal', () => {
+    const deck = makeDeck('mtg', { main: [[boltPricey, 4]] })
+    expect(withCheapestPrintings(deck, cardsById, mtg, (id) => (id === boltPricey.id ? 1 : 0)).changedCopies).toBe(0)
+    const kept = withCheapestPrintings(deck, cardsById, mtg, () => 0, (c) => c.id !== boltCheap.id)
+    expect(kept.deck).toBe(deck)
   })
 })

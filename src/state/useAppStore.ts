@@ -26,12 +26,13 @@ import { GAME_LIST, getAdapter } from '../shared/games/registry'
 import { buildPoolIndex, gameIdOfCardId, missingForDeck, totalPrice } from '../shared/collection'
 import { localDay, recordValue, type ValueHistory } from '../shared/valueHistory'
 import { checkPriceAlerts } from '../shared/priceAlerts'
-import { notify } from '../lib/notify'
+import { askToNotify, notify } from '../lib/notify'
 import { buildTradeCollection, buildTradeWants } from '../shared/trade'
 import { parseDecklistText, type ParsedDeck } from '../shared/importDeck'
 import { SAMPLE_DECKS } from '../shared/sampleDecks'
 import { cheapestPrinting } from '../shared/buyList'
 import { checkDeckLegality } from '../shared/legality'
+import { freshTradeMatches } from '../shared/tradeAlerts'
 import { changePull, type PackOpening } from '../shared/packOpenings'
 import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import type { UpdateStatus } from '../shared/updateStatus'
@@ -213,6 +214,9 @@ interface AppState {
   openExampleDeck: (gameId: GameId) => void
   /** The pack opening being filled in, if any: the scanner can add its cards to it. */
   activeOpeningId: string | null
+  /** The keyboard shortcuts list (desktop). */
+  showShortcuts: boolean
+  setShowShortcuts: (show: boolean) => void
   setActiveOpening: (id: string | null) => void
   /** Adds or replaces an opening (packOpenings.ts). */
   savePackOpening: (opening: PackOpening) => void
@@ -389,6 +393,32 @@ export const useAppStore = create<AppState>((set, get) => {
     }
   }
 
+  const TRADE_CHECK_EVERY_MS = 3 * 60 * 60 * 1000
+  let lastTradeCheck = 0
+  /** Remembers the matches seen now; announces (and notifies) the new ones unless `quiet`. */
+  function noteTradeMatches(matches: TradeMatch[], quiet: boolean) {
+    const { fresh, seen } = freshTradeMatches(matches, get().settings.tradeSeen)
+    set((s) => ({ settings: { ...s.settings, tradeSeen: seen } }))
+    persistSettings({ tradeSeen: seen })
+    if (quiet || fresh.length === 0) return
+    const text = fresh.length === 1 ? t.tradeAlerts.one(fresh[0].displayName, fresh[0].have, fresh[0].want) : t.tradeAlerts.many(fresh.length, fresh.map((f) => f.displayName).join(', '))
+    set({ notice: text })
+    void notify(t.tradeAlerts.title, text)
+  }
+  /** New trade matches since the last look (tradeAlerts.ts), while your trade profile is public. */
+  async function checkTradeMatches(): Promise<void> {
+    if (!startupLoaded || !get().settings.tradeProfile?.public) return
+    if (Date.now() - lastTradeCheck < TRADE_CHECK_EVERY_MS) return
+    lastTradeCheck = Date.now()
+    try {
+      const tradeMatches = await window.api.pawmodoro.tradeMatches()
+      set({ tradeMatches })
+      noteTradeMatches(tradeMatches, false)
+    } catch {
+      // Not connected or offline: try again next time.
+    }
+  }
+
   const PRICE_CHECK_EVERY_MS = 6 * 60 * 60 * 1000
   let lastPriceCheck = 0
   /** Applies the day's published prices to each downloaded game's saved cards (priceRefresh.ts). */
@@ -478,6 +508,7 @@ export const useAppStore = create<AppState>((set, get) => {
     currencyKey: 'USD',
     sharedDeck: null,
     activeOpeningId: null,
+    showShortcuts: false,
     sharedDeckState: null,
     sharedDeckError: null,
     tradeSyncing: false,
@@ -538,9 +569,12 @@ export const useAppStore = create<AppState>((set, get) => {
         // Prices: today's are applied to every downloaded game in the background (no re-download),
         // and again when you come back to the app after a while.
         void refreshAllPrices()
+        void checkTradeMatches()
         if (typeof document !== 'undefined') {
           document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') void refreshAllPrices()
+            if (document.visibilityState !== 'visible') return
+            void refreshAllPrices()
+            void checkTradeMatches()
           })
         }
 
@@ -949,6 +983,7 @@ export const useAppStore = create<AppState>((set, get) => {
     closeSharedDeck: () => set({ sharedDeck: null, sharedDeckState: null, sharedDeckError: null }),
     setShowScanner: (show) => set({ showScanner: show }),
     setActiveOpening: (id) => set({ activeOpeningId: id }),
+    setShowShortcuts: (show) => set({ showShortcuts: show }),
     savePackOpening: (opening) => {
       const current = get().settings.packOpenings ?? []
       const packOpenings = current.some((o) => o.id === opening.id) ? current.map((o) => (o.id === opening.id ? opening : o)) : [opening, ...current]
@@ -1247,6 +1282,7 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     setTradeVisibility: async (isPublic, displayName) => {
+      if (isPublic) askToNotify() // before any await, while it's still the click: new matches are announced
       await window.api.pawmodoro.setTradeProfile(isPublic, displayName)
       const tradeProfile = { public: isPublic, displayName }
       set((s) => ({ settings: { ...s.settings, tradeProfile } }))
@@ -1279,6 +1315,7 @@ export const useAppStore = create<AppState>((set, get) => {
     loadTradeMatches: async () => {
       const tradeMatches = await window.api.pawmodoro.tradeMatches()
       set({ tradeMatches })
+      noteTradeMatches(tradeMatches, true) // you're looking at them: nothing to announce later
     },
 
     exportBackup: () => window.api.backup.export(),

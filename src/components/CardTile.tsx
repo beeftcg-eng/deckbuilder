@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react'
 import type { Card } from '../shared/types'
+import { hoverCard, unhoverCard, type HoveredCard } from '../lib/shortcuts'
 import { useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
 import { rarityColorClass } from '../shared/rarityColor'
@@ -21,6 +23,18 @@ interface Props {
 }
 
 export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwnedChange, disabled, onChange, onOpenDetail }: Props) {
+  // What + and − do while the mouse is over this card (lib/shortcuts.ts), kept current every render.
+  const shortcutActions = useRef<HoveredCard>({ inc: () => {}, dec: () => {} })
+  useEffect(() => {
+    shortcutActions.current = {
+      inc: () => !disabled && quantity < maxQuantity && onChange(quantity + 1),
+      dec: () => !disabled && quantity > 0 && onChange(quantity - 1),
+    }
+  })
+  useEffect(() => {
+    const actions = shortcutActions
+    return () => unhoverCard(actions)
+  }, [])
   const addToWishlist = useAppStore((s) => s.addToWishlist)
   const removeFromWishlist = useAppStore((s) => s.removeFromWishlist)
   const wishlistEntryId = useAppStore((s) => s.wishlist.find((e) => e.cardId === card.id)?.id)
@@ -34,7 +48,7 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
   const artCount = card.gameId === 'yugioh' ? artworkIds(card).length : 0
 
   return (
-    <div className={`card-tile ${quantity > 0 ? 'in-deck' : ''}`}>
+    <div className={`card-tile ${quantity > 0 ? 'in-deck' : ''}`} onMouseEnter={() => hoverCard(shortcutActions)} onMouseLeave={() => unhoverCard(shortcutActions)}>
       <div className="card-tile-image" onClick={onOpenDetail} role="button" tabIndex={0}>
         {card.imageUrl ? (
           <img

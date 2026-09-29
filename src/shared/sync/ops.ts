@@ -1,4 +1,5 @@
 import type { Binder, Deck } from '../types'
+import type { ItemRow } from './items'
 
 /** One pending change to Deckbuilder's own synced state (decks/binders/collection/wishlist) - not
  * the trading feature's separate one-way pushes. Each op maps to exactly one deckbuilder_* RPC
@@ -11,6 +12,8 @@ export type SyncOp =
   | { type: 'set_collection_quantity'; gameId: string; cardId: string; cardName: string; setCode: string; quantity: number }
   | { type: 'set_for_trade'; gameId: string; cardId: string; forTrade: boolean }
   | { type: 'wishlist_set_quantity'; gameId: string; cardId: string; cardName: string; quantity: number }
+  /** A pack opening, price alert or value point (items.ts); null data deletes it. */
+  | { type: 'set_item'; kind: string; key: string; data: unknown }
 
 export interface OutboxEntry {
   id: string
@@ -39,6 +42,8 @@ export function rpcForOp(op: SyncOp): { name: string; params: Record<string, unk
         name: 'deckbuilder_wishlist_set_quantity',
         params: { p_game_id: op.gameId, p_card_id: op.cardId, p_card_name: op.cardName, p_quantity: op.quantity },
       }
+    case 'set_item':
+      return { name: 'deckbuilder_set_item', params: { p_kind: op.kind, p_key: op.key, p_data: op.data } }
   }
 }
 
@@ -47,4 +52,6 @@ export interface PulledState {
   binders: { id: string; data: Binder }[]
   collection: { game_id: string; card_id: string; card_name: string; set_code: string; quantity: number; for_trade: boolean }[]
   wants: { game_id: string; card_id: string; card_name: string; quantity: number }[]
+  /** Missing when the server's schema predates deckbuilder_user_items: then local items are left alone. */
+  items?: ItemRow[]
 }

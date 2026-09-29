@@ -380,7 +380,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
           onClose={() => setMovingOut(null)}
         />
       )}
-      {showBuyList && <BuyListModal deck={deck} cardsById={cardsById} onClose={() => setShowBuyList(false)} />}
+      {showBuyList && <BuyListModal deck={deck} cardsById={cardsById} editable={!deck.locked} onClose={() => setShowBuyList(false)} />}
       {showProxies && <ProxyPrintModal deck={deck} cardsById={cardsById} onClose={() => setShowProxies(false)} />}
       {showSampleHand && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowSampleHand(false)} />}
       {showBanList && <BanListEditor gameId={deck.gameId} initialFormatId={deck.formatId} onClose={() => setShowBanList(false)} />}

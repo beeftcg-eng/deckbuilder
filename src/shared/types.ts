@@ -268,7 +268,7 @@ export interface AppSettings {
   /** Colour theme id (see shared/themes.ts). */
   theme?: string
   /** UI language (see shared/i18n). Unset until picked: the first launch follows the system's language. */
-  language?: 'en' | 'es'
+  language?: 'en' | 'es' | 'pt'
   /** Currency prices are shown in (shared/currency.ts). Unset: US dollars, or pesos on a Mexican-Spanish system. */
   currency?: string
   /** The last exchange rates fetched (units per US dollar), kept for offline use. */
@@ -285,6 +285,10 @@ export interface AppSettings {
   priceAlerts?: PriceAlerts
   /** Pack and box openings, every game's, newest first (packOpenings.ts). */
   packOpenings?: PackOpening[]
+  /** Set after the first pull that included synced items (sync/items.ts firstMerge), so later pulls replace instead of merge. */
+  itemsSynced?: boolean
+  /** Trade matches already announced on this device (tradeAlerts.ts). */
+  tradeSeen?: string[]
 }
 
 export interface PawmodoroConfig {

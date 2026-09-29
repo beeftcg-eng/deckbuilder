@@ -18,6 +18,8 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeTour } from './components/WelcomeTour'
 import { MobileNav, type MobileView } from './components/MobileNav'
 import { SharedDeckView } from './components/SharedDeckView'
+import { ShortcutsModal } from './components/ShortcutsModal'
+import { hoveredCard, isTyping } from './lib/shortcuts'
 
 // The card scanner and its OCR models load only when it's first opened.
 const ScannerModal = __SCANNER__ ? lazy(() => import('./components/ScannerModal')) : null
@@ -47,6 +49,7 @@ export default function App() {
   const currencyKey = useAppStore((s) => s.currencyKey)
   const showTour = useAppStore((s) => s.showTour)
   const showScanner = useAppStore((s) => s.showScanner)
+  const showShortcuts = useAppStore((s) => s.showShortcuts)
 
   const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist && !showTrade && !showBinders
   // On mobile (app.css), a side panel takes the whole screen instead of squeezing next to the
@@ -73,14 +76,41 @@ export default function App() {
     initialize()
   }, [initialize])
 
-  // Ctrl/Cmd+Z undoes the last deck change — but not while typing, where it should undo the text.
+  // Keyboard shortcuts (ShortcutsModal.tsx lists them). Ctrl/Cmd+Z undoes the last deck change, but
+  // not while typing, where it should undo the text; the rest are desktop-only and also stay out of
+  // the way while typing.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return
-      const target = e.target as HTMLElement | null
-      if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return
-      e.preventDefault()
-      void useAppStore.getState().undo()
+      const typing = isTyping(e.target)
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        if (typing) return
+        e.preventDefault()
+        void useAppStore.getState().undo()
+        return
+      }
+      if (__WEB__ || typing || e.ctrlKey || e.metaKey || e.altKey) return
+      const store = useAppStore.getState()
+      if (e.key === 'Escape') {
+        // The window on top: every modal closes when its backdrop is clicked.
+        const overlays = document.querySelectorAll<HTMLElement>('.modal-overlay')
+        if (overlays.length > 0) overlays[overlays.length - 1].click()
+        else if (store.sharedDeckState) store.closeSharedDeck()
+        return
+      }
+      if (e.key === '/') {
+        const search = document.querySelector<HTMLInputElement>('.card-browser .search-input') ?? document.querySelector<HTMLInputElement>('.search-input')
+        if (search) {
+          e.preventDefault()
+          search.focus()
+          search.select()
+        }
+      } else if (e.key === '+' || e.key === '=') {
+        hoveredCard()?.inc()
+      } else if (e.key === '-' || e.key === '_') {
+        hoveredCard()?.dec()
+      } else if (e.key === '?') {
+        store.setShowShortcuts(!store.showShortcuts)
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -139,6 +169,7 @@ export default function App() {
       <UpdateBanner />
       {showTour && <WelcomeTour />}
       <SharedDeckView />
+      {showShortcuts && <ShortcutsModal onClose={() => useAppStore.getState().setShowShortcuts(false)} />}
       {ScannerModal && showScanner && (
         <Suspense fallback={null}>
           <ScannerModal onClose={() => useAppStore.getState().setShowScanner(false)} />

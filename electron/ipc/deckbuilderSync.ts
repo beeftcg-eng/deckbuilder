@@ -5,6 +5,7 @@ import type { Binder, Collection, Deck, GameId, WishlistEntry } from '../../src/
 import { SyncEngine, type SyncStatus } from '../../src/shared/sync/engine'
 import type { PulledState, SyncOp } from '../../src/shared/sync/ops'
 import { NodeSyncStore } from '../lib/nodeSyncStore'
+import { applyPulledItems } from './settings'
 import { cardsCacheDir } from '../lib/paths'
 import { readForTrade, readWishlist, withDataLock, writeBinders, writeCollection, writeDecks, writeForTrade, writeWishlist } from '../lib/dataFiles'
 
@@ -56,6 +57,11 @@ async function applyPulledState(state: PulledState): Promise<void> {
     })
     await writeWishlist(wishlist)
   })
+  // Older servers don't send items; then local pack openings, alerts and values are left as they are.
+  if (Array.isArray(state.items)) {
+    const upload = await applyPulledItems(state.items)
+    if (upload.length > 0) enqueueSyncOps(upload)
+  }
   broadcast('deckbuilderSync:pulled', undefined)
 }
 

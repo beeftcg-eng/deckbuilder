@@ -521,6 +521,10 @@ export const es: Messages = {
   },
 
   myDecks: {
+    byValue: 'Más valiosos',
+    valueTitle: 'Valor de mercado de las impresiones del mazo y lo que costarían las copias que no tienes (cualquier impresión tuya cuenta)',
+    toBuy: (amount: string) => `${amount} por comprar`,
+    ownAll: '✓ lo tienes todo',
     recordTitle: (events, winRate) =>
       `Historial de torneos de Pairings: ${events} ${plural(events, 'evento', 'eventos')}${winRate != null ? `, ${winRate}% de victorias` : ''}`,
     openTitle: (name) => `Abrir "${name}"`,
@@ -808,6 +812,10 @@ export const es: Messages = {
   },
 
   buyList: {
+    switchTitle: 'Cambia las cartas de este mazo a sus impresiones más baratas. Las que tienes se quedan; Deshacer lo regresa.',
+    switchButton: (amount: string) => `⇄ Usar las impresiones más baratas en el mazo (ahorra ${amount})`,
+    switched: (n: number, amount: string) => `✓ Se cambiaron ${n} ${plural(n, 'copia', 'copias')} a impresiones más baratas: el mazo cuesta ${amount} menos. Deshacer está en la barra lateral.`,
+    switchUndo: 'Usar las impresiones más baratas',
     button: '🛒 Lista de compra',
     buttonTitle: 'Lo que te falta para este mazo, en las impresiones más baratas, listo para pegar en TCGplayer',
     title: (deck: string) => `Lista de compra — ${deck}`,
@@ -864,6 +872,26 @@ export const es: Messages = {
     delete: 'Borrar apertura',
     deleteConfirm: (name: string) => `¿Borrar «${name}»? Las cartas se quedan en tu colección.`,
     done: 'Listo',
+  },
+
+  tradeAlerts: {
+    title: '🔀 Nuevo intercambio posible',
+    one: (name: string, have: string[], want: string[]) =>
+      [have.length ? `${name} tiene ${have.join(', ')} de tu lista de deseos` : '', want.length ? `${name} busca ${want.join(', ')} de tu lista de intercambio` : '']
+        .filter(Boolean)
+        .join('. ') + '. Míralo en Intercambio → Coincidencias.',
+    many: (n: number, names: string) => `${n} personas tienen nuevas coincidencias contigo: ${names}. Míralo en Intercambio → Coincidencias.`,
+  },
+
+  shortcuts: {
+    title: '⌨ Atajos de teclado',
+    link: '⌨ Atajos',
+    search: 'Ir a la búsqueda de cartas',
+    add: 'Añadir una copia de la carta bajo el ratón al mazo',
+    remove: 'Quitar una copia',
+    undo: 'Deshacer el último cambio al mazo',
+    close: 'Cerrar la ventana abierta',
+    help: 'Mostrar esta lista',
   },
 
   trade: {

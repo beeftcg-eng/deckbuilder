@@ -52,7 +52,7 @@ function formatter(code: string): Intl.NumberFormat {
   if (!f) {
     // Yen have no cents.
     const whole = code === 'JPY'
-    f = new Intl.NumberFormat(code === 'MXN' ? 'es-MX' : 'en-US', {
+    f = new Intl.NumberFormat(code === 'MXN' ? 'es-MX' : code === 'BRL' ? 'pt-BR' : 'en-US', {
       style: 'currency',
       currency: code,
       // "MX$" / "CA$" rather than a bare "$" that would read as dollars.

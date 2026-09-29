@@ -342,7 +342,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
       {showStats && <PairingsStatsModal deck={deck} onClose={() => setShowStats(false)} />}
       {showShare && <ShareDeckModal deck={deck} onClose={() => setShowShare(false)} />}
       {showPractice && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowPractice(false)} />}
-      {showBuyList && <BuyListModal deck={deck} cardsById={cardsById} onClose={() => setShowBuyList(false)} />}
+      {showBuyList && <BuyListModal deck={deck} cardsById={cardsById} editable={!readOnly && !deck.locked} onClose={() => setShowBuyList(false)} />}
       {showProxies && <ProxyPrintModal deck={deck} cardsById={cardsById} onClose={() => setShowProxies(false)} />}
       {showCompare && <CompareDecksModal deck={deck} cardsById={cardsById} onClose={() => setShowCompare(false)} />}
       {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}

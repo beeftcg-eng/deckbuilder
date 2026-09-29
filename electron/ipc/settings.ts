@@ -10,6 +10,9 @@ import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/j
 import { sanitizeValueHistory } from '../../src/shared/valueHistory'
 import { sanitizePriceAlerts } from '../../src/shared/priceAlerts'
 import { sanitizePackOpenings } from '../../src/shared/packOpenings'
+import { firstMerge, itemOps, settingsFromItems, touchesItems, type ItemRow } from '../../src/shared/sync/items'
+import type { SyncOp } from '../../src/shared/sync/ops'
+import { enqueueSyncOps } from './deckbuilderSync'
 
 const GAME_IDS: GameId[] = GAME_LIST.map((adapter) => adapter.id)
 
@@ -54,6 +57,8 @@ export function sanitize(raw: unknown): AppSettings {
   if (source.valueHistory !== undefined) settings.valueHistory = sanitizeValueHistory(source.valueHistory, GAME_IDS)
   if (source.priceAlerts !== undefined) settings.priceAlerts = sanitizePriceAlerts(source.priceAlerts)
   if (source.packOpenings !== undefined) settings.packOpenings = sanitizePackOpenings(source.packOpenings)
+  if (source.itemsSynced === true) settings.itemsSynced = true
+  if (Array.isArray(source.tradeSeen)) settings.tradeSeen = source.tradeSeen.filter((k): k is string => typeof k === 'string').slice(0, 3000)
   if (isPlainObject(source.tradeProfile)) {
     const tp = source.tradeProfile as Record<string, unknown>
     if (typeof tp.public === 'boolean' && typeof tp.displayName === 'string') settings.tradeProfile = { public: tp.public, displayName: tp.displayName }
@@ -77,7 +82,22 @@ export function registerSettingsIpc(): void {
       const current = sanitize(await readJsonFile<unknown>(settingsFile(), {}, isPlainObject))
       const next = sanitize({ ...current, ...patch })
       await writeJsonAtomic(settingsFile(), next)
+      // Pack openings, price alerts and value points sync item by item (shared/sync/items.ts).
+      if (touchesItems(patch)) enqueueSyncOps(itemOps(current, next))
       return followLanguage(next)
     }),
   )
+}
+
+/**
+ * Writes pulled items into the settings file (deckbuilderSync.ts's pull). The first time, local
+ * items the server doesn't have are kept, and returned to be uploaded.
+ */
+export function applyPulledItems(rows: ItemRow[]): Promise<SyncOp[]> {
+  return withLock('settings', async () => {
+    const current = sanitize(await readJsonFile<unknown>(settingsFile(), {}, isPlainObject))
+    const { settings, upload } = current.itemsSynced ? { settings: settingsFromItems(rows), upload: [] } : firstMerge(current, rows)
+    await writeJsonAtomic(settingsFile(), sanitize({ ...current, ...settings, itemsSynced: true }))
+    return upload
+  })
 }

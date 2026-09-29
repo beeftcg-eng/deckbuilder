@@ -39,6 +39,7 @@ import { carryOverPrices } from '../shared/carryOverPrices'
 import { fetchJson, USER_AGENT } from '../shared/games/fetchUtil'
 import { callRpc, passwordLogin, refreshAccessToken, signUp as clientSignUp, type SyncConfig } from '../shared/sync/client'
 import { SyncEngine } from '../shared/sync/engine'
+import { firstMerge, itemOps, settingsFromItems, touchesItems } from '../shared/sync/items'
 import type { PulledState, SyncOp } from '../shared/sync/ops'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 import { PAIRINGS_ANON_KEY, PAIRINGS_URL } from '../shared/pairingsDefaults'
@@ -180,6 +181,14 @@ async function applyPulledState(state: PulledState): Promise<void> {
     }
   })
   await idbSet('settings', 'wishlist', wishlist)
+
+  // Older servers don't send items; then local pack openings, alerts and values are left as they are.
+  if (Array.isArray(state.items)) {
+    const current = (await idbGet<AppSettings>('settings', 'app')) ?? {}
+    const { settings, upload } = current.itemsSynced ? { settings: settingsFromItems(state.items), upload: [] } : firstMerge(current, state.items)
+    await idbSet('settings', 'app', { ...current, ...settings, itemsSynced: true })
+    if (upload.length > 0) void syncEngine?.enqueueMany(upload)
+  }
 
   for (const listener of pulledListeners) listener()
 }
@@ -382,6 +391,11 @@ const settingsApi = {
     const current = (await idbGet<AppSettings>('settings', 'app')) ?? {}
     const next = { ...current, ...patch }
     await idbSet('settings', 'app', next)
+    // Pack openings, price alerts and value points sync item by item (shared/sync/items.ts).
+    if (touchesItems(patch)) {
+      ensureSyncEngine()
+      void syncEngine!.enqueueMany(itemOps(current, next))
+    }
     return next
   },
 }

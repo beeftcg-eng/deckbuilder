@@ -1,4 +1,4 @@
-import type { Card, Deck } from './types'
+import type { Card, Deck, DeckCardEntry } from './types'
 import { missingForDeck, normalizeName, poolKey } from './collection'
 import { isAlternateArt, rarityRank } from './printings'
 
@@ -56,8 +56,8 @@ function sameText(a: Card, b: Card): boolean {
  * copy limit goes by name, but two different "Pikachu" cards aren't interchangeable in a deck. Ties go
  * to the regular printing over an alternate art, then the lower rarity.
  */
-export function cheapestPrinting(card: Card, cards: readonly Card[]): Card {
-  const candidates = (printingsByPool(cards).get(poolKey(card)) ?? []).filter((c) => c.price != null && sameText(c, card))
+export function cheapestPrinting(card: Card, cards: readonly Card[], accept: (c: Card) => boolean = () => true): Card {
+  const candidates = (printingsByPool(cards).get(poolKey(card)) ?? []).filter((c) => c.price != null && sameText(c, card) && accept(c))
   if (card.price != null && !candidates.includes(card)) candidates.push(card)
   if (candidates.length === 0) return card
   return candidates.reduce((best, c) => {
@@ -101,3 +101,45 @@ export function massEntryText(rows: readonly BuyRow[]): string {
 }
 
 export const MASS_ENTRY_URL = 'https://www.tcgplayer.com/massentry'
+
+export interface CheaperDeck {
+  deck: Deck
+  /** Copies that moved to a different printing. */
+  changedCopies: number
+  /** USD the deck's priced cards cost before and after. */
+  before: number
+  after: number
+}
+
+/**
+ * The deck with each card at its cheapest printing of the same card: for decks built or imported
+ * before imports picked cheap printings. A printing you own stays (it's the one you'd play), and the
+ * replacement must pass `legal` (a cheaper reprint can be from a rotated-out set). Copies that end
+ * up on the same printing are merged, in the place the first of them was.
+ */
+export function withCheapestPrintings(
+  deck: Deck,
+  cardsById: Map<string, Card>,
+  cards: readonly Card[],
+  owned: (cardId: string) => number,
+  legal: (card: Card) => boolean = () => true,
+): CheaperDeck {
+  let changedCopies = 0
+  let before = 0
+  let after = 0
+  const zones: Record<string, DeckCardEntry[]> = {}
+  for (const [zoneId, entries] of Object.entries(deck.zones)) {
+    const merged = new Map<string, number>()
+    for (const { cardId, quantity } of entries) {
+      const card = cardsById.get(cardId)
+      const target = card && owned(card.id) === 0 ? cheapestPrinting(card, cards, legal) : card
+      const id = target?.id ?? cardId
+      if (card && target && target.id !== card.id) changedCopies += quantity
+      before += (card?.price ?? 0) * quantity
+      after += (target?.price ?? card?.price ?? 0) * quantity
+      merged.set(id, (merged.get(id) ?? 0) + quantity)
+    }
+    zones[zoneId] = [...merged].map(([cardId, quantity]) => ({ cardId, quantity }))
+  }
+  return { deck: changedCopies > 0 ? { ...deck, zones } : deck, changedCopies, before, after }
+}

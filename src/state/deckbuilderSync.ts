@@ -19,6 +19,10 @@ export function useDeckbuilderSyncListener() {
       void loadWishlist()
       void loadCollection()
       void loadForTrade()
+      // Pack openings, price alerts and the value graph come down with a pull too (shared/sync/items.ts).
+      void window.api.settings.get().then((s) =>
+        useAppStore.setState((st) => ({ settings: { ...st.settings, packOpenings: s.packOpenings, priceAlerts: s.priceAlerts, valueHistory: s.valueHistory, itemsSynced: s.itemsSynced } })),
+      )
     })
   }, [loadDecks, loadBinders, loadWishlist, loadCollection, loadForTrade])
 }

@@ -2,13 +2,16 @@ import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ownedIndexOf, useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
-import { buyList, massEntryText, MASS_ENTRY_URL, type BuyMode } from '../shared/buyList'
+import { buyList, massEntryText, MASS_ENTRY_URL, withCheapestPrintings, type BuyMode } from '../shared/buyList'
+import { isCardLegalInFormat } from '../shared/legality'
+import { getAdapter } from '../shared/games/registry'
 import type { Card, Deck } from '../shared/types'
 import { t } from '../shared/i18n'
 import { Rich } from './Rich'
 
 /** What's still to buy for a deck, and the list to paste into TCGplayer (shared/buyList.ts). */
-export function BuyListModal({ deck, cardsById, onClose }: { deck: Deck; cardsById: Map<string, Card>; onClose: () => void }) {
+/** `editable`: the deck is yours and open, so it can be switched to its cheapest printings. */
+export function BuyListModal({ deck, cardsById, onClose, editable = false }: { deck: Deck; cardsById: Map<string, Card>; onClose: () => void; editable?: boolean }) {
   const collection = useAppStore((s) => s.collection)
   const catalogs = useAppStore((s) => s.catalogs)
   const wishlistCards = useAppStore((s) => s.wishlistCards)
@@ -20,6 +23,23 @@ export function BuyListModal({ deck, cardsById, onClose }: { deck: Deck; cardsBy
   const list = useMemo(() => buyList(deck, cardsById, cards ?? [...cardsById.values()], owned, mode), [deck, cardsById, cards, owned, mode])
   const copies = list.rows.reduce((n, r) => n + r.quantity, 0)
   const saved = list.deckPrintingsTotal - list.total
+  const formats = useAppStore((s) => s.formats[deck.gameId])
+  const format = (formats ?? getAdapter(deck.gameId).defaultFormats).find((f) => f.id === deck.formatId)
+  const cheaper = useMemo(
+    () =>
+      editable && cards
+        ? withCheapestPrintings(deck, cardsById, cards, (id) => collection[id] ?? 0, format ? (c) => isCardLegalInFormat(c, format).legal : undefined)
+        : null,
+    [editable, deck, cardsById, cards, collection, format],
+  )
+
+  async function switchPrintings() {
+    if (!cheaper || cheaper.changedCopies === 0) return
+    const { currentDeckId, updateDeck } = useAppStore.getState()
+    if (currentDeckId !== deck.id) return
+    await updateDeck(() => cheaper.deck, t.buyList.switchUndo)
+    setMessage(t.buyList.switched(cheaper.changedCopies, formatPrice(cheaper.before - cheaper.after)))
+  }
 
   async function copyMassEntry() {
     await window.api.clipboard.writeText(massEntryText(list.rows))
@@ -85,6 +105,11 @@ export function BuyListModal({ deck, cardsById, onClose }: { deck: Deck; cardsBy
                 {t.buyList.wishlist}
               </button>
             </div>
+            {cheaper && cheaper.changedCopies > 0 && cheaper.before - cheaper.after >= 0.5 && (
+              <button className="btn" title={t.buyList.switchTitle} onClick={() => void switchPrintings()}>
+                {t.buyList.switchButton(formatPrice(cheaper.before - cheaper.after))}
+              </button>
+            )}
             {message && <div className="text-dim">{message}</div>}
             <div className="text-dim proxy-note">{t.buyList.note}</div>
           </>

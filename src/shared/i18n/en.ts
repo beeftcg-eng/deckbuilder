@@ -526,6 +526,10 @@ export const en = {
   },
 
   myDecks: {
+    byValue: 'Most valuable',
+    valueTitle: 'Market value of the deck’s printings, and what the copies you don’t own would cost (any printing you own counts)',
+    toBuy: (amount: string) => `${amount} to buy`,
+    ownAll: '✓ you own it all',
     recordTitle: (events: number, winRate: number | null) =>
       `Tournament record from Pairings: ${events} ${plural(events, 'event', 'events')}${winRate != null ? `, ${winRate}% wins` : ''}`,
     openTitle: (name: string) => `Open "${name}"`,
@@ -766,6 +770,10 @@ export const en = {
   },
 
   buyList: {
+    switchTitle: 'Change the cards in this deck to their cheapest printings. Printings you own stay; Undo puts it back.',
+    switchButton: (amount: string) => `⇄ Use the cheapest printings in the deck (saves ${amount})`,
+    switched: (n: number, amount: string) => `✓ Switched ${n} ${plural(n, 'copy', 'copies')} to cheaper printings: the deck is ${amount} cheaper. Undo is in the sidebar.`,
+    switchUndo: 'Use the cheapest printings',
     button: '🛒 Buy list',
     buttonTitle: 'What you still need for this deck, at the cheapest printings, ready to paste into TCGplayer',
     title: (deck: string) => `Buy list — ${deck}`,
@@ -822,6 +830,26 @@ export const en = {
     delete: 'Delete opening',
     deleteConfirm: (name: string) => `Delete “${name}”? The cards stay in your collection.`,
     done: 'Done',
+  },
+
+  tradeAlerts: {
+    title: '🔀 New trade match',
+    one: (name: string, have: string[], want: string[]) =>
+      [have.length ? `${name} has ${have.join(', ')} from your wishlist` : '', want.length ? `${name} wants ${want.join(', ')} from your trade list` : '']
+        .filter(Boolean)
+        .join('. ') + '. See Trade → Matches.',
+    many: (n: number, names: string) => `${n} people have new trade matches for you: ${names}. See Trade → Matches.`,
+  },
+
+  shortcuts: {
+    title: '⌨ Keyboard shortcuts',
+    link: '⌨ Shortcuts',
+    search: 'Jump to the card search',
+    add: 'Add a copy of the card under the mouse to the deck',
+    remove: 'Take a copy of it out',
+    undo: 'Undo the last deck change',
+    close: 'Close the open window',
+    help: 'Show this list',
   },
 
   trade: {

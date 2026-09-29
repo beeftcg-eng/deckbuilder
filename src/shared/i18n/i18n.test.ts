@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { en } from './en'
 import { es } from './es'
+import { pt } from './pt'
 import { languageFromLocale, setLanguage, t, zoneLabel } from '.'
 import { GAME_LIST } from '../games/registry'
 import { rulesForFormat } from '../games/rules'
@@ -16,15 +17,17 @@ function keyPaths(value: unknown, prefix = ''): string[] {
 
 afterEach(() => setLanguage('en'))
 
-describe('dictionaries', () => {
-  it('have the same keys in English and Spanish, including the keyed lists TypeScript can’t check', () => {
-    // English formats use the games' own wording, so only Spanish lists them (checked below).
+const TRANSLATIONS = { es, pt }
+
+describe.each(Object.entries(TRANSLATIONS))('the %s dictionary', (_code, dict) => {
+  it('has the same keys as English, including the keyed lists TypeScript can’t check', () => {
+    // English formats use the games' own wording, so only the translations list them (checked below).
     const withoutFormats = (paths: string[]) => paths.filter((p) => !p.startsWith('formats.')).sort()
-    expect(withoutFormats(keyPaths(es))).toEqual(withoutFormats(keyPaths(en)))
+    expect(withoutFormats(keyPaths(dict))).toEqual(withoutFormats(keyPaths(en)))
   })
 
   it('only translate formats and fields that exist', () => {
-    for (const [key, text] of Object.entries(es.formats)) {
+    for (const [key, text] of Object.entries(dict.formats)) {
       const [gameId, formatId] = key.split(':')
       const format = GAME_LIST.find((a) => a.id === gameId)?.defaultFormats.find((f) => f.id === formatId)
       expect(format, key).toBeDefined()
@@ -38,14 +41,14 @@ describe('dictionaries', () => {
         const value = path.split('.').reduce<unknown>((node, key) => (node as Record<string, unknown>)[key], dict)
         return typeof value === 'function' ? [[path, value.length] as const] : []
       })
-    expect(functions(es)).toEqual(expect.arrayContaining(functions(en)))
-    expect(functions(es)).toHaveLength(functions(en).length)
+    expect(functions(dict)).toEqual(expect.arrayContaining(functions(en)))
+    expect(functions(dict)).toHaveLength(functions(en).length)
   })
 
   it('translate every deck zone the games define', () => {
     for (const adapter of GAME_LIST) {
       for (const format of adapter.defaultFormats) {
-        for (const zone of rulesForFormat(adapter, format.id).zones) expect(es.zones, `${adapter.id} ${zone.label}`).toHaveProperty([zone.label])
+        for (const zone of rulesForFormat(adapter, format.id).zones) expect(dict.zones, `${adapter.id} ${zone.label}`).toHaveProperty([zone.label])
       }
     }
   })
@@ -67,8 +70,13 @@ describe('switching language', () => {
     expect(languageFromLocale('es-MX')).toBe('es')
     expect(languageFromLocale('ES-419')).toBe('es')
     expect(languageFromLocale('en-US')).toBe('en')
-    expect(languageFromLocale('pt-BR')).toBe('en')
     expect(languageFromLocale(undefined)).toBe('en')
+  })
+
+  it('picks Portuguese for any Portuguese locale', () => {
+    expect(languageFromLocale('pt-BR')).toBe('pt')
+    expect(languageFromLocale('pt')).toBe('pt')
+    expect(languageFromLocale('PT-pt')).toBe('pt')
   })
 
   it('translates a format only while it still has the app’s own wording', () => {
@@ -88,5 +96,7 @@ describe('switching language', () => {
     setLanguage('es')
     const result = checkDeckLegality(deck, pokemon, pokemon.defaultFormats[0], new Map())
     expect(result.issues.map((i) => i.message)).toContain('Mazo: debe tener exactamente 60 cartas (ahora tiene 0).')
+    setLanguage('pt')
+    expect(checkDeckLegality(deck, pokemon, pokemon.defaultFormats[0], new Map()).issues.map((i) => i.message)).toContain('Deck: precisa ter exatamente 60 cartas (agora tem 0).')
   })
 })

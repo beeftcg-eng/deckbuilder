@@ -552,6 +552,11 @@ export function Sidebar() {
             <button className="link-btn" onClick={() => setShowBugReport(true)}>
               {t.bugReport.link}
             </button>
+            {!__WEB__ && (
+              <button className="link-btn" title={t.shortcuts.help} onClick={() => useAppStore.getState().setShowShortcuts(true)}>
+                {t.shortcuts.link}
+              </button>
+            )}
             <button
               className="link-btn"
               title={t.sidebar.support}

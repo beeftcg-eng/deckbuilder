@@ -1379,6 +1379,24 @@
   font-size: 12px;
 }
 
+.shortcuts-modal {
+  width: 420px;
+}
+.shortcuts-table td {
+  padding: 5px 10px 5px 0;
+  font-size: 13px;
+}
+.shortcuts-table kbd {
+  display: inline-block;
+  min-width: 26px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--bg-elevated);
+  font-family: ui-monospace, monospace;
+  text-align: center;
+}
+
 .buy-modal {
   width: 640px;
 }
@@ -1742,7 +1760,14 @@
 .fv-modes,
 .fv-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+/* Each tool keeps its label on one line; the row wraps instead (it's long in Spanish and Portuguese). */
+.fv-actions > .btn,
+.fv-actions > select {
+  white-space: nowrap;
 }
 
 .fv-modes .btn {
@@ -2252,6 +2277,10 @@
 }
 
 .md-card-counts {
+  font-size: 12px;
+}
+
+.md-card-value {
   font-size: 12px;
 }
 

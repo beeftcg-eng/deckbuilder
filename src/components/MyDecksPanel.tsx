@@ -1,6 +1,7 @@
 import { DeckLockButton } from './DeckLockButton'
 import { useEffect, useMemo, useState } from 'react'
-import { useAppStore, useOrderedGames } from '../state/useAppStore'
+import { ownedIndexOf, useAppStore, useOrderedGames } from '../state/useAppStore'
+import { formatPrice, missingForDeck, totalPrice } from '../shared/collection'
 import { getAdapter } from '../shared/games/registry'
 import { rulesForFormat } from '../shared/games/rules'
 import { checkDeckLegality } from '../shared/legality'
@@ -15,7 +16,7 @@ import { Rich } from './Rich'
 import { getLanguage, t, zoneLabel } from '../shared/i18n'
 import { formatLabel } from '../shared/formatText'
 
-type Sort = 'recent' | 'name' | 'game' | 'custom'
+type Sort = 'recent' | 'name' | 'game' | 'custom' | 'value'
 
 const UNFILED = '\u0000none'
 
@@ -42,7 +43,24 @@ function PairingsBadge({ deckId }: { deckId: string }) {
   )
 }
 
-function DeckCard({ deck, cardsById }: { deck: Deck; cardsById: Map<string, Card> | undefined }) {
+interface DeckValue {
+  /** USD, priced cards only. */
+  total: number
+  /** USD of the copies you don't own. */
+  toBuy: number
+}
+
+/** What a deck is worth and what it'd cost to finish, at its own printings. Null until its game's cards are loaded. */
+function deckValue(deck: Deck, cardsById: Map<string, Card> | undefined, owned: Map<string, number>): DeckValue | null {
+  if (!cardsById || !getAdapter(deck.gameId).hasPrices) return null
+  const items = Object.values(deck.zones).flatMap((entries) => entries.flatMap(({ cardId, quantity }) => {
+    const card = cardsById.get(cardId)
+    return card ? [{ card, quantity }] : []
+  }))
+  return { total: totalPrice(items).total, toBuy: totalPrice(missingForDeck(deck, cardsById, owned)).total }
+}
+
+function DeckCard({ deck, cardsById, value }: { deck: Deck; cardsById: Map<string, Card> | undefined; value: DeckValue | null }) {
   const openDeck = useAppStore((s) => s.openDeck)
   const duplicateDeck = useAppStore((s) => s.duplicateDeck)
   const deleteDeck = useAppStore((s) => s.deleteDeck)
@@ -88,6 +106,12 @@ function DeckCard({ deck, cardsById }: { deck: Deck; cardsById: Map<string, Card
           <Rich text={t.myDecks.cardCount(totalCards)} />
           {counts.length > 1 && <span className="text-dim"> — {counts.map((c) => `${c.label} ${c.total}`).join(' · ')}</span>}
         </div>
+        {value && value.total > 0 && (
+          <div className="text-dim md-card-value" title={t.myDecks.valueTitle}>
+            ≈ {formatPrice(value.total)}
+            {value.toBuy >= 0.01 ? ` · ${t.myDecks.toBuy(formatPrice(value.toBuy))}` : ` · ${t.myDecks.ownAll}`}
+          </div>
+        )}
         <div className="md-card-foot">
           {legality ? (
             <span className={legality.legal ? 'fv-legal' : 'fv-illegal'} title={legality.issues.map((i) => i.message).join('\n') || undefined}>
@@ -138,6 +162,9 @@ export function MyDecksPanel() {
   const syncMeta = useAppStore((s) => s.syncMeta)
   const loadCatalog = useAppStore((s) => s.loadCatalog)
   const deckOrder = useAppStore((s) => s.settings.deckOrder)
+  const collection = useAppStore((s) => s.collection)
+  const owned = useMemo(() => ownedIndexOf(collection, catalogs), [collection, catalogs])
+  const values = useMemo(() => new Map(decks.map((d) => [d.id, deckValue(d, catalogs[d.gameId]?.byId, owned)])), [decks, catalogs, owned])
   const currentGameId = useAppStore((s) => s.currentGameId)
 
   const [query, setQuery] = useState('')
@@ -162,12 +189,13 @@ export function MyDecksPanel() {
   const shown = useMemo(() => {
     const inFolder = (d: Deck) => folder === '' || (folder === UNFILED ? !d.folder : d.folder === folder)
     const matching = decks.filter((d) => (game === 'all' || d.gameId === game) && inFolder(d) && (!needle || d.name.toLowerCase().includes(needle)))
+    if (sort === 'value') return sortDecks(matching, 'name').sort((a, b) => (values.get(b.id)?.total ?? -1) - (values.get(a.id)?.total ?? -1))
     if (sort === 'game') {
       const rank = (id: GameId) => orderedGames.findIndex((a) => a.id === id)
       return sortDecks(matching, 'recent').sort((a, b) => rank(a.gameId) - rank(b.gameId))
     }
     return sortDecks(matching, sort, deckOrder)
-  }, [decks, game, folder, needle, sort, deckOrder, orderedGames])
+  }, [decks, game, folder, needle, sort, deckOrder, orderedGames, values])
 
   return (
     <div className="wishlist-panel md-panel">
@@ -201,6 +229,7 @@ export function MyDecksPanel() {
               <option value="name">{t.sidebar.sortName}</option>
               <option value="game">{t.myDecks.byGame}</option>
               <option value="custom">{t.sidebar.sortCustom}</option>
+              <option value="value">{t.myDecks.byValue}</option>
             </select>
             {folders.length > 0 && (
               <select value={folder} onChange={(e) => setFolder(e.target.value)} aria-label={t.folders.label}>
@@ -233,7 +262,7 @@ export function MyDecksPanel() {
           ) : (
             <div className="md-grid">
               {shown.map((deck) => (
-                <DeckCard key={deck.id} deck={deck} cardsById={catalogs[deck.gameId]?.byId} />
+                <DeckCard key={deck.id} deck={deck} cardsById={catalogs[deck.gameId]?.byId} value={values.get(deck.id) ?? null} />
               ))}
             </div>
           )}
