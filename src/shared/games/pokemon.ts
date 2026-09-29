@@ -1,4 +1,6 @@
 import type { Card, DeckRules, Deck, Format } from '../types'
+import { loadPriceFile, applyPriceFile } from '../priceFiles'
+import { pokemonKeys } from '../priceKeys'
 import type { GameAdapter, FetchProgress } from './types'
 import { HttpError, fetchJsonWithRetry, mapPool, sleep } from './fetchUtil'
 
@@ -166,8 +168,14 @@ export async function fetchAllPokemonCards(onProgress: (p: FetchProgress) => voi
   const cards = perSet.flat()
   if (cards.length === 0) throw new Error('The Pokémon card data came back empty')
 
+  // TCGplayer market prices from the published price file (scripts/build-prices.ts) come first; the
+  // pokemontcg.io API, slow and patchy, only fills in when the file left many cards unpriced.
+  const filePrices = await loadPriceFile('pokemon')
+  const priced = applyPriceFile(cards, filePrices, (card) => pokemonKeys(card.setCode, card.setId, card.number))
+  const missing = priced.filter((card) => card.price == null).length
+  if (filePrices && missing <= priced.length * 0.2) return priced
   const prices = await fetchPrices(sleepFn, options.priceBudgetMs ?? PRICE_BUDGET_MS)
-  return prices.size === 0 ? cards : cards.map((card) => (prices.has(card.sourceId) ? { ...card, price: prices.get(card.sourceId)! } : card))
+  return prices.size === 0 ? priced : priced.map((card) => (card.price == null && prices.has(card.sourceId) ? { ...card, price: prices.get(card.sourceId)! } : card))
 }
 
 const deckRules: DeckRules = {

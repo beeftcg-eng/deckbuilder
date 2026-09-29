@@ -1,4 +1,5 @@
 import type { Card, DeckRules, Deck, Format } from '../types'
+import { loadPriceFile, applyPriceFile } from '../priceFiles'
 import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
 import { t } from '../i18n'
@@ -12,6 +13,8 @@ interface RiftboundApiCard {
   id: string
   name: string
   riftbound_id: string
+  /** TCGplayer's product id: how the price file (scripts/build-prices.ts) names this card. */
+  tcgplayer_id?: string | null
   collector_number: number
   classification: { type: string; supertype: string | null; rarity: string | null; domain: string[] }
   text: { plain: string | null }
@@ -49,13 +52,14 @@ function normalizeCard(raw: RiftboundApiCard): Card {
     cost: raw.attributes.energy != null ? String(raw.attributes.energy) : null,
     text: raw.text.plain,
     legality: null,
-    // riftcodex doesn't expose prices (only a tcgplayer_id), so none are shown for Riftbound.
+    // riftcodex has no prices; fetchAllCards fills them in from the price file by tcgplayer_id.
     price: null,
   }
 }
 
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   const cards: Card[] = []
+  const productIds = new Map<string, string>() // card id -> TCGplayer product id
   let page = 1
   let pages = 1
 
@@ -63,12 +67,20 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
     const url = `${API_BASE}?size=${PAGE_SIZE}&page=${page}`
     const res = await fetchJson<RiftboundApiResponse>(url)
     pages = res.pages
-    for (const raw of res.items) cards.push(normalizeCard(raw))
+    for (const raw of res.items) {
+      const card = normalizeCard(raw)
+      cards.push(card)
+      if (raw.tcgplayer_id) productIds.set(card.id, String(raw.tcgplayer_id))
+    }
     onProgress({ loaded: cards.length, total: res.total })
     page += 1
   } while (page <= pages)
 
-  return cards
+  // TCGplayer market prices, from the price file the phone app's deploy publishes.
+  return applyPriceFile(cards, await loadPriceFile('riftbound'), (card) => {
+    const id = productIds.get(card.id)
+    return id ? [id] : []
+  })
 }
 
 const deckRules: DeckRules = {
@@ -235,7 +247,9 @@ export const riftboundAdapter: GameAdapter = {
   deckRules,
   defaultFormats,
   legalitySource: 'local',
-  hasPrices: false,
+  hasPrices: true,
+  // The price file can be briefly unavailable; a sync then keeps the prices it already knew.
+  keepPricesWhenMissing: true,
   openingHandSize: 4,
   fetchAllCards,
   formatDecklistText,

@@ -16,8 +16,12 @@ on:
       - "vite.web.config.ts"
       - "public/**"
       - "package.json"
+      - "scripts/build-prices.ts"
       - ".github/workflows/deploy-pwa.yml"
   workflow_dispatch: {}
+  # Daily, so the TCGplayer price files (below) stay current even when nothing else changed.
+  schedule:
+    - cron: "17 9 * * *"
 
 permissions:
   contents: read
@@ -39,6 +43,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:web
+      # TCGplayer market prices for Riftbound, Pokémon and Yu-Gi-Oh! (from tcgcsv.com), published next to
+      # the app as prices/<game>.json - tcgcsv doesn't let a web page read it directly. A game that fails
+      # is skipped with a warning; the apps keep the prices they already had.
+      - run: node --experimental-strip-types scripts/build-prices.ts dist-web/prices
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

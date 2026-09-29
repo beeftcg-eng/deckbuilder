@@ -1,4 +1,6 @@
 import type { Card, CardLegalityStatus, Deck, DeckRules, Format } from '../types'
+import { loadPriceFile, applyPriceFile } from '../priceFiles'
+import { yugiohKeys } from '../priceKeys'
 import type { FetchProgress, GameAdapter } from './types'
 import { fetchJsonWithRetry } from './fetchUtil'
 
@@ -170,8 +172,11 @@ export function normalizeCard(raw: YgoCard): Card[] {
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   onProgress({ loaded: 0, total: 0 })
   const response = await fetchJsonWithRetry<{ data?: YgoCard[] }>(API_URL, { headers: HEADERS, timeoutMs: 120_000 })
-  const cards = (response.data ?? []).flatMap((raw) => normalizeCard(raw))
-  if (cards.length === 0) throw new Error('YGOPRODeck returned no cards')
+  const fromApi = (response.data ?? []).flatMap((raw) => normalizeCard(raw))
+  if (fromApi.length === 0) throw new Error('YGOPRODeck returned no cards')
+  // TCGplayer market prices per exact printing (code + rarity) from the published price file, where it
+  // has one: YGOPRODeck's own per-printing prices are often missing or stale.
+  const cards = applyPriceFile(fromApi, await loadPriceFile('yugioh'), (card) => (card.number ? yugiohKeys(card.setCode, card.number, card.rarity) : []))
   onProgress({ loaded: cards.length, total: cards.length })
   return cards
 }
@@ -232,6 +237,8 @@ export const yugiohAdapter: GameAdapter = {
   defaultFormats,
   legalitySource: 'api',
   hasPrices: true,
+  // Prices from the price file stay when a later sync can't reach it.
+  keepPricesWhenMissing: true,
   openingHandSize: 5,
   fetchAllCards,
   formatDecklistText,

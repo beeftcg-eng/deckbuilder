@@ -106,6 +106,19 @@ describe('Pokémon sync', () => {
     expect(cards.find((c) => c.sourceId === 'sv1-1')!.price).toBe(0.5) // what arrived in time is kept
   })
 
+  it('prefers the published TCGplayer price file and skips the slow API when it covers the cards', async () => {
+    const { fetchMock } = network({ api: () => json({ data: priceRows(['sv1-1', 'sv1-2', 'sv1-3', 'base1-1', 'base1-2']), totalCount: 5 }) })
+    const original = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input) =>
+      String(input).endsWith('/prices/pokemon.json')
+        ? json({ updatedAt: 'x', prices: { 'SVI|1': 11, 'SVI|2': 12, 'SVI|3': 13, 'BS|1': 21, 'BASE1|2': 22 } })
+        : original(input),
+    )
+    const cards = await run()
+    expect(cards.map((c) => c.price)).toEqual([11, 12, 13, 21, 22])
+    expect(fetchMock.mock.calls.some(([u]) => String(u).startsWith('https://api.pokemontcg.io'))).toBe(false)
+  })
+
   it('fails clearly when the card index itself cannot be fetched', async () => {
     network({ failures: { [`${STATIC}/sets/en.json`]: 99 } })
     await expect(run()).rejects.toThrow(/500/)
