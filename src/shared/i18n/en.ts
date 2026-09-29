@@ -34,6 +34,18 @@ export const en = {
     welcome2: 'you can still browse and wishlist cards without one.',
   },
 
+  /** A deck's own notes (DeckNotes.tsx). */
+  deckNotes: {
+    title: '📝 Notes',
+    empty: 'No notes yet: your sideboard plan, mulligans, how the matchups go…',
+    add: 'Add notes',
+    edit: 'Edit',
+    save: 'Save',
+    cancel: 'Cancel',
+    placeholder: 'Sideboard plan, what to mulligan, how each matchup plays…',
+    private: 'Only you see these. They aren’t shown on a share link.',
+  },
+
   /** Share links (ShareDeckModal.tsx) and opening one (SharedDeckView.tsx). */
   share: {
     button: '🔗 Share',

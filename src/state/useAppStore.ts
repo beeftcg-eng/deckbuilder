@@ -174,6 +174,8 @@ interface AppState {
   setDeckLocked: (deckId: string, locked: boolean) => Promise<void>
   /** Records (or clears) a deck's share-link token. Not an edit, so it isn't undoable and works on a locked deck. */
   setDeckShareToken: (deckId: string, token: string | null) => Promise<void>
+  /** Saves a deck's notes. Works on a locked deck too: notes aren't the list. */
+  setDeckNotes: (deckId: string, notes: string) => Promise<void>
   /** The phone app's card scanner (ScannerModal.tsx), opened from Collection or the menu. */
   showScanner: boolean
   setShowScanner: (show: boolean) => void
@@ -770,6 +772,15 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!deck || (deck.shareToken ?? null) === token) return
       const { shareToken: _previous, ...rest } = deck
       const next: Deck = token ? { ...rest, shareToken: token } : rest
+      set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? next : d)) }))
+      await persistDeck(next, { keepUpdatedAt: true })
+    },
+    setDeckNotes: async (deckId, notes) => {
+      const deck = get().decks.find((d) => d.id === deckId)
+      const text = notes.replace(/\s+$/, '')
+      if (!deck || (deck.notes ?? '') === text) return
+      const { notes: _previous, ...rest } = deck
+      const next: Deck = text ? { ...rest, notes: text } : rest
       set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? next : d)) }))
       await persistDeck(next, { keepUpdatedAt: true })
     },

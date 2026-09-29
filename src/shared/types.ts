@@ -129,6 +129,8 @@ export interface Deck {
   locked?: boolean
   /** Set while the deck has a share link (deckShare.ts); synced with the deck so every device knows. */
   shareToken?: string
+  /** Your own notes on the deck (sideboard plan, mulligans, matchups). Synced, never shown on a share link. */
+  notes?: string
   /** zoneId -> entries. Most zones use DeckCardEntry[]; freeText zones use DeckFreeTextEntry[]. */
   zones: Record<string, DeckCardEntry[]>
   freeTextZones: Record<string, DeckFreeTextEntry[]>

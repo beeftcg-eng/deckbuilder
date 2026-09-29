@@ -34,6 +34,17 @@ export const es: Messages = {
     welcome2: 'también puedes explorar cartas y añadirlas a tu lista de deseos sin uno.',
   },
 
+  deckNotes: {
+    title: '📝 Notas',
+    empty: 'Todavía no hay notas: tu plan de side, qué mulliganear, cómo van los enfrentamientos…',
+    add: 'Añadir notas',
+    edit: 'Editar',
+    save: 'Guardar',
+    cancel: 'Cancelar',
+    placeholder: 'Plan de side, qué mulliganear, cómo se juega cada enfrentamiento…',
+    private: 'Solo tú las ves. No aparecen en un enlace para compartir.',
+  },
+
   share: {
     button: '🔗 Compartir',
     buttonShared: '🔗 Compartido',

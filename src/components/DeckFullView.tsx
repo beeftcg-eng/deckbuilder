@@ -12,6 +12,7 @@ import { DeckLockButton } from './DeckLockButton'
 import { ExportModal } from './ExportModal'
 import { ShareDeckModal } from './ShareDeckModal'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
+import { DeckNotes } from './DeckNotes'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
 import { PairingsStatsModal } from './PairingsStatsModal'
 import { t, zoneLabel } from '../shared/i18n'
@@ -255,6 +256,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
 
       {!readOnly && <PairingsRecordStrip deck={deck} />}
       {!readOnly && <PairingsSyncReminder deck={deck} inset />}
+      {!readOnly && <DeckNotes deck={deck} />}
 
       <div className="fv-body">
         {sections.length === 0 ? (

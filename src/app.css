@@ -1938,6 +1938,57 @@
   display: flex;
 }
 
+/* A deck's notes in the deck view (DeckNotes). */
+.deck-notes {
+  margin: 8px 18px 0;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.deck-notes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.deck-notes-toggle {
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  padding: 2px 0;
+}
+
+.deck-notes-body {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.deck-notes-text {
+  width: 100%;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.deck-notes-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.deck-notes-actions > span {
+  margin-right: auto;
+}
+
 /* Share links: the Share dialog (ShareDeckModal) and a shared deck opened from a link (SharedDeckView),
    which covers the app but stays under dialogs (z 10) so its Export / card details still open on top. */
 .share-modal {
@@ -2655,6 +2706,14 @@
 
   .fv-body {
     padding: 8px 12px 24px;
+  }
+
+  .deck-notes {
+    margin: 8px 12px 0;
+  }
+
+  .deck-notes-actions {
+    flex-wrap: wrap;
   }
 
   /* Deck editor rows: the card name gets its own line, the buttons go on the line under it. */

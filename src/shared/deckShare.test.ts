@@ -37,6 +37,7 @@ describe('normalizeSharedDeck', () => {
       formatId: 'constructed',
       zones: { main: [{ cardId: 'a', quantity: 3 }, { cardId: 'b', quantity: 0 }, { cardId: 5, quantity: 1 }, null], legend: 'nope' },
       freeTextZones: { runes: [{ label: 'Fury', quantity: 6 }, { label: 'Calm' }] },
+      notes: 'Mulligan hands without a 2-drop',
     },
   }
 
@@ -48,6 +49,7 @@ describe('normalizeSharedDeck', () => {
     expect(shared.deck.zones).toEqual({ main: [{ cardId: 'a', quantity: 3 }], legend: [] })
     expect(shared.deck.freeTextZones).toEqual({ runes: [{ label: 'Fury', quantity: 6 }] })
     expect(shared.deck.shareToken).toBeUndefined()
+    expect(shared.deck.notes).toBeUndefined()
     expect(shared.deck.locked).toBeUndefined()
   })
 
