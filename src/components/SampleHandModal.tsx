@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Card, Deck } from '../shared/types'
-import { expandZone, shuffled } from '../shared/sampleHand'
+import { cardsSeenBy, chanceAtLeast, expandZone, shuffled } from '../shared/sampleHand'
+import { poolKey } from '../shared/collection'
 import { t } from '../shared/i18n'
 
 interface Props {
@@ -11,18 +12,66 @@ interface Props {
   onClose: () => void
 }
 
-/** Shuffles the main deck and draws an opening hand; "Draw a card" keeps dealing from the same shuffle. */
-export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
-  const [library, setLibrary] = useState(() => shuffled(expandZone(deck, 'main', cardsById)))
-  const [drawn, setDrawn] = useState(handSize)
+type Tab = 'practice' | 'odds'
+const TURNS = [0, 1, 2, 3, 4, 5]
 
-  function newHand() {
-    setLibrary(shuffled(expandZone(deck, 'main', cardsById)))
-    setDrawn(handSize)
+function deal(from: Card[], size: number, mulligans: number) {
+  const library = shuffled(from)
+  return { hand: library.slice(0, size), library: library.slice(size), turn: 0, mulligans, bottomed: 0 }
+}
+
+/**
+ * Practising the deck: deal an opening hand, mulligan, put cards on the bottom (Magic's London
+ * mulligan, Riftbound's replace-up-to-two), play turns out draw by draw - and the exact odds of
+ * seeing chosen cards by each turn.
+ */
+export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
+  const cards = useMemo(() => expandZone(deck, 'main', cardsById), [deck, cardsById])
+  const [tab, setTab] = useState<Tab>('practice')
+  const [onThePlay, setOnThePlay] = useState(true)
+  const [state, setState] = useState(() => deal(cards, handSize, 0))
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [atLeast, setAtLeast] = useState(1)
+
+  function draw() {
+    setState((s) => ({ ...s, hand: [...s.hand, ...s.library.slice(0, 1)], library: s.library.slice(1) }))
   }
 
-  const hand = library.slice(0, drawn)
-  const remaining = Math.max(0, library.length - drawn)
+  function nextTurn() {
+    setState((s) => {
+      const turn = s.turn + 1
+      const draws = turn === 1 && onThePlay ? 0 : 1
+      return { ...s, turn, hand: [...s.hand, ...s.library.slice(0, draws)], library: s.library.slice(draws) }
+    })
+  }
+
+  function bottom(index: number) {
+    setState((s) => ({ ...s, hand: s.hand.filter((_, i) => i !== index), library: [...s.library, s.hand[index]], bottomed: s.bottomed + 1 }))
+  }
+
+  // One row per card (printings together), for the odds.
+  const kinds = useMemo(() => {
+    const byKey = new Map<string, { card: Card; copies: number }>()
+    for (const card of cards) {
+      const key = poolKey(card)
+      const entry = byKey.get(key)
+      if (entry) entry.copies++
+      else byKey.set(key, { card, copies: 1 })
+    }
+    return [...byKey.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => b.copies - a.copies || a.card.name.localeCompare(b.card.name))
+  }, [cards])
+  const pickedCopies = kinds.filter((k) => picked.has(k.key)).reduce((n, k) => n + k.copies, 0)
+
+  function togglePick(key: string) {
+    setPicked((p) => {
+      const next = new Set(p)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const percent = (p: number) => `${(p * 100).toFixed(p >= 0.995 || p < 0.005 ? 0 : 1)}%`
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
@@ -34,28 +83,95 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
           </button>
         </div>
 
-        {library.length === 0 ? (
+        {cards.length === 0 ? (
           <div className="text-dim">{t.sampleHand.empty}</div>
         ) : (
           <>
-            <div className="sample-hand-actions">
-              <button className="btn btn-primary" onClick={newHand}>
-                {t.sampleHand.newHand(handSize)}
-              </button>
-              <button className="btn" disabled={remaining === 0} onClick={() => setDrawn((n) => n + 1)}>
-                {t.sampleHand.draw}
-              </button>
-              <span className="text-dim">
-                {t.sampleHand.status(hand.length, remaining)}
-              </span>
-            </div>
-            <div className="sample-hand-grid">
-              {hand.map((card, i) => (
-                <div className="sample-hand-card" key={`${card.id}-${i}`} title={card.name}>
-                  {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <div className="card-tile-placeholder">{card.name}</div>}
-                </div>
+            <div className="practice-tabs" role="tablist">
+              {(['practice', 'odds'] as const).map((tb) => (
+                <button key={tb} role="tab" aria-selected={tab === tb} className={`btn ${tab === tb ? 'btn-primary' : ''}`} onClick={() => setTab(tb)}>
+                  {tb === 'practice' ? t.sampleHand.practiceTab : t.sampleHand.oddsTab}
+                </button>
               ))}
+              <label className="practice-play" title={t.sampleHand.onThePlayTitle}>
+                <input type="checkbox" checked={onThePlay} onChange={(e) => setOnThePlay(e.target.checked)} />
+                {t.sampleHand.onThePlay}
+              </label>
             </div>
+
+            {tab === 'practice' ? (
+              <>
+                <div className="sample-hand-actions">
+                  <button className="btn btn-primary" onClick={() => setState(deal(cards, handSize, 0))}>
+                    {t.sampleHand.newHand(handSize)}
+                  </button>
+                  <button className="btn" onClick={() => setState(deal(cards, handSize, state.mulligans + 1))}>
+                    {t.sampleHand.mulligan}
+                  </button>
+                  <button className="btn" disabled={state.library.length === 0} onClick={nextTurn}>
+                    {t.sampleHand.nextTurn}
+                  </button>
+                  <button className="btn" disabled={state.library.length === 0} onClick={draw}>
+                    {t.sampleHand.draw}
+                  </button>
+                </div>
+                <div className="text-dim practice-status">
+                  {state.turn === 0 ? t.sampleHand.opening : t.sampleHand.turn(state.turn)}
+                  {' · '}
+                  {t.sampleHand.status(state.hand.length, state.library.length)}
+                  {state.mulligans > 0 && ` · ${t.sampleHand.mulligans(state.mulligans)}`}
+                  {state.bottomed > 0 && ` · ${t.sampleHand.bottomed(state.bottomed)}`}
+                </div>
+                <div className="text-dim practice-hint">{t.sampleHand.bottomHint}</div>
+                <div className="sample-hand-grid">
+                  {state.hand.map((card, i) => (
+                    <button className="sample-hand-card" key={`${card.id}-${i}`} title={t.sampleHand.bottomTitle(card.name)} onClick={() => bottom(i)}>
+                      {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <div className="card-tile-placeholder">{card.name}</div>}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="odds">
+                <div className="odds-controls">
+                  <label>
+                    {t.sampleHand.atLeast}{' '}
+                    <select value={atLeast} onChange={(e) => setAtLeast(Number(e.target.value))}>
+                      {[1, 2, 3, 4].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <span className="text-dim">{picked.size ? t.sampleHand.pickedCopies(pickedCopies, cards.length) : t.sampleHand.pickCards}</span>
+                </div>
+                {picked.size > 0 && (
+                  <table className="odds-table">
+                    <tbody>
+                      {TURNS.map((turn) => (
+                        <tr key={turn}>
+                          <th>{turn === 0 ? t.sampleHand.opening : t.sampleHand.byTurn(turn)}</th>
+                          <td>{percent(chanceAtLeast(cards.length, pickedCopies, cardsSeenBy(handSize, turn, onThePlay), atLeast))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                <ul className="odds-cards">
+                  {kinds.map((k) => (
+                    <li key={k.key}>
+                      <label>
+                        <input type="checkbox" checked={picked.has(k.key)} onChange={() => togglePick(k.key)} />
+                        <span className="odds-copies">{k.copies}×</span>
+                        <span className="odds-name">{k.card.name}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-dim odds-note">{t.sampleHand.oddsNote}</p>
+              </div>
+            )}
           </>
         )}
       </div>

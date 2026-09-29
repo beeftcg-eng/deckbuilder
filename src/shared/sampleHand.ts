@@ -20,3 +20,32 @@ export function expandZone(deck: Deck, zoneId: string, cardsById: Map<string, Ca
   }
   return cards
 }
+
+/** n choose k, as a float (fine for deck sizes: at most a few hundred cards). */
+function choose(n: number, k: number): number {
+  if (k < 0 || k > n) return 0
+  k = Math.min(k, n - k)
+  let result = 1
+  for (let i = 1; i <= k; i++) result = (result * (n - k + i)) / i
+  return result
+}
+
+/**
+ * The chance of seeing at least `atLeast` of `copies` cards when looking at `seen` cards of a
+ * `deckSize`-card deck (hypergeometric): e.g. a 2-drop by turn 2.
+ */
+export function chanceAtLeast(deckSize: number, copies: number, seen: number, atLeast: number): number {
+  if (atLeast <= 0) return 1
+  seen = Math.min(seen, deckSize)
+  const total = choose(deckSize, seen)
+  if (!total) return 0
+  let p = 0
+  for (let k = atLeast; k <= Math.min(copies, seen); k++) p += (choose(copies, k) * choose(deckSize - copies, seen - k)) / total
+  return Math.min(1, Math.max(0, p))
+}
+
+/** Cards seen by the start of turn `turn` (0 = the opening hand): one draw a turn, none on turn 1 when on the play. */
+export function cardsSeenBy(handSize: number, turn: number, onThePlay: boolean): number {
+  if (turn <= 0) return handSize
+  return handSize + turn - (onThePlay ? 1 : 0)
+}

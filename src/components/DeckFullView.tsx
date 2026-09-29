@@ -14,6 +14,7 @@ import { ShareDeckModal } from './ShareDeckModal'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
 import { DeckNotes } from './DeckNotes'
 import { CompareDecksModal } from './CompareDecksModal'
+import { SampleHandModal } from './SampleHandModal'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
 import { PairingsStatsModal } from './PairingsStatsModal'
 import { t, zoneLabel } from '../shared/i18n'
@@ -53,6 +54,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
   const [showStats, setShowStats] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showCompare, setShowCompare] = useState(false)
+  const [showPractice, setShowPractice] = useState(false)
 
   const zones = useMemo(() => rulesForFormat(adapter, deck.formatId), [adapter, deck.formatId])
   const sections = useMemo(() => buildDeckView(deck, zones, cardsById), [deck, zones, cardsById])
@@ -234,6 +236,9 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
               {t.deckView.export}
             </button>
           )}
+          <button className="btn" onClick={() => setShowPractice(true)} title={t.sampleHand.buttonTitle}>
+            {t.sampleHand.button}
+          </button>
           <button className="btn" onClick={() => setShowCompare(true)} title={t.compare.buttonTitle}>
             {t.compare.button}
           </button>
@@ -247,7 +252,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
               {t.deckStatsModal.button}
             </button>
           )}
-          <button className="btn" onClick={toggleOsFullscreen} title={t.deckView.fullscreenTitle}>
+          <button className="btn fv-fullscreen" onClick={toggleOsFullscreen} title={t.deckView.fullscreenTitle}>
             {osFullscreen ? t.deckView.exitFullscreen : t.deckView.fullscreen}
           </button>
           {!readOnly && <DeckLockButton deck={deck} />}
@@ -322,6 +327,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
       {detail && <CardDetailModal card={detail} onClose={() => setDetail(null)} />}
       {showStats && <PairingsStatsModal deck={deck} onClose={() => setShowStats(false)} />}
       {showShare && <ShareDeckModal deck={deck} onClose={() => setShowShare(false)} />}
+      {showPractice && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowPractice(false)} />}
       {showCompare && <CompareDecksModal deck={deck} cardsById={cardsById} onClose={() => setShowCompare(false)} />}
       {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}
     </div>
