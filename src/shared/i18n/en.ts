@@ -864,6 +864,50 @@ export const en = {
     events: 'Events',
   },
 
+  /** Price alerts on wishlist cards (priceAlerts.ts). */
+  priceAlerts: {
+    notifyTitle: '💸 Price alert',
+    hitOne: (name: string, price: string, target: string) => `💸 ${name} is down to ${price} (your alert was ${target} or less).`,
+    hitMany: (n: number, names: string) => `💸 ${n} cards on your wishlist hit your price: ${names}.`,
+    buttonTitle: 'Tell me when this card drops to a price',
+    label: (currency: string) => `Alert me at or below (${currency})`,
+    set: 'Set alert',
+    remove: 'Remove alert',
+    target: (price: string) => `≤ ${price}`,
+    targetTitle: (price: string) => `Price alert: you'll get a notice when it's ${price} or less. Click to change.`,
+    hit: '💸 At your price!',
+    invalid: 'Type a price above 0.',
+    howItWorks: 'Prices are checked every day. You get a notice (and a notification, if you allow it) when it gets there.',
+  },
+
+  /** The collection's value over time (valueHistory.ts). */
+  valueHistory: {
+    title: 'Value over time',
+    days: (n: number) => (n >= 365 ? 'Year' : `${n} days`),
+    all: 'All',
+    change: (diff: string, percent: string) => `${diff}${percent ? ` (${percent})` : ''}`,
+    since: (date: string) => `since ${date}`,
+    firstDay: 'Your collection’s value is saved every day. The graph starts filling in from tomorrow.',
+    graphTitle: (date: string, value: string) => `${date}: ${value}`,
+  },
+
+  /** Report a bug (BugReportModal.tsx). */
+  bugReport: {
+    link: '🐞 Report a bug',
+    title: 'Report a bug',
+    intro: 'Tell me what went wrong and what you were doing when it happened. It comes straight to me.',
+    placeholder: 'e.g. I tapped Scan cards and the camera stayed black…',
+    contact: 'Your name or WhatsApp (optional, so I can ask you about it)',
+    details: 'Include technical details (app version, device, recent errors)',
+    showDetails: 'What gets sent',
+    send: 'Send',
+    sending: 'Sending…',
+    sent: 'Thanks, got it! 🙏',
+    failed: (err: string) => `Couldn't send it (${err}). Copy it and send it to me another way.`,
+    copy: 'Copy report',
+    empty: 'Write what happened first.',
+  },
+
   tour: {
     replay: '👋 Welcome tour',
     stepOf: (n: number, total: number) => `${n} of ${total}`,
@@ -894,7 +938,7 @@ export const en = {
       'Point your camera at a card and **📷 Scan cards** finds the exact printing (set, art and rarity, promos too) and adds it to your collection or wishlist, with a little chime each time.',
     navTitle: 'Everything else',
     navBody:
-      '**Wishlist**: cards you want, to export or send to Pawmodoro. **My Decks**: every deck from every game. **Collection**: what you own and how far along each set is. **Trade**: find people to trade with. **Binders**: group your cards however you like.',
+      '**Wishlist**: cards you want, with 🔔 price alerts, to export or send to Pawmodoro. **My Decks**: every deck from every game. **Collection**: what you own, what it’s worth over time, and how far along each set is. **Trade**: find people to trade with. **Binders**: group your cards however you like.',
     accountTitle: 'Take it to your phone',
     accountBody:
       '**Log in** (a free account, just an email and password) and your decks, collection and wishlist sync with the phone app. The same account is used for trading. The phone app can also scan your cards with the camera.',

@@ -1808,9 +1808,10 @@
 
 .version-line {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
 }
 
 .link-btn {
@@ -1905,8 +1906,9 @@
 
 .col-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   padding: 4px 8px;
   border-radius: 6px;
   background: var(--bg-elevated);
@@ -1916,7 +1918,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
+  /* Room for the name first; when the row is too narrow the rest wraps below it. */
+  flex: 1 1 170px;
   min-width: 0;
   padding: 0;
   border: none;
@@ -1938,7 +1941,8 @@
 }
 
 .col-price {
-  width: 56px;
+  min-width: 56px;
+  white-space: nowrap;
   text-align: right;
   font-size: 12px;
 }
@@ -1953,7 +1957,7 @@
 }
 
 .col-set-info {
-  flex: 1;
+  flex: 1 1 170px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -3719,4 +3723,178 @@
   .tour-spotlight {
     transition: none;
   }
+}
+
+/* Collection value over time (ValueChart.tsx). */
+.value-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.value-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 13px;
+}
+
+.value-chart-title {
+  font-weight: 600;
+}
+
+.value-chart-change.up {
+  color: var(--success);
+}
+
+.value-chart-change.down {
+  color: var(--danger);
+}
+
+.value-chart-ranges {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.value-chart-range {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.value-chart-svg {
+  width: 100%;
+  height: 64px;
+  display: block;
+}
+
+.value-chart-area {
+  fill: var(--accent);
+  opacity: 0.15;
+}
+
+.value-chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.value-chart-note {
+  font-size: 13px;
+}
+
+/* Price alerts on wishlist rows (PriceAlertEditor.tsx). */
+.price-alert-btn {
+  padding: 2px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.price-alert-btn.set {
+  border-color: var(--accent);
+}
+
+.price-alert-btn.hit {
+  border-color: var(--success);
+  color: var(--success);
+  font-weight: 600;
+}
+
+.price-alert-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 10px;
+  margin: -2px 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.price-alert-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.price-alert-editor input {
+  width: 120px;
+}
+
+.price-alert-help {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+
+/* Phones: a wishlist row wraps its buttons under the card name instead of squeezing it. */
+@media (max-width: 640px) {
+  .wishlist-row {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .wishlist-row-name {
+    flex-basis: calc(100% - 52px);
+    white-space: normal;
+  }
+}
+
+/* Report a bug (BugReportModal.tsx). */
+.bug-report-modal {
+  overflow-y: auto;
+}
+
+.bug-report-intro,
+.bug-report-sent {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.bug-report-message {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+}
+
+.bug-report-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.bug-report-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.bug-report-details pre {
+  max-height: 180px;
+  overflow: auto;
+  font-size: 11px;
+  background: var(--bg);
+  padding: 8px;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bug-report-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.version-line .link-btn {
+  white-space: nowrap;
 }

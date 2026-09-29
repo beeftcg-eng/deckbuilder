@@ -1,5 +1,5 @@
 import { matchesPrintedCode } from '../shared/cardSearch'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { formatPrice, gameIdOfCardId, totalPrice } from '../shared/collection'
@@ -8,6 +8,7 @@ import type { Card } from '../shared/types'
 import { CardDetailModal } from './CardDetailModal'
 import { t } from '../shared/i18n'
 import { Rich } from './Rich'
+import { ValueChart } from './ValueChart'
 
 type Tab = 'cards' | 'sets'
 type Sort = 'name' | 'set' | 'copies' | 'value'
@@ -32,6 +33,8 @@ export function CollectionPanel() {
   const toggleForTrade = useAppStore((s) => s.toggleForTrade)
   const tradeProfile = useAppStore((s) => s.settings.tradeProfile)
   const wishlistCards = useAppStore((s) => s.wishlistCards)
+  const valuePoints = useAppStore((s) => s.settings.valueHistory?.[s.currentGameId])
+  const recordCollectionValue = useAppStore((s) => s.recordCollectionValue)
   const adapter = getAdapter(currentGameId)
 
   const [tab, setTab] = useState<Tab>('cards')
@@ -59,6 +62,11 @@ export function CollectionPanel() {
 
   const totalCopies = owned.entries.reduce((sum, e) => sum + e.copies, 0)
   const value = totalPrice(owned.entries.map((e) => ({ card: e.card, quantity: e.copies })))
+
+  // Today's point on the value graph follows the cards you add and remove.
+  useEffect(() => {
+    if (catalog) recordCollectionValue(currentGameId)
+  }, [catalog, currentGameId, value.total, recordCollectionValue])
 
   const needle = query.trim().toLowerCase()
   const visibleOwned = useMemo(() => {
@@ -122,6 +130,8 @@ export function CollectionPanel() {
           {adapter.hasPrices && value.total > 0 ? ` · ≈ ${formatPrice(value.total)}` : ''}
         </span>
       </div>
+
+      {adapter.hasPrices && valuePoints && <ValueChart points={valuePoints} />}
 
       <div className="fv-modes col-tabs" role="tablist">
         <button className={tab === 'cards' ? 'btn btn-primary' : 'btn'} aria-pressed={tab === 'cards'} onClick={() => setTab('cards')}>

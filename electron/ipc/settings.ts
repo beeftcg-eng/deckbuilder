@@ -7,6 +7,8 @@ import { isLanguage, languageFromLocale, setLanguage } from '../../src/shared/i1
 import { isDeckSortMode } from '../../src/shared/deckOrder'
 import { settingsFile } from '../lib/paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/jsonStore'
+import { sanitizeValueHistory } from '../../src/shared/valueHistory'
+import { sanitizePriceAlerts } from '../../src/shared/priceAlerts'
 
 const GAME_IDS: GameId[] = GAME_LIST.map((adapter) => adapter.id)
 
@@ -48,6 +50,8 @@ export function sanitize(raw: unknown): AppSettings {
     }
     settings.artChoices = choices
   }
+  if (source.valueHistory !== undefined) settings.valueHistory = sanitizeValueHistory(source.valueHistory, GAME_IDS)
+  if (source.priceAlerts !== undefined) settings.priceAlerts = sanitizePriceAlerts(source.priceAlerts)
   if (isPlainObject(source.tradeProfile)) {
     const tp = source.tradeProfile as Record<string, unknown>
     if (typeof tp.public === 'boolean' && typeof tp.displayName === 'string') settings.tradeProfile = { public: tp.public, displayName: tp.displayName }

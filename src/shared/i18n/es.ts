@@ -903,6 +903,47 @@ export const es: Messages = {
     events: 'Eventos',
   },
 
+  priceAlerts: {
+    notifyTitle: '💸 Alerta de precio',
+    hitOne: (name, price, target) => `💸 ${name} bajó a ${price} (tu alerta era de ${target} o menos).`,
+    hitMany: (n, names) => `💸 ${n} cartas de tu lista de deseos llegaron a tu precio: ${names}.`,
+    buttonTitle: 'Avísame cuando esta carta baje a un precio',
+    label: (currency) => `Avísame a este precio o menos (${currency})`,
+    set: 'Poner alerta',
+    remove: 'Quitar alerta',
+    target: (price) => `≤ ${price}`,
+    targetTitle: (price) => `Alerta de precio: te avisamos cuando cueste ${price} o menos. Haz clic para cambiarla.`,
+    hit: '💸 ¡A tu precio!',
+    invalid: 'Escribe un precio mayor que 0.',
+    howItWorks: 'Los precios se revisan cada día. Te sale un aviso (y una notificación, si la permites) cuando llegue.',
+  },
+
+  valueHistory: {
+    title: 'Valor en el tiempo',
+    days: (n) => (n >= 365 ? 'Año' : `${n} días`),
+    all: 'Todo',
+    change: (diff, percent) => `${diff}${percent ? ` (${percent})` : ''}`,
+    since: (date) => `desde el ${date}`,
+    firstDay: 'El valor de tu colección se guarda cada día. La gráfica empieza a llenarse desde mañana.',
+    graphTitle: (date, value) => `${date}: ${value}`,
+  },
+
+  bugReport: {
+    link: '🐞 Reportar un error',
+    title: 'Reportar un error',
+    intro: 'Cuéntame qué falló y qué estabas haciendo cuando pasó. Me llega directo a mí.',
+    placeholder: 'p. ej. Toqué Escanear cartas y la cámara se quedó en negro…',
+    contact: 'Tu nombre o WhatsApp (opcional, para poder preguntarte)',
+    details: 'Incluir detalles técnicos (versión de la app, dispositivo, errores recientes)',
+    showDetails: 'Lo que se envía',
+    send: 'Enviar',
+    sending: 'Enviando…',
+    sent: '¡Gracias, ya me llegó! 🙏',
+    failed: (err) => `No se pudo enviar (${err}). Cópialo y mándamelo por otro lado.`,
+    copy: 'Copiar reporte',
+    empty: 'Primero escribe qué pasó.',
+  },
+
   tour: {
     replay: '👋 Recorrido de bienvenida',
     stepOf: (n, total) => `${n} de ${total}`,
@@ -933,7 +974,7 @@ export const es: Messages = {
       'Apunta la cámara a una carta y **📷 Escanear cartas** encuentra la impresión exacta (expansión, arte y rareza, promos también) y la añade a tu colección o lista de deseos, con un sonidito cada vez.',
     navTitle: 'Todo lo demás',
     navBody:
-      '**Lista de deseos**: cartas que buscas, para exportar o enviar a Pawmodoro. **Mis mazos**: todos los mazos de todos los juegos. **Colección**: lo que tienes y cuánto llevas de cada expansión. **Intercambio**: encuentra con quién intercambiar. **Carpetas**: agrupa tus cartas como quieras.',
+      '**Lista de deseos**: cartas que buscas, con 🔔 alertas de precio, para exportar o enviar a Pawmodoro. **Mis mazos**: todos los mazos de todos los juegos. **Colección**: lo que tienes, cuánto vale con el tiempo y cuánto llevas de cada expansión. **Intercambio**: encuentra con quién intercambiar. **Carpetas**: agrupa tus cartas como quieras.',
     accountTitle: 'Llévalo a tu teléfono',
     accountBody:
       '**Inicia sesión** (una cuenta gratis, solo correo y contraseña) y tus mazos, colección y lista de deseos se sincronizan con la app del teléfono. La misma cuenta sirve para intercambiar. La app del teléfono además escanea tus cartas con la cámara.',

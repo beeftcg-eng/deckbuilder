@@ -23,4 +23,12 @@ describe('desktop settings', () => {
     expect(saved.currencyRates).toBeUndefined()
     expect(saved.artChoices).toBeUndefined()
   })
+  it('keeps value history and price alerts', () => {
+    const saved = sanitize({
+      valueHistory: { mtg: [{ d: '2026-09-28', v: 12.5 }], nope: [{ d: '2026-09-28', v: 1 }] },
+      priceAlerts: { 'mtg:abc': { target: 4, hit: true }, bad: { target: 'x' } },
+    })
+    expect(saved.valueHistory).toEqual({ mtg: [{ d: '2026-09-28', v: 12.5 }] })
+    expect(saved.priceAlerts).toEqual({ 'mtg:abc': { target: 4, hit: true } })
+  })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { formatPrice, totalPrice } from '../shared/collection'
@@ -6,6 +6,7 @@ import type { ResolvedWishlistEntry } from '../shared/export'
 import { WishlistExportModal } from './WishlistExportModal'
 import type { GameId, WishlistEntry } from '../shared/types'
 import { t } from '../shared/i18n'
+import { PriceAlertButton, PriceAlertEditor } from './PriceAlertEditor'
 
 export function WishlistPanel() {
   const wishlist = useAppStore((s) => s.wishlist)
@@ -38,6 +39,7 @@ export function WishlistPanel() {
   const [pushResult, setPushResult] = useState<string | null>(null)
   const [pushError, setPushError] = useState<string | null>(null)
   const [showExport, setShowExport] = useState(false)
+  const [editingAlert, setEditingAlert] = useState<string | null>(null)
 
   const grouped = useMemo(() => {
     const byGame = new Map<GameId, WishlistEntry[]>()
@@ -135,44 +137,48 @@ export function WishlistPanel() {
               {entries.map((entry) => {
                 const card = byId?.get(entry.cardId)
                 return (
-                  <div key={entry.id} className="wishlist-row">
-                    {card?.imageUrlSmall ? (
-                      <img className="wishlist-thumb" src={card.imageUrlSmall} alt={card.name} />
-                    ) : (
-                      <div className="wishlist-thumb wishlist-thumb-empty" />
-                    )}
-                    <div className="wishlist-row-name">
-                      {card ? card.name : entry.cardId}
-                      {card && (
-                        <span className="text-dim">
-                          {' '}
-                          — {card.setCode} #{card.number}
-                          {card.rarity ? ` · ${card.rarity}` : ''}
+                  <Fragment key={entry.id}>
+                    <div className="wishlist-row">
+                      {card?.imageUrlSmall ? (
+                        <img className="wishlist-thumb" src={card.imageUrlSmall} alt={card.name} />
+                      ) : (
+                        <div className="wishlist-thumb wishlist-thumb-empty" />
+                      )}
+                      <div className="wishlist-row-name">
+                        {card ? card.name : entry.cardId}
+                        {card && (
+                          <span className="text-dim">
+                            {' '}
+                            — {card.setCode} #{card.number}
+                            {card.rarity ? ` · ${card.rarity}` : ''}
+                          </span>
+                        )}
+                      </div>
+                      {entry.pushedTaskId && (
+                        <span className="wishlist-pushed" title={t.wishlist.inPawmodoroTitle}>
+                          {t.wishlist.inPawmodoro}
                         </span>
                       )}
-                    </div>
-                    {entry.pushedTaskId && (
-                      <span className="wishlist-pushed" title={t.wishlist.inPawmodoroTitle}>
-                        {t.wishlist.inPawmodoro}
-                      </span>
-                    )}
-                    {card?.price != null && <span className="text-dim">{formatPrice(card.price * entry.quantity)}</span>}
-                    <button className="btn" title={t.wishlist.gotItTitle} onClick={() => markGotIt(entry.id)}>
-                      {t.wishlist.gotIt}
-                    </button>
-                    <div className="stepper">
-                      <button className="btn stepper-btn" onClick={() => setWishlistQuantity(entry.id, entry.quantity - 1)}>
-                        −
+                      {card?.price != null && <span className="text-dim">{formatPrice(card.price * entry.quantity)}</span>}
+                      <PriceAlertButton cardId={entry.cardId} onClick={() => setEditingAlert(editingAlert === entry.cardId ? null : entry.cardId)} />
+                      <button className="btn" title={t.wishlist.gotItTitle} onClick={() => markGotIt(entry.id)}>
+                        {t.wishlist.gotIt}
                       </button>
-                      <span className="stepper-value">{entry.quantity}</span>
-                      <button className="btn stepper-btn" onClick={() => setWishlistQuantity(entry.id, entry.quantity + 1)}>
-                        +
+                      <div className="stepper">
+                        <button className="btn stepper-btn" onClick={() => setWishlistQuantity(entry.id, entry.quantity - 1)}>
+                          −
+                        </button>
+                        <span className="stepper-value">{entry.quantity}</span>
+                        <button className="btn stepper-btn" onClick={() => setWishlistQuantity(entry.id, entry.quantity + 1)}>
+                          +
+                        </button>
+                      </div>
+                      <button className="deck-row-delete" title={t.wishlist.remove} onClick={() => removeFromWishlist(entry.id)}>
+                        ×
                       </button>
                     </div>
-                    <button className="deck-row-delete" title={t.wishlist.remove} onClick={() => removeFromWishlist(entry.id)}>
-                      ×
-                    </button>
-                  </div>
+                    {editingAlert === entry.cardId && <PriceAlertEditor cardId={entry.cardId} onDone={() => setEditingAlert(null)} />}
+                  </Fragment>
                 )
               })}
             </div>

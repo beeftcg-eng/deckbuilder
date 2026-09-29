@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAppStore, useCardsById, useOrderedGames, useVisibleGames } from '../state/useAppStore'
 import { ImportDeckModal } from './ImportDeckModal'
 import { PatchNotesModal } from './PatchNotesModal'
+import { BugReportModal } from './BugReportModal'
 import { PawmodoroAccountModal } from './PawmodoroAccountModal'
 import { PairingsAccountModal } from './PairingsAccountModal'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
@@ -86,6 +87,7 @@ export function Sidebar() {
   const [deckFilter, setDeckFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [showPatchNotes, setShowPatchNotes] = useState(false)
+  const [showBugReport, setShowBugReport] = useState(false)
   const [showAccount, setShowAccount] = useState(false)
   const [showPairings, setShowPairings] = useState(false)
   const pairingsConfig = useAppStore((s) => s.pairingsConfig)
@@ -498,6 +500,9 @@ export function Sidebar() {
             <button className="link-btn" data-tour="replay" onClick={() => setShowTour(true)}>
               {t.tour.replay}
             </button>
+            <button className="link-btn" onClick={() => setShowBugReport(true)}>
+              {t.bugReport.link}
+            </button>
             <button
               className="link-btn"
               title={t.sidebar.support}
@@ -511,6 +516,7 @@ export function Sidebar() {
 
       {showImport && <ImportDeckModal gameId={currentGameId} onClose={() => setShowImport(false)} />}
       {showPatchNotes && <PatchNotesModal onClose={() => setShowPatchNotes(false)} />}
+      {showBugReport && <BugReportModal onClose={() => setShowBugReport(false)} />}
       {showAccount && <PawmodoroAccountModal onClose={() => setShowAccount(false)} />}
       {showPairings && <PairingsAccountModal onClose={() => setShowPairings(false)} />}
     </aside>

@@ -23,14 +23,17 @@ import type {
   WishlistEntry,
 } from '../shared/types'
 import { GAME_LIST, getAdapter } from '../shared/games/registry'
-import { buildPoolIndex, gameIdOfCardId, missingForDeck } from '../shared/collection'
+import { buildPoolIndex, gameIdOfCardId, missingForDeck, totalPrice } from '../shared/collection'
+import { localDay, recordValue, type ValueHistory } from '../shared/valueHistory'
+import { checkPriceAlerts } from '../shared/priceAlerts'
+import { notify } from '../lib/notify'
 import { buildTradeCollection, buildTradeWants } from '../shared/trade'
 import type { ParsedDeck } from '../shared/importDeck'
 import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import type { UpdateStatus } from '../shared/updateStatus'
 import { currentDeckFor } from '../shared/decks'
 import { parseShareToken } from '../shared/deckShare'
-import { displayCurrency, setDisplayCurrency, type RatesFile } from '../shared/currency'
+import { displayCurrency, formatMoney, setDisplayCurrency, type RatesFile } from '../shared/currency'
 import { PRICE_FILES_URL } from '../shared/priceKeys'
 import { fetchJson } from '../shared/games/fetchUtil'
 
@@ -211,6 +214,10 @@ interface AppState {
   setTheme: (id: string) => void
   /** Shows prices in this currency (converted from US dollars at the day's rate). */
   setCurrency: (code: string) => void
+  /** Saves today's collection value for a game whose cards are loaded (valueHistory.ts). */
+  recordCollectionValue: (gameId: GameId) => void
+  /** Sets (US dollars) or clears (null) the price alert on a wishlisted card (priceAlerts.ts). */
+  setPriceAlert: (cardId: string, targetUsd: number | null) => void
   /** Changes whenever the currency or its rate does, so price text re-renders (App.tsx keys on it). */
   currencyKey: string
   /** The welcome tour (WelcomeTour.tsx): opens by itself on a first launch, or from the sidebar. */
@@ -311,6 +318,60 @@ export const useAppStore = create<AppState>((set, get) => {
     return withSummary(deck, catalog.byId, formats.find((f) => f.id === deck.formatId)?.label ?? null)
   }
 
+  /** Set once the collection and wishlist are loaded at startup: collection values and price alerts need them. */
+  let startupLoaded = false
+  let valueSaveTimer: ReturnType<typeof setTimeout> | undefined
+  /** The newest value history while its save waits (another settings save meanwhile returns the older one). */
+  let pendingValues: ValueHistory | null = null
+
+  function recordValueOf(gameId: GameId) {
+    const catalog = get().catalogs[gameId]
+    if (!startupLoaded || !catalog || !getAdapter(gameId).hasPrices) return
+    const items: { card: Card; quantity: number }[] = []
+    for (const [cardId, copies] of Object.entries(get().collection)) {
+      if (gameIdOfCardId(cardId) !== gameId) continue
+      const card = catalog.byId.get(cardId)
+      if (card) items.push({ card, quantity: copies })
+    }
+    const next = recordValue(pendingValues ?? get().settings.valueHistory, gameId, totalPrice(items).total, localDay())
+    if (!next) return
+    pendingValues = next
+    set((s) => ({ settings: { ...s.settings, valueHistory: next } }))
+    // Tapping + a few times in a row saves once.
+    clearTimeout(valueSaveTimer)
+    valueSaveTimer = setTimeout(() => {
+      if (pendingValues) persistSettings({ valueHistory: pendingValues })
+      pendingValues = null
+    }, 1500)
+  }
+
+  /** Price alerts against the prices loaded now: the ones that just went off are shown (and notified). */
+  function checkAlerts() {
+    if (!startupLoaded) return
+    const { catalogs, wishlist, settings } = get()
+    const { hits, next } = checkPriceAlerts(settings.priceAlerts, lookupIn(catalogs), wishlist)
+    if (next) {
+      set((s) => ({ settings: { ...s.settings, priceAlerts: next } }))
+      persistSettings({ priceAlerts: next })
+    }
+    if (hits.length === 0) return
+    const text =
+      hits.length === 1
+        ? t.priceAlerts.hitOne(hits[0].card.name, formatMoney(hits[0].price), formatMoney(hits[0].target))
+        : t.priceAlerts.hitMany(hits.length, hits.map((h) => h.card.name).join(', '))
+    set({ notice: text })
+    void notify(t.priceAlerts.notifyTitle, text)
+  }
+
+  /** Loads the cards of games that have price alerts, so they're checked even if the game isn't open. */
+  async function loadAlertCatalogs() {
+    const alerts = get().settings.priceAlerts ?? {}
+    const games = new Set(get().wishlist.filter((e) => alerts[e.cardId]).map((e) => e.gameId))
+    for (const gameId of games) {
+      if (!get().catalogs[gameId] && get().syncMeta[gameId]?.count) await get().loadCatalog(gameId).catch(() => undefined)
+    }
+  }
+
   const PRICE_CHECK_EVERY_MS = 6 * 60 * 60 * 1000
   let lastPriceCheck = 0
   /** Applies the day's published prices to each downloaded game's saved cards (priceRefresh.ts). */
@@ -325,6 +386,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const result = await window.api.cards.refreshPrices(gameId).catch(() => null)
       if (result?.changed && get().catalogs[gameId]) await get().loadCatalog(gameId)
     }
+    await loadAlertCatalogs()
   }
 
   async function persistDeck(deck: Deck, options?: { keepUpdatedAt?: boolean }): Promise<void> {
@@ -451,6 +513,10 @@ export const useAppStore = create<AppState>((set, get) => {
           ...GAME_LIST.map((adapter) => get().loadFormats(adapter.id)),
         ])
 
+        startupLoaded = true
+        for (const gameId of Object.keys(get().catalogs) as GameId[]) recordValueOf(gameId)
+        checkAlerts()
+
         // Prices: today's are applied to every downloaded game in the background (no re-download),
         // and again when you come back to the app after a while.
         void refreshAllPrices()
@@ -535,6 +601,8 @@ export const useAppStore = create<AppState>((set, get) => {
           set({ error: t.store.ygoRestoreFailed(errorMessage(err)) })
         }
       }
+      recordValueOf(gameId)
+      checkAlerts()
       // Decks saved before summaries existed get one now, without counting as an edit. Each deck is
       // read from the store right before its save is issued, so this never saves over a newer edit.
       for (const { id } of get().decks.filter((d) => d.gameId === gameId && !d.summary)) {
@@ -892,6 +960,18 @@ export const useAppStore = create<AppState>((set, get) => {
         const { iconCardId: _previous, ...rest } = d
         return cardId ? { ...rest, iconCardId: cardId } : rest
       }, cardId ? t.store.setIcon : t.store.clearIcon)
+    },
+
+    recordCollectionValue: (gameId) => recordValueOf(gameId),
+
+    setPriceAlert: (cardId, targetUsd) => {
+      const alerts = { ...get().settings.priceAlerts }
+      if (targetUsd == null) delete alerts[cardId]
+      else alerts[cardId] = { target: targetUsd }
+      set((s) => ({ settings: { ...s.settings, priceAlerts: alerts } }))
+      persistSettings({ priceAlerts: alerts })
+      // Already at or below it: say so now rather than tomorrow.
+      checkAlerts()
     },
 
     setCurrency: (code) => {

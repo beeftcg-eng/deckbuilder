@@ -1,3 +1,6 @@
+import type { ValueHistory } from './valueHistory'
+import type { PriceAlerts } from './priceAlerts'
+
 export type GameId = 'pokemon' | 'onepiece' | 'riftbound' | 'mtg' | 'yugioh'
 
 /** A card normalized into a common shape, regardless of source game/API. */
@@ -271,6 +274,10 @@ export interface AppSettings {
   tradeProfile?: TradeProfile
   /** Yu-Gi-Oh artwork picked per printing (artChoice.ts printingKey -> artwork id). */
   artChoices?: Record<string, string>
+  /** Each game's collection value, a point a day (valueHistory.ts). */
+  valueHistory?: ValueHistory
+  /** Target prices on wishlist cards, by card id (priceAlerts.ts). */
+  priceAlerts?: PriceAlerts
 }
 
 export interface PawmodoroConfig {

@@ -42,6 +42,11 @@ export function displayCurrency(): string {
   return current.code
 }
 
+/** Units of the shown currency per US dollar. */
+export function displayRate(): number {
+  return current.rate
+}
+
 function formatter(code: string): Intl.NumberFormat {
   let f = formatters.get(code)
   if (!f) {
