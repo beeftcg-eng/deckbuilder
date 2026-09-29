@@ -620,7 +620,7 @@ const exportPaste = async (content: string): Promise<string> => {
 }
 
 const exportSaveFile = async (content: string, suggestedName: string): Promise<boolean> =>
-  downloadBlob(new Blob([content], { type: 'text/plain' }), suggestedName)
+  downloadBlob(new Blob([content], { type: suggestedName.toLowerCase().endsWith('.csv') ? 'text/csv' : 'text/plain' }), suggestedName)
 
 const exportSaveImage = async (dataUrl: string, suggestedName: string): Promise<boolean> => {
   const res = await fetch(dataUrl)

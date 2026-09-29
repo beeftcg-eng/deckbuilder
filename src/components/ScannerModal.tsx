@@ -23,11 +23,12 @@ import {
   type Rect,
 } from '../lib/scan/scanner'
 import { printedNumber, variantName } from '../shared/scan/scanIndex'
+import { defaultCamera } from '../shared/scan/cameras'
 import { playChime, unlockChime } from '../lib/scan/chime'
 import { t } from '../shared/i18n'
 
 type Phase = 'looking' | 'reading' | 'checking' | 'steady'
-type Target = 'collection' | 'wishlist'
+type Target = 'collection' | 'wishlist' | 'opening'
 
 interface Result {
   ranked: RankedCandidate[]
@@ -50,6 +51,8 @@ interface Added {
   card: Card
   quantity: number
   target: Target
+  /** The pack opening it went into, for undo. */
+  openingId?: string
 }
 
 const AUTO_ADD_KEY = 'brewhouse.scanner.autoAdd'
@@ -112,7 +115,12 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   const [lastRead, setLastRead] = useState<{ ms: number; backend: string } | null>(null)
   const [result, setResult] = useState<Result | null>(null)
   const [quantity, setQuantity] = useState(1)
-  const [target, setTarget] = useState<Target>('collection')
+  // A pack opening being filled in (Collection → Pack openings) is where scans go, until switched.
+  const activeOpening = useAppStore((s) => s.settings.packOpenings?.find((o) => o.id === s.activeOpeningId && o.gameId === s.currentGameId) ?? null)
+  const [target, setTarget] = useState<Target>(() => (activeOpening ? 'opening' : 'collection'))
+  const openingRef = useRef(activeOpening?.id ?? null)
+  openingRef.current = activeOpening?.id ?? null
+  if (target === 'opening' && !activeOpening) setTarget('collection')
   const [autoAdd, setAutoAdd] = useState(readAutoAdd)
   const [sound, setSound] = useState(readSound)
   const soundRef = useRef(sound)
@@ -124,6 +132,8 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   const [toast, setToast] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [cameraId, setCameraId] = useState(readCamera)
+  /** Bumped on every pick, so picking the camera already chosen still restarts it. */
+  const [cameraPick, setCameraPick] = useState(0)
   const [cameras, setCameras] = useState<{ id: string; label: string; active: boolean }[]>([])
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -155,34 +165,42 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
     }
   }, [attempt])
 
-  // Camera: the back one, as sharp as the phone gives.
+  // Camera: the back one on a phone, a real webcam on a computer (or the one picked), as sharp as it gives.
   useEffect(() => {
     let cancelled = false
     setCameraError(null)
+    const listCameras = async () =>
+      (await navigator.mediaDevices.enumerateDevices().catch(() => []))
+        .filter((d) => d.kind === 'videoinput')
+        .map((d, i) => ({ id: d.deviceId, label: d.label || `${t.scanner.camera} ${i + 1}` }))
+    let listed: { id: string; label: string }[] = []
     async function start() {
       if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error('no camera'), { name: 'NotFoundError' })
+      listed = await listCameras()
+      // A camera picked earlier that's still plugged in; else, on a computer, the likeliest real webcam
+      // (the first camera is often OBS's virtual one, which shows nothing unless OBS is running).
+      const picked = listed.some((c) => c.id === cameraId) ? cameraId : ''
+      const deviceId = picked || (__WEB__ ? '' : (defaultCamera(listed) ?? ''))
       // About 1080p in whichever orientation the phone gives, and never cropped to a shape: asking for a
       // landscape 1920x1080 made Chrome cut a square out of a portrait camera, losing most of the card.
+      // The device is `exact`: as a mere preference, Chrome picked whichever camera had the closest resolution.
       const constraints: MediaTrackConstraints & { resizeMode?: string } = {
-        ...(cameraId ? { deviceId: { ideal: cameraId } } : { facingMode: { ideal: 'environment' } }),
+        ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: 'environment' } }),
         width: { ideal: 1920 },
         height: { ideal: 1920 },
         resizeMode: 'none',
       }
       const stream = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false })
-      // Names are only given once the camera is allowed, so the list is read after it starts.
-      const devices = await navigator.mediaDevices.enumerateDevices().catch(() => [])
-      const activeId = stream.getVideoTracks()[0]?.getSettings().deviceId
-      if (!cancelled)
-        setCameras(
-          devices.filter((d) => d.kind === 'videoinput').map((d, i) => ({ id: d.deviceId, label: d.label || `${t.scanner.camera} ${i + 1}`, active: d.deviceId === activeId })),
-        )
       if (cancelled) {
         stream.getTracks().forEach((tr) => tr.stop())
         return
       }
       streamRef.current = stream
       const track = stream.getVideoTracks()[0]
+      // Names are only given once a camera is allowed, so the list is read again now.
+      listed = await listCameras()
+      const activeId = track?.getSettings().deviceId ?? deviceId
+      if (!cancelled) setCameras(listed.map((c) => ({ ...c, active: c.id === activeId })))
       try {
         await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] })
       } catch {
@@ -194,20 +212,36 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
       if (video) {
         video.srcObject = stream
         await video.play().catch(() => undefined)
+        // A virtual camera with nothing feeding it, or a capture card with no signal, "starts" but never sends a picture.
+        const gotPicture = await new Promise<boolean>((resolve) => {
+          if (video.videoWidth > 0) return resolve(true)
+          const timer = setTimeout(() => resolve(video.videoWidth > 0), 6000)
+          video.addEventListener('loadeddata', () => (clearTimeout(timer), resolve(true)), { once: true })
+        })
+        if (cancelled) return
+        if (!gotPicture) throw Object.assign(new Error('no picture'), { name: 'NoPictureError' })
         setCameraReady(true)
       }
     }
     start().catch((err: unknown) => {
       if (cancelled) return
+      // The picker still shows, so another camera can be tried.
+      setCameras(listed.map((c) => ({ ...c, active: c.id === (cameraId || (__WEB__ ? '' : defaultCamera(listed))) })))
       const name = (err as { name?: string })?.name
       setCameraError(
-        name === 'NotAllowedError' || name === 'SecurityError' || (!__WEB__ && name === 'NotReadableError')
-          ? __WEB__
-            ? t.scanner.cameraDenied
-            : t.scanner.cameraDeniedDesktop
-          : name === 'NotFoundError' || name === 'OverconstrainedError'
-            ? t.scanner.cameraMissing
-            : t.scanner.cameraFailed(err instanceof Error ? err.message : String(err)),
+        name === 'NoPictureError'
+          ? t.scanner.cameraNoPicture
+          : name === 'NotAllowedError' || name === 'SecurityError'
+            ? __WEB__
+              ? t.scanner.cameraDenied
+              : t.scanner.cameraDeniedDesktop
+            : name === 'NotReadableError' && !__WEB__
+              ? listed.length > 1
+                ? t.scanner.cameraBusyPickAnother
+                : t.scanner.cameraDeniedDesktop
+              : name === 'NotFoundError' || name === 'OverconstrainedError'
+                ? t.scanner.cameraMissing
+                : t.scanner.cameraFailed(err instanceof Error ? err.message : String(err)),
       )
     })
     return () => {
@@ -216,7 +250,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
       streamRef.current = null
       setCameraReady(false)
     }
-  }, [attempt, cameraId])
+  }, [attempt, cameraId, cameraPick])
 
   // The guide is drawn from the stage's size, and the same numbers map it into the video frame.
   useEffect(() => {
@@ -382,16 +416,19 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   async function add(card: Card, qty: number) {
     const store = useAppStore.getState()
     const where = targetRef.current
-    if (where === 'collection') await store.changeOwned(card.id, qty)
+    if (where === 'opening' && openingRef.current) await store.changePackPull(openingRef.current, card.id, qty)
+    else if (where === 'collection') await store.changeOwned(card.id, qty)
     else await store.addToWishlist(card, qty)
-    setSession((list) => [{ key: Date.now() + Math.random(), card, quantity: qty, target: where }, ...list])
+    setSession((list) => [{ key: Date.now() + Math.random(), card, quantity: qty, target: where, openingId: openingRef.current ?? undefined }, ...list])
     flash(t.scanner.added(`${qty > 1 ? `${qty}× ` : ''}${card.name}`))
   }
   addRef.current = (card, qty) => void add(card, qty)
 
   async function undo(entry: Added) {
     const store = useAppStore.getState()
-    if (entry.target === 'collection') await store.changeOwned(entry.card.id, -entry.quantity)
+    if (entry.target === 'opening') {
+      if (entry.openingId) await store.changePackPull(entry.openingId, entry.card.id, -entry.quantity)
+    } else if (entry.target === 'collection') await store.changeOwned(entry.card.id, -entry.quantity)
     else {
       const w = store.wishlist.find((e) => e.cardId === entry.card.id)
       if (w) {
@@ -447,6 +484,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
 
   function chooseCamera(id: string) {
     setCameraId(id)
+    setCameraPick((n) => n + 1)
     try {
       localStorage.setItem(CAMERA_KEY, id)
     } catch {
@@ -500,9 +538,9 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
           ))}
         </select>
         <div className="scanner-target" role="group" aria-label={t.scanner.addTo}>
-          {(['collection', 'wishlist'] as const).map((tg) => (
+          {(activeOpening ? (['opening', 'collection', 'wishlist'] as const) : (['collection', 'wishlist'] as const)).map((tg) => (
             <button key={tg} className={`btn ${target === tg ? 'btn-primary' : ''}`} aria-pressed={target === tg} onClick={() => setTarget(tg)}>
-              {tg === 'collection' ? t.scanner.toCollection : t.scanner.toWishlist}
+              {tg === 'opening' ? `📦 ${activeOpening?.name ?? ''}` : tg === 'collection' ? t.scanner.toCollection : t.scanner.toWishlist}
             </button>
           ))}
         </div>
@@ -631,7 +669,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
               </button>
             </div>
             <button className="btn btn-primary scanner-add" onClick={confirmAdd}>
-              {t.scanner.add(quantity, target === 'wishlist')}
+              {target === 'opening' ? t.scanner.addToOpening(quantity) : t.scanner.add(quantity, target === 'wishlist')}
             </button>
             <button className="btn" onClick={skip}>
               {t.scanner.skip}

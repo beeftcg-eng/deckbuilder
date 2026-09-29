@@ -9,11 +9,15 @@ import { resolveDeckIcon } from '../shared/deckIcon'
 import { sortDecks } from '../shared/deckOrder'
 import type { Card, Deck, GameId } from '../shared/types'
 import { DeckIcon } from './DeckIcon'
+import { FolderPicker } from './FolderPicker'
+import { deckFolders } from '../shared/deckFolders'
 import { Rich } from './Rich'
 import { getLanguage, t, zoneLabel } from '../shared/i18n'
 import { formatLabel } from '../shared/formatText'
 
 type Sort = 'recent' | 'name' | 'game' | 'custom'
+
+const UNFILED = '\u0000none'
 
 function updatedLabel(iso: string): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
@@ -78,6 +82,7 @@ function DeckCard({ deck, cardsById }: { deck: Deck; cardsById: Map<string, Card
         <div className="text-dim md-card-meta">
           {adapter.shortName}
           {format ? ` · ${formatLabel(deck.gameId, format)}` : ''}
+          {deck.folder ? ` · 📁 ${deck.folder}` : ''}
         </div>
         <div className="md-card-counts">
           <Rich text={t.myDecks.cardCount(totalCards)} />
@@ -108,6 +113,7 @@ function DeckCard({ deck, cardsById }: { deck: Deck; cardsById: Map<string, Card
         >
           ⧉
         </button>
+        <FolderPicker deck={deck} compact />
         <DeckLockButton deck={deck} compact />
         <button
           className="deck-row-delete"
@@ -132,9 +138,13 @@ export function MyDecksPanel() {
   const syncMeta = useAppStore((s) => s.syncMeta)
   const loadCatalog = useAppStore((s) => s.loadCatalog)
   const deckOrder = useAppStore((s) => s.settings.deckOrder)
+  const currentGameId = useAppStore((s) => s.currentGameId)
 
   const [query, setQuery] = useState('')
   const [game, setGame] = useState<GameId | 'all'>('all')
+  /** '' = every folder, UNFILED = decks in none. */
+  const [folder, setFolder] = useState('')
+  const folders = useMemo(() => deckFolders(decks), [decks])
   const [sort, setSort] = useState<Sort>('recent')
 
   // Icons and legality need each game's card data, which is only loaded for the game you're browsing.
@@ -150,13 +160,14 @@ export function MyDecksPanel() {
   const gamesWithDecks = useMemo(() => orderedGames.filter((a) => decks.some((d) => d.gameId === a.id)), [orderedGames, decks])
   const needle = query.trim().toLowerCase()
   const shown = useMemo(() => {
-    const matching = decks.filter((d) => (game === 'all' || d.gameId === game) && (!needle || d.name.toLowerCase().includes(needle)))
+    const inFolder = (d: Deck) => folder === '' || (folder === UNFILED ? !d.folder : d.folder === folder)
+    const matching = decks.filter((d) => (game === 'all' || d.gameId === game) && inFolder(d) && (!needle || d.name.toLowerCase().includes(needle)))
     if (sort === 'game') {
       const rank = (id: GameId) => orderedGames.findIndex((a) => a.id === id)
       return sortDecks(matching, 'recent').sort((a, b) => rank(a.gameId) - rank(b.gameId))
     }
     return sortDecks(matching, sort, deckOrder)
-  }, [decks, game, needle, sort, deckOrder, orderedGames])
+  }, [decks, game, folder, needle, sort, deckOrder, orderedGames])
 
   return (
     <div className="wishlist-panel md-panel">
@@ -169,9 +180,18 @@ export function MyDecksPanel() {
       </div>
 
       {decks.length === 0 ? (
-        <div className="text-dim">
-          <Rich text={t.myDecks.none} />
-        </div>
+        <>
+          <div className="text-dim">
+            <Rich text={t.myDecks.none} />
+          </div>
+          {catalogs[currentGameId] && (
+            <div>
+              <button className="btn" title={t.examples.openTitle} onClick={() => useAppStore.getState().openExampleDeck(currentGameId)}>
+                {t.examples.open(getAdapter(currentGameId).shortName)}
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <>
           <div className="col-controls">
@@ -182,6 +202,17 @@ export function MyDecksPanel() {
               <option value="game">{t.myDecks.byGame}</option>
               <option value="custom">{t.sidebar.sortCustom}</option>
             </select>
+            {folders.length > 0 && (
+              <select value={folder} onChange={(e) => setFolder(e.target.value)} aria-label={t.folders.label}>
+                <option value="">📁 {t.folders.all}</option>
+                {folders.map((f) => (
+                  <option key={f} value={f}>
+                    📁 {f}
+                  </option>
+                ))}
+                <option value={UNFILED}>{t.folders.unfiled}</option>
+              </select>
+            )}
           </div>
 
           {gamesWithDecks.length > 1 && (

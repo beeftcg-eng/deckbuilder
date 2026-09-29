@@ -11,6 +11,8 @@ import { ExportModal } from './ExportModal'
 import { DeckStats } from './DeckStats'
 import { SampleHandModal } from './SampleHandModal'
 import { ProxyPrintModal } from './ProxyPrintModal'
+import { BuyListModal } from './BuyListModal'
+import { FolderPicker } from './FolderPicker'
 import { BanListEditor } from './BanListEditor'
 import { DeckLockButton } from './DeckLockButton'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
@@ -70,6 +72,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const [movingOut, setMovingOut] = useState<{ zoneId: string; card: Card; quantity: number } | null>(null)
   const [showSampleHand, setShowSampleHand] = useState(false)
   const [showProxies, setShowProxies] = useState(false)
+  const [showBuyList, setShowBuyList] = useState(false)
   const [showBanList, setShowBanList] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -150,6 +153,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
             </option>
           ))}
         </select>
+        <FolderPicker deck={deck} />
         <DeckLockButton deck={deck} />
         <button className="btn btn-primary" onClick={() => setShowExport(true)}>
           {t.deckEditor.export}
@@ -184,6 +188,11 @@ function DeckEditor({ deck }: { deck: Deck }) {
         <button className="btn" onClick={() => setShowProxies(true)} title={t.proxies.buttonTitle}>
           {t.proxies.button}
         </button>
+        {adapter.hasPrices && (
+          <button className="btn" onClick={() => setShowBuyList(true)} title={t.buyList.buttonTitle}>
+            {t.buyList.button}
+          </button>
+        )}
         <button className="btn" onClick={() => duplicateDeck(deck.id)} title={t.deckEditor.duplicateTitle}>
           {t.deckEditor.duplicate}
         </button>
@@ -371,6 +380,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
           onClose={() => setMovingOut(null)}
         />
       )}
+      {showBuyList && <BuyListModal deck={deck} cardsById={cardsById} onClose={() => setShowBuyList(false)} />}
       {showProxies && <ProxyPrintModal deck={deck} cardsById={cardsById} onClose={() => setShowProxies(false)} />}
       {showSampleHand && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowSampleHand(false)} />}
       {showBanList && <BanListEditor gameId={deck.gameId} initialFormatId={deck.formatId} onClose={() => setShowBanList(false)} />}

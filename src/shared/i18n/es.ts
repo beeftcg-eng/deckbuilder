@@ -120,6 +120,7 @@ export const es: Messages = {
     toCollection: 'Colección',
     toWishlist: 'Deseos',
     add: (n, wishlist) => `Añadir ${n > 1 ? `${n} ` : ''}a ${wishlist ? 'deseos' : 'la colección'}`,
+    addToOpening: (n: number) => `Añadir ${n > 1 ? `${n} ` : ''}a esta apertura`,
     skip: 'Saltar',
     otherPrintings: '¿No es esta impresión? Toca la correcta:',
     allPrintings: (n) => `Todas las impresiones (${n})`,
@@ -130,6 +131,8 @@ export const es: Messages = {
     autoAdd: 'Añadir automáticamente cuando esté seguro',
     light: 'Luz',
     camera: 'Cámara',
+    cameraNoPicture: 'Esta cámara no está enviando imagen (una cámara virtual como la de OBS solo lo hace mientras su app está abierta). Elige otra cámara arriba.',
+    cameraBusyPickAnother: 'No se pudo iniciar esta cámara. Puede que otra app la esté usando. Cierra esa app o elige otra cámara arriba.',
     loadingNoteDesktop: 'Preparando el lector de cartas…',
     cameraDeniedDesktop:
       'Brewhouse no pudo usar tu webcam. En Windows, activa Configuración → Privacidad y seguridad → Cámara → “Permitir que las aplicaciones de escritorio accedan a la cámara”, cierra cualquier otra app que la esté usando y vuelve a intentarlo.',
@@ -757,6 +760,10 @@ export const es: Messages = {
 
   collectionImport: {
     open: '⇪ Importar',
+    export: '⇩ Exportar',
+    exportTitle: 'Guarda la colección de este juego como archivo CSV (se abre en cualquier hoja de cálculo y se puede volver a importar aquí o en otras apps)',
+    exportFileName: (game: string) => `Colección de ${game} Brewhouse.csv`,
+    exported: (n: number) => `✓ Se guardaron ${n} ${plural(n, 'carta', 'cartas')}.`,
     openTitle: 'Agrega cartas desde la exportación de colección de otra app (un archivo CSV)',
     title: (game: string) => `Importar una colección de ${game}`,
     intro:
@@ -796,6 +803,71 @@ export const es: Messages = {
     failed: (err: string) => `No se pudo crear el PDF: ${err}`,
     fileName: (deck: string) => `${deck} proxies.pdf`,
     note: 'Los proxies son para probar en casa. No se permiten en eventos oficiales.',
+  },
+
+  examples: {
+    label: 'Mazo de ejemplo',
+    open: (game: string) => `👀 Ver un mazo de ejemplo de ${game}`,
+    openTitle: 'Un mazo ya armado para probar Practicar, Proxies, Comparar y la lista de compra. Cópialo para quedártelo y cambiarlo.',
+  },
+
+  buyList: {
+    button: '🛒 Lista de compra',
+    buttonTitle: 'Lo que te falta para este mazo, en las impresiones más baratas, listo para pegar en TCGplayer',
+    title: (deck: string) => `Lista de compra — ${deck}`,
+    cheapest: 'Impresión más barata',
+    deckPrintings: 'Las impresiones de este mazo',
+    complete: '✓ Tienes todas las cartas de este mazo.',
+    summary: (copies: number, total: string) => `**${copies}** ${plural(copies, 'copia', 'copias')} por comprar · unos **${total}**`,
+    unpriced: (n: number) => ` · ${n} sin precio`,
+    saves: (amount: string) => `Elegir las impresiones más baratas ahorra unos ${amount}.`,
+    instead: (printing: string) => `en vez de ${printing}`,
+    copyMassEntry: 'Copiar para TCGplayer',
+    copied: '✓ Copiado. Pégalo en el cuadro Mass Entry de TCGplayer.',
+    openTcgplayer: 'Abrir Mass Entry de TCGplayer ↗',
+    wishlist: '☆ Añadir a la lista de deseos',
+    wishlisted: (n: number) => `★ Se añadieron ${n} ${plural(n, 'carta', 'cartas')} a tu lista de deseos.`,
+    note: 'Los precios son precios de mercado de TCGplayer, actualizados a diario. Una carta que tienes en cualquier impresión cuenta como tuya.',
+  },
+
+  folders: {
+    label: 'Carpeta',
+    none: 'Sin carpeta',
+    newFolder: '＋ Nueva carpeta…',
+    prompt: 'Nombre de la carpeta y Enter',
+    title: 'Guarda este mazo en una carpeta',
+    all: 'Todas las carpetas',
+    unfiled: 'Sin carpeta',
+    toggle: (folder: string) => `Mostrar u ocultar los mazos de ${folder}`,
+  },
+
+  packs: {
+    tab: '📦 Sobres abiertos',
+    intro: 'Anota lo que te salió de sobres o una caja y mira cuánto vale hoy frente a lo que pagaste.',
+    namePlaceholder: 'Qué abriste, p. ej. caja de Unleashed',
+    defaultName: (set: string) => `Sobres de ${set}`,
+    cost: (currency: string) => `Pagué (${currency})`,
+    addToCollection: 'Añadir lo que salió a mi colección',
+    create: '＋ Nueva apertura',
+    none: 'Aún no has abierto nada de este juego.',
+    totals: (spent: string, worth: string) => `Todas las aperturas: pagaste ${spent}, valen ${worth} hoy`,
+    row: (date: string, cards: number) => `${date} · ${cards} ${plural(cards, 'carta', 'cartas')}`,
+    worth: (value: string) => `valen ${value}`,
+    paid: (cost: string) => `pagaste ${cost}`,
+    up: (amount: string, percent: number) => `▲ ${amount} (+${percent}%)`,
+    down: (amount: string, percent: number) => `▼ ${amount} (−${percent}%)`,
+    back: '← Todas las aperturas',
+    scan: '📷 Escanear cartas',
+    scanTitle: 'Abre el escáner: lo que encuentre va a esta apertura',
+    searchPlaceholder: 'Añadir carta: nombre o número…',
+    bestPull: (name: string, value: string) => `Mejor carta: ${name} (${value})`,
+    unpriced: (n: number) => `${n} sin precio`,
+    empty: 'Aún no hay cartas. Escanéalas, o búscalas arriba y toca una para añadirla.',
+    inCollection: 'Las cartas también se añaden a tu colección.',
+    notInCollection: 'Las cartas no se añaden a tu colección.',
+    delete: 'Borrar apertura',
+    deleteConfirm: (name: string) => `¿Borrar «${name}»? Las cartas se quedan en tu colección.`,
+    done: 'Listo',
   },
 
   trade: {
@@ -907,6 +979,7 @@ export const es: Messages = {
     pngImage: 'Imagen PNG',
     jpegImage: 'Imagen JPEG',
     pdfFile: 'Documento PDF',
+    csvFiles: 'Hoja de cálculo CSV',
   },
 
   themes: {

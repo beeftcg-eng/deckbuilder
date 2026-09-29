@@ -1,5 +1,6 @@
 import type { ValueHistory } from './valueHistory'
 import type { PriceAlerts } from './priceAlerts'
+import type { PackOpening } from './packOpenings'
 
 export type GameId = 'pokemon' | 'onepiece' | 'riftbound' | 'mtg' | 'yugioh'
 
@@ -136,6 +137,8 @@ export interface Deck {
   shareToken?: string
   /** Your own notes on the deck (sideboard plan, mulligans, matchups). Synced, never shown on a share link. */
   notes?: string
+  /** The folder it's filed under in the deck lists (deckFolders.ts); unset = not in one. Synced with the deck. */
+  folder?: string
   /** zoneId -> entries. Most zones use DeckCardEntry[]; freeText zones use DeckFreeTextEntry[]. */
   zones: Record<string, DeckCardEntry[]>
   freeTextZones: Record<string, DeckFreeTextEntry[]>
@@ -156,6 +159,8 @@ export interface SharedDeck {
   /** The owner's trading display name, if they set one. */
   ownerName: string | null
   updatedAt: string
+  /** One of the app's own example decks (sampleDecks.ts) rather than someone's link. */
+  example?: boolean
 }
 
 export interface DeckSummary {
@@ -278,6 +283,8 @@ export interface AppSettings {
   valueHistory?: ValueHistory
   /** Target prices on wishlist cards, by card id (priceAlerts.ts). */
   priceAlerts?: PriceAlerts
+  /** Pack and box openings, every game's, newest first (packOpenings.ts). */
+  packOpenings?: PackOpening[]
 }
 
 export interface PawmodoroConfig {

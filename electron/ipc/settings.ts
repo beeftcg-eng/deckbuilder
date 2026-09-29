@@ -9,6 +9,7 @@ import { settingsFile } from '../lib/paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/jsonStore'
 import { sanitizeValueHistory } from '../../src/shared/valueHistory'
 import { sanitizePriceAlerts } from '../../src/shared/priceAlerts'
+import { sanitizePackOpenings } from '../../src/shared/packOpenings'
 
 const GAME_IDS: GameId[] = GAME_LIST.map((adapter) => adapter.id)
 
@@ -52,6 +53,7 @@ export function sanitize(raw: unknown): AppSettings {
   }
   if (source.valueHistory !== undefined) settings.valueHistory = sanitizeValueHistory(source.valueHistory, GAME_IDS)
   if (source.priceAlerts !== undefined) settings.priceAlerts = sanitizePriceAlerts(source.priceAlerts)
+  if (source.packOpenings !== undefined) settings.packOpenings = sanitizePackOpenings(source.packOpenings)
   if (isPlainObject(source.tradeProfile)) {
     const tp = source.tradeProfile as Record<string, unknown>
     if (typeof tp.public === 'boolean' && typeof tp.displayName === 'string') settings.tradeProfile = { public: tp.public, displayName: tp.displayName }

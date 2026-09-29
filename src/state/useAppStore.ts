@@ -28,7 +28,11 @@ import { localDay, recordValue, type ValueHistory } from '../shared/valueHistory
 import { checkPriceAlerts } from '../shared/priceAlerts'
 import { notify } from '../lib/notify'
 import { buildTradeCollection, buildTradeWants } from '../shared/trade'
-import type { ParsedDeck } from '../shared/importDeck'
+import { parseDecklistText, type ParsedDeck } from '../shared/importDeck'
+import { SAMPLE_DECKS } from '../shared/sampleDecks'
+import { cheapestPrinting } from '../shared/buyList'
+import { checkDeckLegality } from '../shared/legality'
+import { changePull, type PackOpening } from '../shared/packOpenings'
 import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import type { UpdateStatus } from '../shared/updateStatus'
 import { currentDeckFor } from '../shared/decks'
@@ -192,6 +196,8 @@ interface AppState {
   setDeckShareToken: (deckId: string, token: string | null) => Promise<void>
   /** Saves a deck's notes. Works on a locked deck too: notes aren't the list. */
   setDeckNotes: (deckId: string, notes: string) => Promise<void>
+  /** Files a deck under a folder ('' takes it out). Works on a locked deck: it's filing, not the list. */
+  setDeckFolder: (deckId: string, folder: string) => Promise<void>
   /** The phone app's card scanner (ScannerModal.tsx), opened from Collection or the menu. */
   showScanner: boolean
   setShowScanner: (show: boolean) => void
@@ -203,6 +209,17 @@ interface AppState {
   closeSharedDeck: () => void
   /** Saves the shared deck as a new deck of your own and opens it. */
   copySharedDeck: () => Promise<void>
+  /** Opens the game's example deck (sampleDecks.ts) read-only, the way a share link opens: to try things on, or copy. Needs the game's cards loaded. */
+  openExampleDeck: (gameId: GameId) => void
+  /** The pack opening being filled in, if any: the scanner can add its cards to it. */
+  activeOpeningId: string | null
+  setActiveOpening: (id: string | null) => void
+  /** Adds or replaces an opening (packOpenings.ts). */
+  savePackOpening: (opening: PackOpening) => void
+  /** Forgets an opening. Its cards stay in the collection. */
+  deletePackOpening: (id: string) => void
+  /** One more (or fewer) of a card in an opening, and in the collection too when the opening adds its pulls there. */
+  changePackPull: (openingId: string, cardId: string, delta: number) => Promise<void>
   /** Saves the order of the game tabs in the sidebar. */
   setGameOrder: (order: GameId[]) => void
   /** Shows or hides a game's tab in the sidebar. Never lets the last visible game be hidden, and switches off a game you're hiding. */
@@ -460,6 +477,7 @@ export const useAppStore = create<AppState>((set, get) => {
     showScanner: false,
     currencyKey: 'USD',
     sharedDeck: null,
+    activeOpeningId: null,
     sharedDeckState: null,
     sharedDeckError: null,
     tradeSyncing: false,
@@ -906,6 +924,15 @@ export const useAppStore = create<AppState>((set, get) => {
       set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? next : d)) }))
       await persistDeck(next, { keepUpdatedAt: true })
     },
+    setDeckFolder: async (deckId, folder) => {
+      const deck = get().decks.find((d) => d.id === deckId)
+      const name = folder.trim().slice(0, 60)
+      if (!deck || (deck.folder ?? '') === name) return
+      const { folder: _previous, ...rest } = deck
+      const next: Deck = name ? { ...rest, folder: name } : rest
+      set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? next : d)) }))
+      await persistDeck(next, { keepUpdatedAt: true })
+    },
     openSharedLink: async (token) => {
       set({ sharedDeck: null, sharedDeckState: 'loading', sharedDeckError: null })
       try {
@@ -921,11 +948,61 @@ export const useAppStore = create<AppState>((set, get) => {
     },
     closeSharedDeck: () => set({ sharedDeck: null, sharedDeckState: null, sharedDeckError: null }),
     setShowScanner: (show) => set({ showScanner: show }),
+    setActiveOpening: (id) => set({ activeOpeningId: id }),
+    savePackOpening: (opening) => {
+      const current = get().settings.packOpenings ?? []
+      const packOpenings = current.some((o) => o.id === opening.id) ? current.map((o) => (o.id === opening.id ? opening : o)) : [opening, ...current]
+      set((s) => ({ settings: { ...s.settings, packOpenings } }))
+      persistSettings({ packOpenings })
+    },
+    deletePackOpening: (id) => {
+      const packOpenings = (get().settings.packOpenings ?? []).filter((o) => o.id !== id)
+      set((s) => ({ settings: { ...s.settings, packOpenings }, activeOpeningId: s.activeOpeningId === id ? null : s.activeOpeningId }))
+      persistSettings({ packOpenings })
+    },
+    changePackPull: async (openingId, cardId, delta) => {
+      const opening = (get().settings.packOpenings ?? []).find((o) => o.id === openingId)
+      if (!opening) return
+      const before = opening.pulls.find((p) => p.cardId === cardId)?.quantity ?? 0
+      const next = changePull(opening, cardId, delta)
+      const after = next.pulls.find((p) => p.cardId === cardId)?.quantity ?? 0
+      if (after === before) return
+      get().savePackOpening(next)
+      if (opening.addToCollection) await get().changeOwned(cardId, after - before)
+    },
+    openExampleDeck: (gameId) => {
+      const catalog = get().catalogs[gameId]
+      if (!catalog) return
+      const sample = SAMPLE_DECKS[gameId]
+      const parsed = parseDecklistText(sample.text, getAdapter(gameId), catalog.byId, sample.formatId)
+      // The cheapest printing of each card, so the example shows what the list really costs (a name alone can land on a pricey promo).
+      const zones = Object.fromEntries(
+        Object.entries(parsed.zones).map(([zoneId, entries]) => {
+          const merged = new Map<string, number>()
+          for (const { cardId, quantity } of entries) {
+            const card = catalog.byId.get(cardId)
+            const id = card ? cheapestPrinting(card, catalog.cards).id : cardId
+            merged.set(id, (merged.get(id) ?? 0) + quantity)
+          }
+          return [zoneId, [...merged].map(([cardId, quantity]) => ({ cardId, quantity }))]
+        }),
+      )
+      const now = new Date().toISOString()
+      const base: Deck = { ...emptyDeck(gameId, sample.formatId), id: `example-${gameId}`, name: sample.name, zones: parsed.zones, freeTextZones: parsed.freeTextZones, createdAt: now, updatedAt: now }
+      // ...unless a cheaper reprint isn't legal in the format (One Piece rotates by set).
+      const adapter = getAdapter(gameId)
+      const format = (get().formats[gameId] ?? adapter.defaultFormats).find((f) => f.id === sample.formatId)
+      const cheap = { ...base, zones }
+      const deck = !format || checkDeckLegality(cheap, adapter, format, catalog.byId).legal || !checkDeckLegality(base, adapter, format, catalog.byId).legal ? cheap : base
+      set({ sharedDeck: { token: '', deck, ownerName: null, updatedAt: now, example: true }, sharedDeckState: 'ready', sharedDeckError: null })
+    },
     copySharedDeck: async () => {
       const shared = get().sharedDeck
       if (!shared) return
       const now = new Date().toISOString()
-      const copy: Deck = { ...structuredClone(shared.deck), id: crypto.randomUUID(), createdAt: now, updatedAt: now }
+      // Someone else's folder means nothing in your lists (the server strips it too, see schema.sql).
+      const { folder: _theirFolder, ...rest } = structuredClone(shared.deck)
+      const copy: Deck = { ...rest, id: crypto.randomUUID(), createdAt: now, updatedAt: now }
       set({ sharedDeck: null, sharedDeckState: null, sharedDeckError: null })
       await addAndSelectDeck(copy, t.store.copySharedDeck(copy.name), true)
     },

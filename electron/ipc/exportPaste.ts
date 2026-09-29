@@ -31,7 +31,7 @@ export function registerExportIpc(): void {
     const win = BrowserWindow.fromWebContents(e.sender)
     const options: Electron.SaveDialogOptions = {
       defaultPath: suggestedName,
-      filters: [{ name: t.main.textFiles, extensions: ['txt'] }],
+      filters: suggestedName.toLowerCase().endsWith('.csv') ? [{ name: t.main.csvFiles, extensions: ['csv'] }] : [{ name: t.main.textFiles, extensions: ['txt'] }],
     }
     const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return false

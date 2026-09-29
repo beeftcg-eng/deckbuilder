@@ -334,3 +334,34 @@ export function importCollectionCsv(text: string, gameId: GameId, cards: readonl
   result.items = [...byCard.values()]
   return result
 }
+
+// ---------- export ----------
+
+function csvField(value: string | number): string {
+  const text = String(value)
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+/**
+ * A collection as CSV, in columns this importer and the usual apps read back: Quantity, Name, Set
+ * Code, Set Name, Collector Number, Rarity, plus the game, the price and your for-trade mark, and
+ * Magic's Scryfall id so a re-import lands on the exact printing.
+ */
+export function collectionCsv(entries: readonly { card: Card; copies: number; forTrade: boolean }[], gameName: string): string {
+  const header = ['Quantity', 'Name', 'Set Code', 'Set Name', 'Collector Number', 'Rarity', 'Game', 'Price (USD)', 'For Trade', 'Scryfall ID']
+  const rows = [...entries]
+    .sort((a, b) => a.card.setName.localeCompare(b.card.setName) || a.card.number.localeCompare(b.card.number, undefined, { numeric: true }))
+    .map(({ card, copies, forTrade }) => [
+      copies,
+      card.name,
+      card.setCode,
+      card.setName,
+      card.number,
+      card.rarity ?? '',
+      gameName,
+      card.price != null ? card.price.toFixed(2) : '',
+      forTrade ? 'yes' : '',
+      card.gameId === 'mtg' ? card.id.slice(card.id.indexOf(':') + 1) : '',
+    ])
+  return [header, ...rows].map((r) => r.map(csvField).join(',')).join('\r\n') + '\r\n'
+}

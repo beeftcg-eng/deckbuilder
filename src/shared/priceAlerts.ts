@@ -60,9 +60,30 @@ export function checkPriceAlerts(
 
 /** A target typed in the picked currency, as dollars (null for nothing usable). */
 export function targetToUsd(typed: string, rate: number): number | null {
-  const n = Number(typed.replace(',', '.').replace(/[^\d.]/g, ''))
-  if (!typed.trim() || !Number.isFinite(n) || n <= 0 || !(rate > 0)) return null
+  const n = parseMoney(typed)
+  if (n == null || n <= 0 || !(rate > 0)) return null
   return Math.round((n / rate) * 10000) / 10000
+}
+
+/**
+ * An amount as typed, with either separator: "12.50" and "12,50" are twelve and a half, while
+ * "1,500", "1.500" and "1,500.00" are fifteen hundred (a comma or dot followed by exactly three
+ * digits groups thousands). Currency signs and spaces are ignored. Null if there's no number.
+ */
+export function parseMoney(typed: string): number | null {
+  let text = typed.replace(/[^\d.,]/g, '')
+  if (!/\d/.test(text)) return null
+  const lastSep = Math.max(text.lastIndexOf(','), text.lastIndexOf('.'))
+  if (lastSep >= 0) {
+    const decimals = text.length - lastSep - 1
+    const bothKinds = text.includes(',') && text.includes('.')
+    const repeated = (text.match(/[.,]/g) ?? []).length > 1
+    const isDecimal = bothKinds ? true : !repeated && decimals !== 3
+    const whole = text.slice(0, lastSep).replace(/[.,]/g, '')
+    text = isDecimal ? `${whole}.${text.slice(lastSep + 1)}` : text.replace(/[.,]/g, '')
+  }
+  const n = Number(text)
+  return Number.isFinite(n) ? n : null
 }
 
 /** Only well-formed alerts. */

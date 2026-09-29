@@ -31,4 +31,10 @@ describe('desktop settings', () => {
     expect(saved.valueHistory).toEqual({ mtg: [{ d: '2026-09-28', v: 12.5 }] })
     expect(saved.priceAlerts).toEqual({ 'mtg:abc': { target: 4, hit: true } })
   })
+
+  it('keeps pack openings, dropping broken ones and bad pulls', () => {
+    const good = { id: 'o1', gameId: 'riftbound', name: 'Box', date: '2026-09-29', costUsd: 90, pulls: [{ cardId: 'riftbound:a', quantity: 2 }, { cardId: 'x', quantity: 0 }], addToCollection: true }
+    const saved = sanitize({ packOpenings: [good, { id: 'o2', gameId: 'chess', name: 'x' }, 'nope'] })
+    expect(saved.packOpenings).toEqual([{ ...good, pulls: [{ cardId: 'riftbound:a', quantity: 2 }] }])
+  })
 })

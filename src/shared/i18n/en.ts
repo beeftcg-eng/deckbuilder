@@ -124,6 +124,7 @@ export const en = {
     toCollection: 'Collection',
     toWishlist: 'Wishlist',
     add: (n: number, wishlist: boolean) => `Add ${n > 1 ? `${n} ` : ''}to ${wishlist ? 'wishlist' : 'collection'}`,
+    addToOpening: (n: number) => `Add ${n > 1 ? `${n} ` : ''}to this opening`,
     skip: 'Skip',
     otherPrintings: 'Not this printing? Tap the right one:',
     allPrintings: (n: number) => `All printings (${n})`,
@@ -134,6 +135,8 @@ export const en = {
     autoAdd: 'Add automatically when sure',
     light: 'Light',
     camera: 'Camera',
+    cameraNoPicture: 'This camera isn’t sending a picture (a virtual camera like OBS’s only does while its app is running). Pick another camera at the top.',
+    cameraBusyPickAnother: 'Couldn’t start this camera. It may be in use by another app. Close that app, or pick another camera at the top.',
     loadingNoteDesktop: 'Getting the card reader ready…',
     cameraDeniedDesktop:
       'Brewhouse couldn’t use your webcam. On Windows, turn on Settings → Privacy & security → Camera → “Let desktop apps access your camera”, close any other app using the webcam, then try again.',
@@ -715,6 +718,10 @@ export const en = {
 
   collectionImport: {
     open: '⇪ Import',
+    export: '⇩ Export',
+    exportTitle: 'Save this game’s collection as a CSV file (opens in any spreadsheet, and imports back here or into other apps)',
+    exportFileName: (game: string) => `Brewhouse ${game} collection.csv`,
+    exported: (n: number) => `✓ Saved ${n} ${plural(n, 'card', 'cards')}.`,
     openTitle: 'Add cards from another app’s collection export (a CSV file)',
     title: (game: string) => `Import a ${game} collection`,
     intro:
@@ -754,6 +761,71 @@ export const en = {
     failed: (err: string) => `Couldn't make the PDF: ${err}`,
     fileName: (deck: string) => `${deck} proxies.pdf`,
     note: 'Proxies are for playtesting at home. They aren’t allowed at sanctioned events.',
+  },
+
+  examples: {
+    label: 'Example deck',
+    open: (game: string) => `👀 Open an example ${game} deck`,
+    openTitle: 'A ready-made deck to try Practice, Proxies, Compare and the buy list on. Copy it to keep it and change it.',
+  },
+
+  buyList: {
+    button: '🛒 Buy list',
+    buttonTitle: 'What you still need for this deck, at the cheapest printings, ready to paste into TCGplayer',
+    title: (deck: string) => `Buy list — ${deck}`,
+    cheapest: 'Cheapest printing',
+    deckPrintings: 'The printings in this deck',
+    complete: '✓ You own every card in this deck.',
+    summary: (copies: number, total: string) => `**${copies}** ${plural(copies, 'copy', 'copies')} to buy · about **${total}**`,
+    unpriced: (n: number) => ` · ${n} without a price`,
+    saves: (amount: string) => `Picking the cheapest printings saves about ${amount}.`,
+    instead: (printing: string) => `instead of ${printing}`,
+    copyMassEntry: 'Copy for TCGplayer',
+    copied: '✓ Copied. Paste it into TCGplayer’s Mass Entry box.',
+    openTcgplayer: 'Open TCGplayer Mass Entry ↗',
+    wishlist: '☆ Add to wishlist',
+    wishlisted: (n: number) => `★ Added ${n} ${plural(n, 'card', 'cards')} to your wishlist.`,
+    note: 'Prices are TCGplayer market prices, updated daily. A card you own in any printing counts as owned.',
+  },
+
+  folders: {
+    label: 'Folder',
+    none: 'No folder',
+    newFolder: '＋ New folder…',
+    prompt: 'New folder name, then Enter',
+    title: 'File this deck in a folder',
+    all: 'All folders',
+    unfiled: 'Not in a folder',
+    toggle: (folder: string) => `Show or hide the decks in ${folder}`,
+  },
+
+  packs: {
+    tab: '📦 Pack openings',
+    intro: 'Log what you pulled from packs or a box and see what it’s worth today against what you paid.',
+    namePlaceholder: 'What you opened, e.g. Unleashed booster box',
+    defaultName: (set: string) => `${set} packs`,
+    cost: (currency: string) => `Paid (${currency})`,
+    addToCollection: 'Add the pulls to my collection',
+    create: '＋ New opening',
+    none: 'No openings yet for this game.',
+    totals: (spent: string, worth: string) => `All openings: paid ${spent}, worth ${worth} today`,
+    row: (date: string, cards: number) => `${date} · ${cards} ${plural(cards, 'card', 'cards')}`,
+    worth: (value: string) => `worth ${value}`,
+    paid: (cost: string) => `paid ${cost}`,
+    up: (amount: string, percent: number) => `▲ ${amount} (+${percent}%)`,
+    down: (amount: string, percent: number) => `▼ ${amount} (−${percent}%)`,
+    back: '← All openings',
+    scan: '📷 Scan pulls',
+    scanTitle: 'Open the scanner: what it finds goes into this opening',
+    searchPlaceholder: 'Add a card: name or number…',
+    bestPull: (name: string, value: string) => `Best pull: ${name} (${value})`,
+    unpriced: (n: number) => `${n} without a price`,
+    empty: 'No pulls yet. Scan them, or search above and tap a card to add it.',
+    inCollection: 'Pulls also go into your collection.',
+    notInCollection: 'Pulls aren’t added to your collection.',
+    delete: 'Delete opening',
+    deleteConfirm: (name: string) => `Delete “${name}”? The cards stay in your collection.`,
+    done: 'Done',
   },
 
   trade: {
@@ -867,6 +939,7 @@ export const en = {
     pngImage: 'PNG Image',
     jpegImage: 'JPEG Image',
     pdfFile: 'PDF document',
+    csvFiles: 'CSV spreadsheet',
   },
 
   /** Theme names, by theme id (shared/themes.ts). */

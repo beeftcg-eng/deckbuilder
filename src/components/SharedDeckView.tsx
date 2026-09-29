@@ -55,7 +55,7 @@ export function SharedDeckView() {
           deck={shared.deck}
           format={format}
           cardsById={catalog?.byId ?? EMPTY}
-          shared={{ ownerName: shared.ownerName, onCopy: () => void copy(), onClose: close }}
+          shared={{ ownerName: shared.ownerName, example: shared.example, onCopy: () => void copy(), onClose: close }}
         />
       </>
     )

@@ -9,8 +9,9 @@ import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
 import { THEMES, getTheme, themeLabel } from '../shared/themes'
 import { resolveDeckIcon } from '../shared/deckIcon'
 import { moveBy, reorderByDrop, sortDecks, type DeckSortMode } from '../shared/deckOrder'
+import { groupByFolder } from '../shared/deckFolders'
 import { getAdapter } from '../shared/games/registry'
-import type { GameId } from '../shared/types'
+import type { Deck, GameId } from '../shared/types'
 import type { Language } from '../shared/i18n'
 import { DeckIcon } from './DeckIcon'
 import { LANGUAGES, t } from '../shared/i18n'
@@ -29,6 +30,7 @@ function formatRelativeTime(iso: string | null): string {
 
 // With only a few decks a search box is just clutter.
 const SEARCH_THRESHOLD = 5
+const COLLAPSED_KEY = 'brewhouse.folders.collapsed'
 
 export function Sidebar() {
   const currentGameId = useAppStore((s) => s.currentGameId)
@@ -121,6 +123,128 @@ export function Sidebar() {
   const orderedIds = useMemo(() => sortDecks(gameDecks, deckSort, deckOrder).map((d) => d.id), [gameDecks, deckSort, deckOrder])
   const canReorder = deckFilter.trim() === ''
   const gameIds = useMemo(() => orderedGames.map((g) => g.id), [orderedGames])
+
+  // Decks grouped by folder (shared/deckFolders.ts); a folder's collapsed state is remembered on this device.
+  const folderGroups = useMemo(() => groupByFolder(visibleDecks), [visibleDecks])
+  const hasFolders = folderGroups.some((g) => g.folder != null)
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]') as string[])
+    } catch {
+      return new Set()
+    }
+  })
+  // While filtering, every match shows.
+  const isCollapsed = (folder: string) => deckFilter.trim() === '' && collapsed.has(folder)
+  function toggleFolder(folder: string) {
+    const next = new Set(collapsed)
+    if (next.has(folder)) next.delete(folder)
+    else next.add(folder)
+    setCollapsed(next)
+    try {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]))
+    } catch {
+      // Private mode: just not remembered.
+    }
+  }
+
+  const deckRow = (deck: Deck) => (
+      <div
+        key={deck.id}
+        className={`deck-row ${deck.id === currentDeckId ? 'active' : ''} ${dragId === deck.id ? 'dragging' : ''} ${dropTarget?.id === deck.id ? `drop-${dropTarget.position}` : ''}`}
+        draggable={canReorder}
+        title={canReorder ? t.sidebar.dragDeck : undefined}
+        onDragStart={(e) => {
+          setDragId(deck.id)
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move'
+            e.dataTransfer.setData('text/plain', deck.id) // some platforms only start a drag if it carries data
+          }
+        }}
+        onDragOver={(e) => {
+          if (!dragId || dragId === deck.id) return
+          e.preventDefault()
+          const rect = e.currentTarget.getBoundingClientRect()
+          const position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+          if (dropTarget?.id !== deck.id || dropTarget.position !== position) setDropTarget({ id: deck.id, position })
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          if (dragId && dragId !== deck.id) {
+            const rect = e.currentTarget.getBoundingClientRect()
+            reorderDecks(reorderByDrop(orderedIds, dragId, deck.id, e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'))
+          }
+          setDragId(null)
+          setDropTarget(null)
+        }}
+        onDragEnd={() => {
+          setDragId(null)
+          setDropTarget(null)
+        }}
+        onClick={() => {
+          setShowWishlist(false)
+          setShowCollection(false)
+          setShowMyDecks(false)
+          setShowBinders(false)
+          selectDeck(deck.id)
+        }}
+      >
+        <DeckIcon card={resolveDeckIcon(deck, getAdapter(currentGameId), cardsById)} name={deck.name} />
+        <span className="deck-row-name">
+          {deck.locked ? '🔒 ' : ''}
+          {deck.name}
+        </span>
+        {canReorder && gameDecks.length > 1 && (
+          <span className="deck-row-reorder">
+            <button
+              className="deck-row-delete"
+              title={t.common.moveUp}
+              disabled={orderedIds[0] === deck.id}
+              onClick={(e) => {
+                e.stopPropagation()
+                reorderDecks(moveBy(orderedIds, deck.id, -1))
+              }}
+            >
+              ▲
+            </button>
+            <button
+              className="deck-row-delete"
+              title={t.common.moveDown}
+              disabled={orderedIds[orderedIds.length - 1] === deck.id}
+              onClick={(e) => {
+                e.stopPropagation()
+                reorderDecks(moveBy(orderedIds, deck.id, 1))
+              }}
+            >
+              ▼
+            </button>
+          </span>
+        )}
+        <span className="deck-row-actions">
+          <button
+            className="deck-row-delete"
+            title={t.sidebar.duplicateDeck}
+            onClick={(e) => {
+              e.stopPropagation()
+              duplicateDeck(deck.id)
+            }}
+          >
+            ⧉
+          </button>
+          <button
+            className="deck-row-delete"
+            disabled={deck.locked}
+            title={deck.locked ? t.sidebar.unlockToDelete : t.sidebar.deleteDeck}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (confirm(t.sidebar.deleteConfirm(deck.name))) deleteDeck(deck.id)
+            }}
+          >
+            ×
+          </button>
+        </span>
+      </div>
+  )
 
   async function handleBackupExport() {
     setBackupStatus(null)
@@ -359,104 +483,29 @@ export function Sidebar() {
 
       <div className="deck-list">
         {gameDecks.length === 0 && <div className="text-dim deck-list-empty">{t.sidebar.noDecks}</div>}
+        {gameDecks.length === 0 && cardsById.size > 0 && (
+          <button className="btn deck-example-btn" title={t.examples.openTitle} onClick={() => useAppStore.getState().openExampleDeck(currentGameId)}>
+            {t.examples.open(getAdapter(currentGameId).shortName)}
+          </button>
+        )}
         {gameDecks.length > 0 && visibleDecks.length === 0 && <div className="text-dim deck-list-empty">{t.sidebar.noDecksMatch}</div>}
-        {visibleDecks.map((deck) => (
-          <div
-            key={deck.id}
-            className={`deck-row ${deck.id === currentDeckId ? 'active' : ''} ${dragId === deck.id ? 'dragging' : ''} ${dropTarget?.id === deck.id ? `drop-${dropTarget.position}` : ''}`}
-            draggable={canReorder}
-            title={canReorder ? t.sidebar.dragDeck : undefined}
-            onDragStart={(e) => {
-              setDragId(deck.id)
-              if (e.dataTransfer) {
-                e.dataTransfer.effectAllowed = 'move'
-                e.dataTransfer.setData('text/plain', deck.id) // some platforms only start a drag if it carries data
-              }
-            }}
-            onDragOver={(e) => {
-              if (!dragId || dragId === deck.id) return
-              e.preventDefault()
-              const rect = e.currentTarget.getBoundingClientRect()
-              const position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
-              if (dropTarget?.id !== deck.id || dropTarget.position !== position) setDropTarget({ id: deck.id, position })
-            }}
-            onDrop={(e) => {
-              e.preventDefault()
-              if (dragId && dragId !== deck.id) {
-                const rect = e.currentTarget.getBoundingClientRect()
-                reorderDecks(reorderByDrop(orderedIds, dragId, deck.id, e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'))
-              }
-              setDragId(null)
-              setDropTarget(null)
-            }}
-            onDragEnd={() => {
-              setDragId(null)
-              setDropTarget(null)
-            }}
-            onClick={() => {
-              setShowWishlist(false)
-              setShowCollection(false)
-              setShowMyDecks(false)
-              setShowBinders(false)
-              selectDeck(deck.id)
-            }}
-          >
-            <DeckIcon card={resolveDeckIcon(deck, getAdapter(currentGameId), cardsById)} name={deck.name} />
-            <span className="deck-row-name">
-              {deck.locked ? '🔒 ' : ''}
-              {deck.name}
-            </span>
-            {canReorder && gameDecks.length > 1 && (
-              <span className="deck-row-reorder">
-                <button
-                  className="deck-row-delete"
-                  title={t.common.moveUp}
-                  disabled={orderedIds[0] === deck.id}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    reorderDecks(moveBy(orderedIds, deck.id, -1))
-                  }}
-                >
-                  ▲
-                </button>
-                <button
-                  className="deck-row-delete"
-                  title={t.common.moveDown}
-                  disabled={orderedIds[orderedIds.length - 1] === deck.id}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    reorderDecks(moveBy(orderedIds, deck.id, 1))
-                  }}
-                >
-                  ▼
-                </button>
-              </span>
-            )}
-            <span className="deck-row-actions">
-              <button
-                className="deck-row-delete"
-                title={t.sidebar.duplicateDeck}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  duplicateDeck(deck.id)
-                }}
-              >
-                ⧉
-              </button>
-              <button
-                className="deck-row-delete"
-                disabled={deck.locked}
-                title={deck.locked ? t.sidebar.unlockToDelete : t.sidebar.deleteDeck}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (confirm(t.sidebar.deleteConfirm(deck.name))) deleteDeck(deck.id)
-                }}
-              >
-                ×
-              </button>
-            </span>
-          </div>
-        ))}
+        {hasFolders
+          ? folderGroups.map((group) =>
+              group.folder == null ? (
+                group.decks.map(deckRow)
+              ) : (
+                <div key={group.folder} className="deck-folder">
+                  <button className="deck-folder-toggle" aria-expanded={!isCollapsed(group.folder)} title={t.folders.toggle(group.folder)} onClick={() => toggleFolder(group.folder!)}>
+                    <span>
+                      {isCollapsed(group.folder) ? '▸' : '▾'} 📁 {group.folder}
+                    </span>
+                    <span className="text-dim">{group.decks.length}</span>
+                  </button>
+                  {!isCollapsed(group.folder) && group.decks.map(deckRow)}
+                </div>
+              ),
+            )
+          : visibleDecks.map(deckRow)}
       </div>
 
       <div className={`backup-box ${showBackups ? 'open' : ''}`} data-tour="backup">

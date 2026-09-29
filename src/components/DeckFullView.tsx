@@ -15,6 +15,8 @@ import { PairingsRecordStrip } from './PairingsRecordStrip'
 import { DeckNotes } from './DeckNotes'
 import { CompareDecksModal } from './CompareDecksModal'
 import { ProxyPrintModal } from './ProxyPrintModal'
+import { BuyListModal } from './BuyListModal'
+import { FolderPicker } from './FolderPicker'
 import { SampleHandModal } from './SampleHandModal'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
 import { PairingsStatsModal } from './PairingsStatsModal'
@@ -32,7 +34,7 @@ interface Props {
    * lock, edit, share or Pairings record - just looking, copying the list, exporting, and copying it
    * into your own decks.
    */
-  shared?: { ownerName: string | null; onCopy: () => void; onClose: () => void }
+  shared?: { ownerName: string | null; example?: boolean; onCopy: () => void; onClose: () => void }
 }
 
 /**
@@ -57,6 +59,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
   const [showCompare, setShowCompare] = useState(false)
   const [showPractice, setShowPractice] = useState(false)
   const [showProxies, setShowProxies] = useState(false)
+  const [showBuyList, setShowBuyList] = useState(false)
 
   const zones = useMemo(() => rulesForFormat(adapter, deck.formatId), [adapter, deck.formatId])
   const sections = useMemo(() => buildDeckView(deck, zones, cardsById), [deck, zones, cardsById])
@@ -189,7 +192,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
             {adapter.shortName}
             {format ? ` · ${formatLabel(deck.gameId, format)}` : ''}
           </span>
-          {shared && <span className="fv-shared-by">{shared.ownerName ? t.share.sharedBy(shared.ownerName) : t.share.sharedDeck}</span>}
+          {shared && <span className="fv-shared-by">{shared.example ? t.examples.label : shared.ownerName ? t.share.sharedBy(shared.ownerName) : t.share.sharedDeck}</span>}
         </div>
         <div className="fv-summary">
           <span>{t.common.cards(stats.totalCards)}</span>
@@ -247,6 +250,12 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
           <button className="btn" onClick={() => setShowProxies(true)} title={t.proxies.buttonTitle}>
             {t.proxies.button}
           </button>
+          {adapter.hasPrices && (
+            <button className="btn" onClick={() => setShowBuyList(true)} title={t.buyList.buttonTitle}>
+              {t.buyList.button}
+            </button>
+          )}
+          {!readOnly && <FolderPicker deck={deck} />}
           {!readOnly && (
             <button className="btn" onClick={() => setShowShare(true)} title={t.share.buttonTitle}>
               {deck.shareToken ? t.share.buttonShared : t.share.button}
@@ -333,6 +342,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
       {showStats && <PairingsStatsModal deck={deck} onClose={() => setShowStats(false)} />}
       {showShare && <ShareDeckModal deck={deck} onClose={() => setShowShare(false)} />}
       {showPractice && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowPractice(false)} />}
+      {showBuyList && <BuyListModal deck={deck} cardsById={cardsById} onClose={() => setShowBuyList(false)} />}
       {showProxies && <ProxyPrintModal deck={deck} cardsById={cardsById} onClose={() => setShowProxies(false)} />}
       {showCompare && <CompareDecksModal deck={deck} cardsById={cardsById} onClose={() => setShowCompare(false)} />}
       {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { importCollectionCsv, parseCsv } from './collectionImport'
+import { collectionCsv, importCollectionCsv, parseCsv } from './collectionImport'
 import { makeCard } from './testFixtures'
 
 const boltSld = makeCard('mtg', { id: 'mtg:aaaa-1111', sourceId: 'oracle-bolt', name: 'Lightning Bolt', setId: 'sld', setCode: 'SLD', setName: 'Secret Lair Drop', number: '901', rarity: 'Rare' })
@@ -105,5 +105,22 @@ Binder,3,0,Sol Ring,C21,Commander 2021,263`
 
   it('says when there’s no header row it can use', () => {
     expect(importCollectionCsv('4 Sol Ring\n2 Lightning Bolt', 'mtg', mtg).recognised).toBe(false)
+  })
+})
+
+describe('collectionCsv', () => {
+  it('writes a file this importer reads back to the same printings and counts', () => {
+    const entries = [
+      { card: boltSld, copies: 2, forTrade: true },
+      { card: fable, copies: 1, forTrade: false },
+      { card: solRing, copies: 4, forTrade: false },
+    ]
+    const csv = collectionCsv(entries, 'Magic: The Gathering')
+    expect(csv.split('\r\n')[0]).toBe('Quantity,Name,Set Code,Set Name,Collector Number,Rarity,Game,Price (USD),For Trade,Scryfall ID')
+    expect(csv).toContain('1,Fable of the Mirror-Breaker // Reflection of Kiki-Jiki,NEO,Kamigawa: Neon Dynasty,141,Rare')
+    const back = importCollectionCsv(csv, 'mtg', mtg)
+    expect(back.items.map((i) => [i.card.id, i.quantity]).sort()).toEqual(entries.map((e) => [e.card.id, e.copies]).sort())
+    expect(back.unmatched).toEqual([])
+    expect(back.byNameCopies).toBe(0)
   })
 })

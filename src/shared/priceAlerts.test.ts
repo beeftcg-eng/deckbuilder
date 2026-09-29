@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkPriceAlerts, sanitizePriceAlerts, targetToUsd } from './priceAlerts'
+import { checkPriceAlerts, parseMoney, sanitizePriceAlerts, targetToUsd } from './priceAlerts'
 import type { Card, WishlistEntry } from './types'
 
 const card = (id: string, price: number | null) => ({ id, name: id, price }) as unknown as Card
@@ -65,5 +65,19 @@ describe('sanitizePriceAlerts', () => {
       d: { target: 2 },
     })
     expect(sanitizePriceAlerts([])).toEqual({})
+  })
+})
+
+describe('parseMoney', () => {
+  it('reads either decimal separator and thousands groups', () => {
+    expect(parseMoney('12.50')).toBe(12.5)
+    expect(parseMoney('12,5')).toBe(12.5)
+    expect(parseMoney('$1,500')).toBe(1500)
+    expect(parseMoney('1.500')).toBe(1500)
+    expect(parseMoney('1,500.75')).toBe(1500.75)
+    expect(parseMoney('1.500,75 €')).toBe(1500.75)
+    expect(parseMoney('2,000,000')).toBe(2000000)
+    expect(parseMoney('90')).toBe(90)
+    expect(parseMoney('MXN')).toBeNull()
   })
 })

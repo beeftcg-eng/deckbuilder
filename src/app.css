@@ -181,6 +181,129 @@
   font-size: 12px;
 }
 
+.packs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.packs .search-input {
+  flex: none;
+}
+.packs-new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.packs-new input:not([type='checkbox']) {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.packs-new .packs-cost {
+  flex: 0 1 130px;
+}
+.packs-check,
+.packs-note {
+  font-size: 13px;
+}
+.packs-row {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.packs-row-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.packs-row-money {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 13px;
+}
+.packs-detail-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.packs-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+.packs-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.packs-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.packs-result:hover {
+  border-color: var(--border-strong);
+}
+.packs-result .col-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-folder-toggle {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 5px 10px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.deck-folder-toggle:hover {
+  background: var(--bg-elevated);
+}
+.deck-folder .deck-row {
+  margin-left: 12px;
+}
+.folder-picker {
+  max-width: 180px;
+}
+.folder-picker.compact {
+  max-width: 120px;
+  font-size: 12px;
+}
+.folder-new input {
+  width: 160px;
+}
+.folder-new.compact input {
+  width: 110px;
+  font-size: 12px;
+}
+
+.deck-example-btn {
+  width: 100%;
+  margin-top: 6px;
+}
+
 .deck-row {
   display: flex;
   justify-content: space-between;
@@ -1254,6 +1377,39 @@
 }
 .proxy-note {
   font-size: 12px;
+}
+
+.buy-modal {
+  width: 640px;
+}
+.buy-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.buy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.buy-qty {
+  width: 30px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.buy-name {
+  flex: 1;
+  min-width: 0;
+}
+.buy-price {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.buy-actions {
+  flex-wrap: wrap;
 }
 
 .sample-hand-modal {

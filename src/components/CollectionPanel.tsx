@@ -10,8 +10,10 @@ import { t } from '../shared/i18n'
 import { Rich } from './Rich'
 import { ValueChart } from './ValueChart'
 import { CollectionImportModal } from './CollectionImportModal'
+import { collectionCsv } from '../shared/collectionImport'
+import { PackOpeningsTab } from './PackOpeningsTab'
 
-type Tab = 'cards' | 'sets'
+type Tab = 'cards' | 'sets' | 'packs'
 type Sort = 'name' | 'set' | 'copies' | 'value'
 
 const PAGE_SIZE = 150
@@ -112,6 +114,14 @@ export function CollectionPanel() {
     flash(t.collection.addedFromSet(added, setName))
   }
 
+  async function handleExport() {
+    const csv = collectionCsv(
+      owned.entries.map((e) => ({ ...e, forTrade: forTrade.has(e.card.id) })),
+      adapter.name,
+    )
+    if (await window.api.exportSaveFile(csv, t.collectionImport.exportFileName(adapter.shortName))) flash(t.collectionImport.exported(owned.entries.length))
+  }
+
   async function handleWishlistSet(setId: string, setName: string) {
     const missing = unownedUnwishlisted(cardsBySet.get(setId) ?? [], collection, wishlistedIds)
     const count = await wishlistCards(missing)
@@ -130,6 +140,11 @@ export function CollectionPanel() {
         <button className="btn" title={t.collectionImport.openTitle} onClick={() => setImporting(true)}>
           {t.collectionImport.open}
         </button>
+        {owned.entries.length > 0 && (
+          <button className="btn" title={t.collectionImport.exportTitle} onClick={() => void handleExport()}>
+            {t.collectionImport.export}
+          </button>
+        )}
         <span className="text-dim">
           {t.common.cards(owned.entries.length)} · {t.collection.copies(totalCopies)}
           {adapter.hasPrices && value.total > 0 ? ` · ≈ ${formatPrice(value.total)}` : ''}
@@ -145,10 +160,17 @@ export function CollectionPanel() {
         <button className={tab === 'sets' ? 'btn btn-primary' : 'btn'} aria-pressed={tab === 'sets'} onClick={() => setTab('sets')}>
           {t.collection.sets}
         </button>
+        {adapter.hasPrices && (
+          <button className={tab === 'packs' ? 'btn btn-primary' : 'btn'} aria-pressed={tab === 'packs'} onClick={() => setTab('packs')}>
+            {t.packs.tab}
+          </button>
+        )}
       </div>
 
       {!catalog || cards.length === 0 ? (
         <div className="text-dim">{t.collection.noData(adapter.shortName)}</div>
+      ) : tab === 'packs' ? (
+        <PackOpeningsTab gameId={currentGameId} cards={cards} byId={catalog.byId} />
       ) : (
         <>
           <div className="col-controls">
