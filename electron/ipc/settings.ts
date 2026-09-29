@@ -12,7 +12,7 @@ const GAME_IDS: GameId[] = GAME_LIST.map((adapter) => adapter.id)
 
 // Only known keys with the right types get through, so a stale or hand-edited
 // settings file can't feed the renderer something it doesn't expect.
-function sanitize(raw: unknown): AppSettings {
+export function sanitize(raw: unknown): AppSettings {
   const source = (isPlainObject(raw) ? raw : {}) as Record<string, unknown>
   const settings: AppSettings = {}
   if (typeof source.lastGameId === 'string' && GAME_IDS.includes(source.lastGameId as GameId)) {
@@ -27,6 +27,27 @@ function sanitize(raw: unknown): AppSettings {
   if (isThemeId(source.theme)) settings.theme = source.theme
   if (isLanguage(source.language)) settings.language = source.language
   if (source.tourSeen === true) settings.tourSeen = true
+  // Currency and its last known exchange rates (shared/currency.ts): dropping these here is what made
+  // picking a currency snap back to dollars on the desktop.
+  if (typeof source.currency === 'string' && /^[A-Z]{3}$/.test(source.currency)) settings.currency = source.currency
+  if (isPlainObject(source.currencyRates)) {
+    const cr = source.currencyRates as Record<string, unknown>
+    const rates: Record<string, number> = {}
+    if (isPlainObject(cr.rates)) {
+      for (const [code, rate] of Object.entries(cr.rates as Record<string, unknown>)) {
+        if (/^[A-Z]{3}$/.test(code) && typeof rate === 'number' && Number.isFinite(rate) && rate > 0) rates[code] = rate
+      }
+    }
+    if (typeof cr.updatedAt === 'string' && Object.keys(rates).length) settings.currencyRates = { updatedAt: cr.updatedAt, rates }
+  }
+  // Which artwork to show for a Yu-Gi-Oh! card (shared/artChoice.ts): card id -> art id.
+  if (isPlainObject(source.artChoices)) {
+    const choices: Record<string, string> = {}
+    for (const [cardId, artId] of Object.entries(source.artChoices as Record<string, unknown>).slice(0, 20000)) {
+      if (typeof artId === 'string') choices[cardId] = artId
+    }
+    settings.artChoices = choices
+  }
   if (isPlainObject(source.tradeProfile)) {
     const tp = source.tradeProfile as Record<string, unknown>
     if (typeof tp.public === 'boolean' && typeof tp.displayName === 'string') settings.tradeProfile = { public: tp.public, displayName: tp.displayName }

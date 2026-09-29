@@ -19,6 +19,9 @@ function steps(): Step[] {
     { target: 'sync', title: s.syncTitle, body: s.syncBody },
     { target: 'decks', title: s.decksTitle, body: s.decksBody },
     { target: 'browser', title: s.browserTitle, body: s.browserBody },
+    { target: 'deck-tools', title: s.deckToolsTitle, body: s.deckToolsBody },
+    // The scanner only exists in the phone app.
+    ...(__SCANNER__ ? [{ target: 'scanner', title: s.scannerTitle, body: s.scannerBody }] : []),
     { target: 'nav', title: s.navTitle, body: s.navBody },
     { target: 'account', title: s.accountTitle, body: s.accountBody },
     { target: 'pairings', title: s.pairingsTitle, body: s.pairingsBody },

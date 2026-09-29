@@ -879,25 +879,31 @@ export const en = {
     gamesBody: 'Switch between games here. Drag them into the order you like, and **Manage games…** hides the ones you don’t play.',
     syncTitle: 'Download the cards first',
     syncBody:
-      'Each game’s card list downloads once with **Sync card data**, and then works offline. Press **Update card data** now and then for new sets and prices.',
+      'Each game’s card list downloads once with **Sync card data**, and then works offline. Prices update by themselves once a day; press **Update card data** now and then for new sets.',
     decksTitle: 'Make a deck',
     decksBody:
       '**+ New** starts an empty deck and **Import** turns a pasted decklist into one. Your decks for this game are listed underneath: click one to open it, drag them to reorder.',
     browserTitle: 'Add cards',
     browserBody:
       'Search and filter the cards here. **+** adds a card to the open deck, a click on the picture shows its details, **☆** puts it on your wishlist and **Own** counts the copies you have.',
+    deckToolsTitle: 'Get to know your deck',
+    deckToolsBody:
+      'Open a deck and the buttons along the top help you tune it: **🎴 Practice** deals sample hands (mulligan, draw, discard) and shows the odds of drawing your key cards, **⇄ Compare** shows what changed against another deck or a pasted list, and **🔗 Share** makes a link anyone can open. **Add notes** keeps your sideboard plan with the deck.',
+    scannerTitle: 'Scan your cards',
+    scannerBody:
+      'Point your camera at a card and **📷 Scan cards** finds the exact printing (set, art and rarity, promos too) and adds it to your collection or wishlist, with a little chime each time.',
     navTitle: 'Everything else',
     navBody:
       '**Wishlist**: cards you want, to export or send to Pawmodoro. **My Decks**: every deck from every game. **Collection**: what you own and how far along each set is. **Trade**: find people to trade with. **Binders**: group your cards however you like.',
     accountTitle: 'Take it to your phone',
     accountBody:
-      '**Log in** (a free account, just an email and password) and your decks, collection and wishlist sync with the phone app. The same account is used for trading.',
+      '**Log in** (a free account, just an email and password) and your decks, collection and wishlist sync with the phone app. The same account is used for trading. The phone app can also scan your cards with the camera.',
     pairingsTitle: 'Tournament stats',
     pairingsBody:
       'Log your events in **Pairings**, the tournament tracker, and connect it here: each deck shows its record, and **📊 Deck stats** in the deck view shows its win rate, matchups, going first or second, and every version.',
     settingsTitle: 'Make it yours',
     settingsBody:
-      'Pick a colour theme and your language. Down at the bottom of the sidebar, **💾 Backups** opens **Backup…**, which saves everything to a file (automatic snapshots are kept too).',
+      'Pick a colour theme, your language and the currency prices are shown in (pesos, euros, dollars…). Down at the bottom of the sidebar, **💾 Backups** opens **Backup…**, which saves everything to a file (automatic snapshots are kept too).',
     doneTitle: 'You’re all set',
     doneBody: 'That’s the tour. You can take it again any time from **👋 Welcome tour** at the bottom of the sidebar. Happy brewing!',
   },

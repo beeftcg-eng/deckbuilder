@@ -211,7 +211,7 @@ export function Sidebar() {
       </button>
 
       {__SCANNER__ && (
-        <button className="wishlist-nav-btn" title={t.scanner.openTitle} onClick={() => useAppStore.getState().setShowScanner(true)}>
+        <button className="wishlist-nav-btn" data-tour="scanner" title={t.scanner.openTitle} onClick={() => useAppStore.getState().setShowScanner(true)}>
           {t.scanner.open}
         </button>
       )}

@@ -918,25 +918,31 @@ export const es: Messages = {
     gamesBody: 'Cambia de juego aquí. Arrástralos para ordenarlos a tu gusto, y **Administrar juegos…** oculta los que no juegas.',
     syncTitle: 'Primero descarga las cartas',
     syncBody:
-      'La lista de cartas de cada juego se descarga una vez con **Descargar datos de cartas** y después funciona sin conexión. De vez en cuando presiona **Actualizar datos de cartas** para tener las expansiones y precios nuevos.',
+      'La lista de cartas de cada juego se descarga una vez con **Descargar datos de cartas** y después funciona sin conexión. Los precios se actualizan solos una vez al día; de vez en cuando presiona **Actualizar datos de cartas** para tener las expansiones nuevas.',
     decksTitle: 'Crea un mazo',
     decksBody:
       '**+ Nuevo** empieza un mazo vacío e **Importar** convierte una lista de mazo pegada en uno. Tus mazos de este juego aparecen debajo: haz clic en uno para abrirlo y arrástralos para reordenarlos.',
     browserTitle: 'Añade cartas',
     browserBody:
       'Busca y filtra las cartas aquí. **+** añade una carta al mazo abierto, un clic en la imagen muestra sus detalles, **☆** la pone en tu lista de deseos y **Tengo** cuenta las copias que tienes.',
+    deckToolsTitle: 'Conoce tu mazo',
+    deckToolsBody:
+      'Abre un mazo y los botones de arriba te ayudan a afinarlo: **🎴 Practicar** reparte manos de prueba (mulligan, robar, descartar) y muestra la probabilidad de robar tus cartas clave, **⇄ Comparar** muestra qué cambió frente a otro mazo o una lista pegada, y **🔗 Compartir** crea un enlace que cualquiera puede abrir. **Añadir notas** guarda tu plan de side con el mazo.',
+    scannerTitle: 'Escanea tus cartas',
+    scannerBody:
+      'Apunta la cámara a una carta y **📷 Escanear cartas** encuentra la impresión exacta (expansión, arte y rareza, promos también) y la añade a tu colección o lista de deseos, con un sonidito cada vez.',
     navTitle: 'Todo lo demás',
     navBody:
       '**Lista de deseos**: cartas que buscas, para exportar o enviar a Pawmodoro. **Mis mazos**: todos los mazos de todos los juegos. **Colección**: lo que tienes y cuánto llevas de cada expansión. **Intercambio**: encuentra con quién intercambiar. **Carpetas**: agrupa tus cartas como quieras.',
     accountTitle: 'Llévalo a tu teléfono',
     accountBody:
-      '**Inicia sesión** (una cuenta gratis, solo correo y contraseña) y tus mazos, colección y lista de deseos se sincronizan con la app del teléfono. La misma cuenta sirve para intercambiar.',
+      '**Inicia sesión** (una cuenta gratis, solo correo y contraseña) y tus mazos, colección y lista de deseos se sincronizan con la app del teléfono. La misma cuenta sirve para intercambiar. La app del teléfono además escanea tus cartas con la cámara.',
     pairingsTitle: 'Estadísticas de torneos',
     pairingsBody:
       'Registra tus eventos en **Pairings**, el registro de torneos, y conéctalo aquí: cada mazo muestra su historial, y **📊 Estadísticas** en la vista del mazo muestra su porcentaje de victorias, enfrentamientos, cómo le va yendo primero o segundo y cada versión.',
     settingsTitle: 'Hazla tuya',
     settingsBody:
-      'Elige un tema de colores y tu idioma. Abajo del todo en la barra lateral, **💾 Copias de seguridad** abre **Copia de seguridad…**, que guarda todo en un archivo (además se guardan instantáneas automáticas).',
+      'Elige un tema de colores, tu idioma y la moneda de los precios (pesos, euros, dólares…). Abajo del todo en la barra lateral, **💾 Copias de seguridad** abre **Copia de seguridad…**, que guarda todo en un archivo (además se guardan instantáneas automáticas).',
     doneTitle: '¡Todo listo!',
     doneBody: 'Ese es el recorrido. Puedes repetirlo cuando quieras desde **👋 Recorrido de bienvenida** abajo en la barra lateral. ¡A construir!',
   },

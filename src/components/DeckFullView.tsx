@@ -217,7 +217,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
           </label>
         )}
 
-        <div className="fv-actions">
+        <div className="fv-actions" data-tour="deck-tools">
           {shared && (
             <>
               <button className="btn btn-primary" onClick={shared.onCopy}>
