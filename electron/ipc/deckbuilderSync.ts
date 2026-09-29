@@ -75,6 +75,10 @@ export function enqueueSyncOp(op: SyncOp): void {
   void ensureEngine().enqueue(op)
 }
 
+export function enqueueSyncOps(ops: SyncOp[]): void {
+  void ensureEngine().enqueueMany(ops)
+}
+
 /** Called by pawmodoro.ts after connect/disconnect - starting/stopping the engine happens lazily
  * on the next enqueue/tick either way, so this just needs to exist and not throw synchronously. */
 export function notifyPawmodoroConnectionChanged(): void {

@@ -1237,6 +1237,25 @@
   flex: 1;
 }
 
+.proxy-modal {
+  width: 520px;
+}
+.proxy-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.proxy-zones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.proxy-note {
+  font-size: 12px;
+}
+
 .sample-hand-modal {
   width: 900px;
 }
@@ -2536,6 +2555,18 @@
   overflow-y: auto;
 }
 
+/* A desktop window is far wider than a phone: the result sits in a centred panel instead of spanning it. */
+@media (min-width: 900px) {
+  .scanner-sheet {
+    left: 50%;
+    right: auto;
+    width: 760px;
+    transform: translateX(-50%);
+    border-left: 1px solid var(--border-strong);
+    border-right: 1px solid var(--border-strong);
+  }
+}
+
 .scanner-card {
   display: flex;
   gap: 12px;
@@ -2722,8 +2753,22 @@
   flex-shrink: 0;
 }
 
-.collection-panel .wishlist-header .btn-primary {
-  margin-left: auto;
+/* Title on its own line, then the totals with Scan and Import to their right. */
+.collection-panel .wishlist-header {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.collection-panel .wishlist-header h2 {
+  flex: 1 1 100%;
+}
+.collection-panel .wishlist-header > .text-dim {
+  order: 1;
+  flex: 1 1 auto;
+}
+.collection-panel .wishlist-header .btn {
+  order: 2;
+  white-space: nowrap;
 }
 
 /* Mobile layout (phone-width PWA) - the desktop build never gets this narrow (Electron's window

@@ -4,8 +4,10 @@ declare global {
   interface Window {
     api: DeckbuilderApi
   }
-  /** True in the phone app's build (vite.web.config.ts), false in the desktop one: the card scanner is phone-only. */
+  /** Whether the build has the card scanner (both do: the phone's camera, or a webcam on the desktop). */
   const __SCANNER__: boolean
+  /** True in the phone app's build (vite.web.config.ts), false in the desktop one. */
+  const __WEB__: boolean
 }
 
 export {}

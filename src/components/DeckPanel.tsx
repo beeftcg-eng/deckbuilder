@@ -10,6 +10,7 @@ import { LegalityPanel } from './LegalityPanel'
 import { ExportModal } from './ExportModal'
 import { DeckStats } from './DeckStats'
 import { SampleHandModal } from './SampleHandModal'
+import { ProxyPrintModal } from './ProxyPrintModal'
 import { BanListEditor } from './BanListEditor'
 import { DeckLockButton } from './DeckLockButton'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
@@ -68,6 +69,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const [markingOwned, setMarkingOwned] = useState(false)
   const [movingOut, setMovingOut] = useState<{ zoneId: string; card: Card; quantity: number } | null>(null)
   const [showSampleHand, setShowSampleHand] = useState(false)
+  const [showProxies, setShowProxies] = useState(false)
   const [showBanList, setShowBanList] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -178,6 +180,9 @@ function DeckEditor({ deck }: { deck: Deck }) {
         </button>
         <button className="btn" onClick={() => setShowSampleHand(true)} title={t.deckEditor.sampleHandTitle}>
           {t.deckEditor.sampleHand}
+        </button>
+        <button className="btn" onClick={() => setShowProxies(true)} title={t.proxies.buttonTitle}>
+          {t.proxies.button}
         </button>
         <button className="btn" onClick={() => duplicateDeck(deck.id)} title={t.deckEditor.duplicateTitle}>
           {t.deckEditor.duplicate}
@@ -366,6 +371,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
           onClose={() => setMovingOut(null)}
         />
       )}
+      {showProxies && <ProxyPrintModal deck={deck} cardsById={cardsById} onClose={() => setShowProxies(false)} />}
       {showSampleHand && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowSampleHand(false)} />}
       {showBanList && <BanListEditor gameId={deck.gameId} initialFormatId={deck.formatId} onClose={() => setShowBanList(false)} />}
     </div>

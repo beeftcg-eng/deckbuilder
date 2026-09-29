@@ -16,7 +16,7 @@ installErrorLog()
 installWebApiIfNeeded()
 
 // The phone app reloads itself onto a new version as soon as one is ready (pwaUpdate.ts).
-if (__SCANNER__) void import('./web/pwaUpdate').then((m) => m.keepPwaUpdated())
+if (__WEB__) void import('./web/pwaUpdate').then((m) => m.keepPwaUpdated())
 
 applyCachedTheme()
 applyCachedLanguage()

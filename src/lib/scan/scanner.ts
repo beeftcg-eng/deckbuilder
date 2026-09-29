@@ -1,15 +1,39 @@
 /**
- * The phone app's card scanner, minus its screen (ScannerModal.tsx): loads the OCR models, cuts the
- * card out of a camera frame, reads it (paddle.ts), matches the text to printings
- * (shared/scan/match.ts) and ranks the printings the text can't separate by how their pictures
- * compare with the photo (shared/scan/visual.ts). Phone-app only: the desktop build never imports it
- * (see __SCANNER__ in vite.config.ts).
+ * The card scanner, minus its screen (ScannerModal.tsx): loads the OCR models, cuts the card out of a
+ * camera frame, reads it (paddle.ts), matches the text to printings (shared/scan/match.ts) and ranks
+ * the printings the text can't separate by how their pictures compare with the photo
+ * (shared/scan/visual.ts). The phone uses its camera; the desktop app a webcam.
  */
-import detUrl from './models/det.onnx?url'
-import recUrl from './models/rec.onnx?url'
-import dictUrl from './models/dict.txt?url'
-import wasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url'
-import webgpuWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
+import detFile from './models/det.onnx?url'
+import recFile from './models/rec.onnx?url'
+import dictFile from './models/dict.txt?url'
+import wasmFile from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url'
+
+/**
+ * The desktop app runs from file://, which fetch() can't read, so its copies of these files are
+ * fetched through the app's own dbasset:// scheme instead (electron/ipc/assetProtocol.ts).
+ */
+function servable(url: string): string {
+  const absolute = new URL(url, location.href)
+  if (absolute.protocol !== 'file:') return absolute.href
+  const path = absolute.pathname
+  const at = path.lastIndexOf('/dist/')
+  return `dbasset://app/${path.slice(at + '/dist/'.length)}`
+}
+
+const detUrl = servable(detFile)
+const recUrl = servable(recFile)
+const dictUrl = servable(dictFile)
+const wasmUrl = servable(wasmFile)
+
+/**
+ * The GPU engine, phone app only: it's 27 MB, and a PC's processor reads a card quickly enough
+ * without it. Left out of the desktop build altogether, since __WEB__ is false there.
+ */
+async function webgpuWasmUrl(): Promise<string | undefined> {
+  if (!__WEB__) return undefined
+  return servable((await import('onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url')).default)
+}
 import { loadPaddle, recognize, warmUp, type PaddleModel } from './paddle'
 import { buildScanIndex, type ScanIndex } from '../../shared/scan/scanIndex'
 import { firstPassIsEnough, identify, textTies, type Candidate, type MatchResult } from '../../shared/scan/match'
@@ -92,7 +116,7 @@ export function loadScannerModel(onProgress?: (fraction: number) => void): Promi
     ])
       .then(async ([det, rec]) => {
         modelBytes = { det, rec }
-        const model = await loadPaddle({ det, rec, dict: dictUrl, wasm: wasmUrl, webgpuWasm: webgpuWasmUrl })
+        const model = await loadPaddle({ det, rec, dict: dictUrl, wasm: wasmUrl, webgpuWasm: await webgpuWasmUrl() })
         // A card-shaped crop is what every scan feeds it; warming up on that size keeps the first scan quick.
         try {
           await warmUp(model, 1000, 1400, DET_MAX)

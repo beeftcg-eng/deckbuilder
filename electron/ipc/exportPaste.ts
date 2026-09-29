@@ -52,4 +52,15 @@ export function registerExportIpc(): void {
     await writeFile(result.filePath, Buffer.from(base64, 'base64'))
     return true
   })
+
+  ipcMain.handle('export:savePdf', async (e, bytes: Uint8Array, suggestedName: string): Promise<boolean> => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const options: Electron.SaveDialogOptions = { defaultPath: suggestedName, filters: [{ name: t.main.pdfFile, extensions: ['pdf'] }] }
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
+    if (result.canceled || !result.filePath) return false
+    await writeFile(result.filePath, bytes)
+    // Straight into the PDF viewer, where printing it is one click.
+    void shell.openPath(result.filePath)
+    return true
+  })
 }

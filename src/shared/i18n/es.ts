@@ -129,6 +129,11 @@ export const es: Messages = {
     backToScan: 'Volver a escanear',
     autoAdd: 'Añadir automáticamente cuando esté seguro',
     light: 'Luz',
+    camera: 'Cámara',
+    loadingNoteDesktop: 'Preparando el lector de cartas…',
+    cameraDeniedDesktop:
+      'Brewhouse no pudo usar tu webcam. En Windows, activa Configuración → Privacidad y seguridad → Cámara → “Permitir que las aplicaciones de escritorio accedan a la cámara”, cierra cualquier otra app que la esté usando y vuelve a intentarlo.',
+    hintDesktop: 'Sostén una carta boca arriba dentro del marco, a un palmo de la webcam, con buena luz.',
     soundOn: 'Sonido activado: suena al reconocer una carta (toca para silenciar)',
     soundOff: 'Sonido desactivado (toca para que suene al reconocer una carta)',
     session: (n) => `Añadidas en esta sesión: ${n}`,
@@ -750,6 +755,49 @@ export const es: Messages = {
     },
   },
 
+  collectionImport: {
+    open: '⇪ Importar',
+    openTitle: 'Agrega cartas desde la exportación de colección de otra app (un archivo CSV)',
+    title: (game: string) => `Importar una colección de ${game}`,
+    intro:
+      'Exporta tu colección como **CSV** desde TCGplayer, Moxfield, Dragon Shield, ManaBox o una hoja de cálculo, y luego elige el archivo o pégalo abajo. Las cartas se **suman** a las que ya tienes.',
+    chooseFile: 'Elegir archivo CSV…',
+    placeholder: 'O pega aquí el CSV, con la fila de encabezados primero:\n\nQuantity,Name,Set Code,Collector Number\n4,Lightning Bolt,2XM,129',
+    noHeader: 'No encontré en las primeras líneas una fila de encabezados con una columna de nombre de carta (como “Name” o “Card Name”).',
+    source: (app: string) => `Parece una exportación de ${app}.`,
+    found: (copies: number, cards: number) => `Se encontraron **${copies}** ${plural(copies, 'copia', 'copias')} de **${cards}** ${plural(cards, 'carta', 'cartas')}.`,
+    byName: (n: number) =>
+      `${n} ${plural(n, 'copia coincidió', 'copias coincidieron')} solo por nombre (su set o número no está en los datos de cartas), así que la impresión puede ser otra.`,
+    otherGame: (n: number) =>
+      `${n} ${plural(n, 'fila es', 'filas son')} de otros juegos y se ${n === 1 ? 'omitió' : 'omitieron'}. Cambia de juego para ${n === 1 ? 'importarla' : 'importarlas'}; el archivo se puede importar una vez por juego.`,
+    unmatched: (n: number) => `${n} ${plural(n, 'fila no coincidió', 'filas no coincidieron')} con ninguna carta:`,
+    add: (n: number) => `Agregar ${n} ${plural(n, 'copia', 'copias')} a mi colección`,
+    adding: 'Agregando…',
+    added: (n: number) => `✓ Se agregaron ${n} ${plural(n, 'copia', 'copias')} de la importación.`,
+    failed: (err: string) => `No se pudo importar: ${err}`,
+  },
+
+  proxies: {
+    button: '🖨 Proxies',
+    buttonTitle: 'Imprime las cartas de este mazo a tamaño real para probarlo antes de comprarlo',
+    title: (deck: string) => `Imprimir proxies — ${deck}`,
+    intro: 'Crea un PDF con las cartas a tamaño real, 9 por página con marcas de corte. Imprímelo al **100% / tamaño real** (no “ajustar a la página”), recorta por las marcas y mete cada una en una funda delante de una carta real.',
+    paper: 'Papel',
+    letter: 'Carta (8.5 × 11 in)',
+    a4: 'A4',
+    zones: 'Incluir',
+    missingOnly: 'Solo las copias que no tengo',
+    summary: (copies: number, pages: number) => `${copies} ${plural(copies, 'carta', 'cartas')} en ${pages} ${plural(pages, 'página', 'páginas')}.`,
+    nothing: 'No hay nada que imprimir con estas opciones.',
+    make: 'Guardar PDF',
+    making: (done: number, total: number) => `Dibujando cartas… ${done}/${total}`,
+    saved: (pages: number) => `✓ Se guardaron ${pages} ${plural(pages, 'página', 'páginas')}.`,
+    missingImages: (n: number) => `No se pudo cargar la imagen de ${n} ${plural(n, 'carta', 'cartas')}, así que ${n === 1 ? 'se imprime' : 'se imprimen'} como un marco con el nombre de la carta.`,
+    failed: (err: string) => `No se pudo crear el PDF: ${err}`,
+    fileName: (deck: string) => `${deck} proxies.pdf`,
+    note: 'Los proxies son para probar en casa. No se permiten en eventos oficiales.',
+  },
+
   trade: {
     defaultName: 'Coleccionista',
     nowVisible: 'Ahora eres visible para las demás cuentas conectadas.',
@@ -858,6 +906,7 @@ export const es: Messages = {
     textFiles: 'Texto',
     pngImage: 'Imagen PNG',
     jpegImage: 'Imagen JPEG',
+    pdfFile: 'Documento PDF',
   },
 
   themes: {
@@ -968,10 +1017,10 @@ export const es: Messages = {
       'Busca y filtra las cartas aquí. **+** añade una carta al mazo abierto, un clic en la imagen muestra sus detalles, **☆** la pone en tu lista de deseos y **Tengo** cuenta las copias que tienes.',
     deckToolsTitle: 'Conoce tu mazo',
     deckToolsBody:
-      'Abre un mazo y los botones de arriba te ayudan a afinarlo: **🎴 Practicar** reparte manos de prueba (mulligan, robar, descartar) y muestra la probabilidad de robar tus cartas clave, **⇄ Comparar** muestra qué cambió frente a otro mazo o una lista pegada, y **🔗 Compartir** crea un enlace que cualquiera puede abrir. **Añadir notas** guarda tu plan de side con el mazo.',
+      'Abre un mazo y los botones de arriba te ayudan a afinarlo: **🎴 Practicar** reparte manos de prueba (mulligan, robar, descartar) y muestra la probabilidad de robar tus cartas clave, **⇄ Comparar** muestra qué cambió frente a otro mazo o una lista pegada, **🖨 Proxies** imprime las cartas a tamaño real para probar, y **🔗 Compartir** crea un enlace que cualquiera puede abrir. **Añadir notas** guarda tu plan de side con el mazo.',
     scannerTitle: 'Escanea tus cartas',
     scannerBody:
-      'Apunta la cámara a una carta y **📷 Escanear cartas** encuentra la impresión exacta (expansión, arte y rareza, promos también) y la añade a tu colección o lista de deseos, con un sonidito cada vez.',
+      'Apunta la cámara (o la webcam de tu computadora) a una carta y **📷 Escanear cartas** encuentra la impresión exacta (expansión, arte y rareza, promos también) y la añade a tu colección o lista de deseos, con un sonidito cada vez. ¿Ya llevas tus cartas en otra app? **⇪ Importar** en la Colección lee un CSV de TCGplayer, Moxfield, Dragon Shield o ManaBox.',
     navTitle: 'Todo lo demás',
     navBody:
       '**Lista de deseos**: cartas que buscas, con 🔔 alertas de precio, para exportar o enviar a Pawmodoro. **Mis mazos**: todos los mazos de todos los juegos. **Colección**: lo que tienes, cuánto vale con el tiempo y cuánto llevas de cada expansión. **Intercambio**: encuentra con quién intercambiar. **Carpetas**: agrupa tus cartas como quieras.',

@@ -46,6 +46,27 @@ function makeEngine(store: FakeStore) {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('SyncEngine', () => {
+  it('keeps every op when enqueues overlap (a big collection import queues hundreds at once)', async () => {
+    // A store whose reads and writes take time, like IndexedDB: each overlapping enqueue used to
+    // write back the outbox it had read, dropping the ones queued in between.
+    class SlowStore extends FakeStore {
+      async getOutbox() {
+        await new Promise((r) => setTimeout(r, 1))
+        return [...this.outbox]
+      }
+      async setOutbox(entries: OutboxEntry[]) {
+        await new Promise((r) => setTimeout(r, 1))
+        this.outbox = entries
+      }
+    }
+    const store = new SlowStore()
+    store.config = null // disconnected, so nothing drains and the outbox can be counted
+    const { engine } = makeEngine(store)
+    const op = (i: number) => ({ type: 'set_for_trade' as const, gameId: 'mtg', cardId: `mtg:${i}`, forTrade: true })
+    await Promise.all([...Array.from({ length: 20 }, (_, i) => engine.enqueue(op(i))), engine.enqueueMany([op(20), op(21)])])
+    expect(store.outbox).toHaveLength(22)
+  })
+
   it('drains a queued op and empties the outbox on success', async () => {
     const store = new FakeStore()
     const fetchMock = vi.fn().mockResolvedValueOnce(ok({ access_token: 'tok', refresh_token: 'r1' })) // refresh

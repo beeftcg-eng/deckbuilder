@@ -1,7 +1,8 @@
 import { ipcMain } from 'electron'
 import type { Collection } from '../../src/shared/types'
 import { readCollection, readForTrade, withDataLock, writeCollection, writeForTrade } from '../lib/dataFiles'
-import { enqueueSyncOp, lookupCardNameAndSet } from './deckbuilderSync'
+import { enqueueSyncOp, enqueueSyncOps, lookupCardNameAndSet } from './deckbuilderSync'
+import type { SyncOp } from '../../src/shared/sync/ops'
 
 const MAX_OWNED = 999
 
@@ -34,10 +35,12 @@ export function registerCollectionIpc(): void {
         const next = forTrade.filter((id) => !droppedIds.includes(id))
         if (next.length !== forTrade.length) await writeForTrade(next)
       }
+      const ops: SyncOp[] = []
       for (const { cardId, quantity } of changed) {
         const { name, setCode, gameId } = await lookupCardNameAndSet(cardId)
-        enqueueSyncOp({ type: 'set_collection_quantity', gameId, cardId, cardName: name, setCode, quantity })
+        ops.push({ type: 'set_collection_quantity', gameId, cardId, cardName: name, setCode, quantity })
       }
+      enqueueSyncOps(ops)
       return collection
     }),
   )

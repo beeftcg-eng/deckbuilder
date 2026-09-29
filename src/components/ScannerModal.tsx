@@ -54,6 +54,7 @@ interface Added {
 
 const AUTO_ADD_KEY = 'brewhouse.scanner.autoAdd'
 const SOUND_KEY = 'brewhouse.scanner.sound'
+const CAMERA_KEY = 'brewhouse.scanner.camera'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 /** Resolves once the browser has drawn the latest state (so a status change is visible before heavy work). */
 const nextPaint = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)))
@@ -66,6 +67,15 @@ function readSound(): boolean {
   }
 }
 
+/** The camera picked last time, when the device has more than one (a laptop's webcam and a USB one). */
+function readCamera(): string {
+  try {
+    return localStorage.getItem(CAMERA_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
 function readAutoAdd(): boolean {
   try {
     return localStorage.getItem(AUTO_ADD_KEY) === '1'
@@ -75,7 +85,7 @@ function readAutoAdd(): boolean {
 }
 
 /**
- * The phone app's card scanner: a live camera view with a card-shaped guide. It reads whatever card
+ * The card scanner (the phone's camera, or a webcam on the desktop): a live camera view with a card-shaped guide. It reads whatever card
  * is held in the guide (name, set code, collector number - see lib/scan/scanner.ts), pauses on a
  * match and offers to add it to the collection or wishlist, with every other printing one tap away.
  */
@@ -113,6 +123,8 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   const [search, setSearch] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const [cameraId, setCameraId] = useState(readCamera)
+  const [cameras, setCameras] = useState<{ id: string; label: string; active: boolean }[]>([])
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -152,12 +164,19 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
       // About 1080p in whichever orientation the phone gives, and never cropped to a shape: asking for a
       // landscape 1920x1080 made Chrome cut a square out of a portrait camera, losing most of the card.
       const constraints: MediaTrackConstraints & { resizeMode?: string } = {
-        facingMode: { ideal: 'environment' },
+        ...(cameraId ? { deviceId: { ideal: cameraId } } : { facingMode: { ideal: 'environment' } }),
         width: { ideal: 1920 },
         height: { ideal: 1920 },
         resizeMode: 'none',
       }
       const stream = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false })
+      // Names are only given once the camera is allowed, so the list is read after it starts.
+      const devices = await navigator.mediaDevices.enumerateDevices().catch(() => [])
+      const activeId = stream.getVideoTracks()[0]?.getSettings().deviceId
+      if (!cancelled)
+        setCameras(
+          devices.filter((d) => d.kind === 'videoinput').map((d, i) => ({ id: d.deviceId, label: d.label || `${t.scanner.camera} ${i + 1}`, active: d.deviceId === activeId })),
+        )
       if (cancelled) {
         stream.getTracks().forEach((tr) => tr.stop())
         return
@@ -182,8 +201,10 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
       if (cancelled) return
       const name = (err as { name?: string })?.name
       setCameraError(
-        name === 'NotAllowedError' || name === 'SecurityError'
-          ? t.scanner.cameraDenied
+        name === 'NotAllowedError' || name === 'SecurityError' || (!__WEB__ && name === 'NotReadableError')
+          ? __WEB__
+            ? t.scanner.cameraDenied
+            : t.scanner.cameraDeniedDesktop
           : name === 'NotFoundError' || name === 'OverconstrainedError'
             ? t.scanner.cameraMissing
             : t.scanner.cameraFailed(err instanceof Error ? err.message : String(err)),
@@ -195,7 +216,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
       streamRef.current = null
       setCameraReady(false)
     }
-  }, [attempt])
+  }, [attempt, cameraId])
 
   // The guide is drawn from the stage's size, and the same numbers map it into the video frame.
   useEffect(() => {
@@ -424,6 +445,15 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
     }
   }
 
+  function chooseCamera(id: string) {
+    setCameraId(id)
+    try {
+      localStorage.setItem(CAMERA_KEY, id)
+    } catch {
+      // Private mode: the choice just isn't remembered.
+    }
+  }
+
   function toggleAutoAdd(on: boolean) {
     setAutoAdd(on)
     try {
@@ -479,6 +509,15 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
         <button className="btn" onClick={toggleSound} aria-pressed={sound} title={sound ? t.scanner.soundOn : t.scanner.soundOff} aria-label={sound ? t.scanner.soundOn : t.scanner.soundOff}>
           {sound ? '🔊' : '🔇'}
         </button>
+        {cameras.length > 1 && (
+          <select aria-label={t.scanner.camera} value={cameras.find((c) => c.active)?.id ?? cameraId} onChange={(e) => chooseCamera(e.target.value)}>
+            {cameras.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        )}
         {torch.supported && (
           <button className={`btn ${torch.on ? 'btn-primary' : ''}`} onClick={toggleTorch} aria-pressed={torch.on}>
             🔦 {t.scanner.light}
@@ -499,7 +538,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
         )}
         <div className={`scanner-status ${result || search != null ? 'hidden' : ''}`}>
           <span>{status}</span>
-          {!model && !loadError && <span className="scanner-note">{t.scanner.loadingNote}</span>}
+          {!model && !loadError && <span className="scanner-note">{__WEB__ ? t.scanner.loadingNote : t.scanner.loadingNoteDesktop}</span>}
           {(loadError || cameraError) && (
             <button className="btn" onClick={() => setAttempt((a) => a + 1)}>
               {t.scanner.retry}
@@ -510,7 +549,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
               {syncing ? t.sidebar.syncing(syncProgress?.loaded ?? 0, syncProgress?.total ?? '?') : t.sidebar.syncCardData}
             </button>
           )}
-          {ready && !result && <span className={`scanner-note ${glare ? 'scanner-glare' : ''}`}>{glare ? t.scanner.glareTip : t.scanner.hint}</span>}
+          {ready && !result && <span className={`scanner-note ${glare ? 'scanner-glare' : ''}`}>{glare ? t.scanner.glareTip : __WEB__ ? t.scanner.hint : t.scanner.hintDesktop}</span>}
         </div>
         {toast && <div className="scanner-toast">{toast}</div>}
 

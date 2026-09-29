@@ -52,11 +52,29 @@ export class SyncEngine {
     this.timer = null
   }
 
+  private outboxLock: Promise<unknown> = Promise.resolve()
+
+  /** Runs one read-modify-write of the outbox at a time. Without it, overlapping enqueues (a big
+   * collection import adds hundreds at once) or a drain finishing mid-enqueue each wrote back the
+   * outbox they'd read, dropping whatever the other had just added. */
+  private withOutbox<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.outboxLock.then(fn, fn)
+    this.outboxLock = run.catch(() => undefined)
+    return run
+  }
+
   async enqueue(op: SyncOp): Promise<void> {
-    const outbox = await this.store.getOutbox()
-    outbox.push({ id: crypto.randomUUID(), op })
-    await this.store.setOutbox(outbox)
-    await this.store.bumpRev()
+    await this.enqueueMany([op])
+  }
+
+  async enqueueMany(ops: SyncOp[]): Promise<void> {
+    if (ops.length === 0) return
+    await this.withOutbox(async () => {
+      const outbox = await this.store.getOutbox()
+      for (const op of ops) outbox.push({ id: crypto.randomUUID(), op })
+      await this.store.setOutbox(outbox)
+      await this.store.bumpRev()
+    })
     void this.tick()
   }
 
@@ -120,9 +138,11 @@ export class SyncEngine {
         }
         // The server rejected the request itself (e.g. a since-deleted deck) - drop it so it can't wedge the queue.
       }
-      const remaining = (await this.store.getOutbox()).filter((e) => e.id !== entry.id)
-      await this.store.setOutbox(remaining)
-      await this.store.bumpRev()
+      await this.withOutbox(async () => {
+        const remaining = (await this.store.getOutbox()).filter((e) => e.id !== entry.id)
+        await this.store.setOutbox(remaining)
+        await this.store.bumpRev()
+      })
     }
   }
 

@@ -19,7 +19,7 @@ import { WelcomeTour } from './components/WelcomeTour'
 import { MobileNav, type MobileView } from './components/MobileNav'
 import { SharedDeckView } from './components/SharedDeckView'
 
-// The card scanner and its OCR models only exist in the phone app's build (__SCANNER__, see vite.config.ts).
+// The card scanner and its OCR models load only when it's first opened.
 const ScannerModal = __SCANNER__ ? lazy(() => import('./components/ScannerModal')) : null
 import { t } from './shared/i18n'
 

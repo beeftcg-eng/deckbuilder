@@ -9,6 +9,7 @@ import { CardDetailModal } from './CardDetailModal'
 import { t } from '../shared/i18n'
 import { Rich } from './Rich'
 import { ValueChart } from './ValueChart'
+import { CollectionImportModal } from './CollectionImportModal'
 
 type Tab = 'cards' | 'sets'
 type Sort = 'name' | 'set' | 'copies' | 'value'
@@ -44,6 +45,7 @@ export function CollectionPanel() {
   const [limit, setLimit] = useState({ key: '', count: PAGE_SIZE })
   const [message, setMessage] = useState<string | null>(null)
   const [detail, setDetail] = useState<Card | null>(null)
+  const [importing, setImporting] = useState(false)
   const messageTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const cards = useMemo(() => catalog?.cards ?? [], [catalog])
@@ -125,6 +127,9 @@ export function CollectionPanel() {
             {t.scanner.open}
           </button>
         )}
+        <button className="btn" title={t.collectionImport.openTitle} onClick={() => setImporting(true)}>
+          {t.collectionImport.open}
+        </button>
         <span className="text-dim">
           {t.common.cards(owned.entries.length)} · {t.collection.copies(totalCopies)}
           {adapter.hasPrices && value.total > 0 ? ` · ≈ ${formatPrice(value.total)}` : ''}
@@ -273,6 +278,7 @@ export function CollectionPanel() {
       )}
 
       {detail && <CardDetailModal card={detail} onClose={() => setDetail(null)} />}
+      {importing && <CollectionImportModal gameId={currentGameId} onClose={() => setImporting(false)} onImported={(n) => flash(t.collectionImport.added(n))} />}
     </div>
   )
 }

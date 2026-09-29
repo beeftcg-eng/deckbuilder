@@ -133,6 +133,11 @@ export const en = {
     backToScan: 'Back to scanning',
     autoAdd: 'Add automatically when sure',
     light: 'Light',
+    camera: 'Camera',
+    loadingNoteDesktop: 'Getting the card reader ready…',
+    cameraDeniedDesktop:
+      'Brewhouse couldn’t use your webcam. On Windows, turn on Settings → Privacy & security → Camera → “Let desktop apps access your camera”, close any other app using the webcam, then try again.',
+    hintDesktop: 'Hold one card face up inside the frame, a hand’s width from the webcam, in good light.',
     soundOn: 'Sound on: a chime when a card is recognised (tap to mute)',
     soundOff: 'Sound off (tap for a chime when a card is recognised)',
     session: (n: number) => `Added this session: ${n}`,
@@ -708,6 +713,49 @@ export const en = {
     } as Record<string, string>,
   },
 
+  collectionImport: {
+    open: '⇪ Import',
+    openTitle: 'Add cards from another app’s collection export (a CSV file)',
+    title: (game: string) => `Import a ${game} collection`,
+    intro:
+      'Export your collection as a **CSV** from TCGplayer, Moxfield, Dragon Shield, ManaBox or a spreadsheet, then choose the file or paste it below. The cards are **added** on top of what you already own.',
+    chooseFile: 'Choose CSV file…',
+    placeholder: 'Or paste the CSV here, header row first:\n\nQuantity,Name,Set Code,Collector Number\n4,Lightning Bolt,2XM,129',
+    noHeader: 'Couldn’t find a header row with a card name column (like “Name” or “Card Name”) in the first few lines.',
+    source: (app: string) => `Looks like a ${app} export.`,
+    found: (copies: number, cards: number) => `Found **${copies}** ${plural(copies, 'copy', 'copies')} of **${cards}** ${plural(cards, 'card', 'cards')}.`,
+    byName: (n: number) =>
+      `${n} ${plural(n, 'copy', 'copies')} matched by name only (their set or number isn’t in the card data), so the printing may differ.`,
+    otherGame: (n: number) =>
+      `${n} ${plural(n, 'row is', 'rows are')} for other games and ${n === 1 ? 'was' : 'were'} skipped. Switch the game to import ${n === 1 ? 'it' : 'them'}; the file can be imported once per game.`,
+    unmatched: (n: number) => `${n} ${plural(n, 'row', 'rows')} matched no ${n === 1 ? 'card' : 'cards'}:`,
+    add: (n: number) => `Add ${n} ${plural(n, 'copy', 'copies')} to my collection`,
+    adding: 'Adding…',
+    added: (n: number) => `✓ Added ${n} ${plural(n, 'copy', 'copies')} from the import.`,
+    failed: (err: string) => `Couldn't import: ${err}`,
+  },
+
+  proxies: {
+    button: '🖨 Proxies',
+    buttonTitle: 'Print this deck’s cards at real size to playtest it before buying',
+    title: (deck: string) => `Print proxies — ${deck}`,
+    intro: 'Makes a PDF with the cards at their real size, 9 to a page with cut marks. Print it at **100% / actual size** (not “fit to page”), cut along the marks, and sleeve each one in front of a real card.',
+    paper: 'Paper',
+    letter: 'Letter (8.5 × 11 in)',
+    a4: 'A4',
+    zones: 'Include',
+    missingOnly: 'Only the copies I don’t own',
+    summary: (copies: number, pages: number) => `${copies} ${plural(copies, 'card', 'cards')} on ${pages} ${plural(pages, 'page', 'pages')}.`,
+    nothing: 'Nothing to print with these settings.',
+    make: 'Save PDF',
+    making: (done: number, total: number) => `Drawing cards… ${done}/${total}`,
+    saved: (pages: number) => `✓ Saved ${pages} ${plural(pages, 'page', 'pages')}.`,
+    missingImages: (n: number) => `${n} ${plural(n, 'card’s picture', 'cards’ pictures')} couldn’t be loaded, so ${n === 1 ? 'it prints' : 'they print'} as a frame with the card’s name.`,
+    failed: (err: string) => `Couldn't make the PDF: ${err}`,
+    fileName: (deck: string) => `${deck} proxies.pdf`,
+    note: 'Proxies are for playtesting at home. They aren’t allowed at sanctioned events.',
+  },
+
   trade: {
     defaultName: 'Trader',
     nowVisible: 'You’re now visible to other connected accounts.',
@@ -818,6 +866,7 @@ export const en = {
     textFiles: 'Text',
     pngImage: 'PNG Image',
     jpegImage: 'JPEG Image',
+    pdfFile: 'PDF document',
   },
 
   /** Theme names, by theme id (shared/themes.ts). */
@@ -932,10 +981,10 @@ export const en = {
       'Search and filter the cards here. **+** adds a card to the open deck, a click on the picture shows its details, **☆** puts it on your wishlist and **Own** counts the copies you have.',
     deckToolsTitle: 'Get to know your deck',
     deckToolsBody:
-      'Open a deck and the buttons along the top help you tune it: **🎴 Practice** deals sample hands (mulligan, draw, discard) and shows the odds of drawing your key cards, **⇄ Compare** shows what changed against another deck or a pasted list, and **🔗 Share** makes a link anyone can open. **Add notes** keeps your sideboard plan with the deck.',
+      'Open a deck and the buttons along the top help you tune it: **🎴 Practice** deals sample hands (mulligan, draw, discard) and shows the odds of drawing your key cards, **⇄ Compare** shows what changed against another deck or a pasted list, **🖨 Proxies** prints the cards at real size for playtesting, and **🔗 Share** makes a link anyone can open. **Add notes** keeps your sideboard plan with the deck.',
     scannerTitle: 'Scan your cards',
     scannerBody:
-      'Point your camera at a card and **📷 Scan cards** finds the exact printing (set, art and rarity, promos too) and adds it to your collection or wishlist, with a little chime each time.',
+      'Point your camera (or your computer’s webcam) at a card and **📷 Scan cards** finds the exact printing (set, art and rarity, promos too) and adds it to your collection or wishlist, with a little chime each time. Already track your cards elsewhere? **⇪ Import** in the Collection reads a CSV from TCGplayer, Moxfield, Dragon Shield or ManaBox.',
     navTitle: 'Everything else',
     navBody:
       '**Wishlist**: cards you want, with 🔔 price alerts, to export or send to Pawmodoro. **My Decks**: every deck from every game. **Collection**: what you own, what it’s worth over time, and how far along each set is. **Trade**: find people to trade with. **Binders**: group your cards however you like.',

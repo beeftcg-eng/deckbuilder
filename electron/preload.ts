@@ -139,6 +139,7 @@ const api = {
     ipcRenderer.invoke('export:saveFile', content, suggestedName),
   exportSaveImage: (dataUrl: string, suggestedName: string): Promise<boolean> =>
     ipcRenderer.invoke('export:saveImage', dataUrl, suggestedName),
+  exportSavePdf: (bytes: Uint8Array, suggestedName: string): Promise<boolean> => ipcRenderer.invoke('export:savePdf', bytes, suggestedName),
   images: {
     fetchDataUri: (url: string): Promise<string> => ipcRenderer.invoke('images:fetchDataUri', url),
   },

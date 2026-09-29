@@ -39,7 +39,7 @@ import { carryOverPrices } from '../shared/carryOverPrices'
 import { fetchJson, USER_AGENT } from '../shared/games/fetchUtil'
 import { callRpc, passwordLogin, refreshAccessToken, signUp as clientSignUp, type SyncConfig } from '../shared/sync/client'
 import { SyncEngine } from '../shared/sync/engine'
-import type { PulledState } from '../shared/sync/ops'
+import type { PulledState, SyncOp } from '../shared/sync/ops'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 import { PAIRINGS_ANON_KEY, PAIRINGS_URL } from '../shared/pairingsDefaults'
 import { fetchDeckRecords } from '../shared/pairingsRecord'
@@ -263,6 +263,7 @@ const collection = {
     const current = (await idbGet<Collection>('settings', 'collection')) ?? {}
     const forTrade = (await idbGet<string[]>('settings', 'forTrade')) ?? []
     const droppedIds: string[] = []
+    const ops: SyncOp[] = []
     ensureSyncEngine()
     for (const { cardId, quantity } of items) {
       const next = clampQuantity((current[cardId] ?? 0) + quantity)
@@ -271,8 +272,9 @@ const collection = {
         droppedIds.push(cardId)
       } else current[cardId] = next
       const { name, setCode, gameId } = await cardNameAndSet(cardId)
-      void syncEngine!.enqueue({ type: 'set_collection_quantity', gameId, cardId, cardName: name, setCode, quantity: next })
+      ops.push({ type: 'set_collection_quantity', gameId, cardId, cardName: name, setCode, quantity: next })
     }
+    void syncEngine!.enqueueMany(ops)
     await idbSet('settings', 'collection', current)
     if (droppedIds.length > 0) {
       const nextForTrade = forTrade.filter((id) => !droppedIds.includes(id))
@@ -625,6 +627,9 @@ const exportSaveImage = async (dataUrl: string, suggestedName: string): Promise<
   return downloadBlob(await res.blob(), suggestedName)
 }
 
+const exportSavePdf = async (bytes: Uint8Array, suggestedName: string): Promise<boolean> =>
+  downloadBlob(new Blob([bytes as BlobPart], { type: 'application/pdf' }), suggestedName)
+
 /**
  * Image hosts that don't send CORS headers (Riftbound's cmsassets.rgpub.io, One Piece's optcgapi.com,
  * YGOPRODeck) can be shown in an <img> but not read by a web page, so an exported deck/wishlist picture
@@ -788,6 +793,7 @@ export const webApi = {
   exportPaste,
   exportSaveFile,
   exportSaveImage,
+  exportSavePdf,
   images,
   system,
   patchNotes,

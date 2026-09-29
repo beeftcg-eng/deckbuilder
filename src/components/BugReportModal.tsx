@@ -25,7 +25,7 @@ function technicalDetails(): Record<string, unknown> {
               : 'browser'
   return {
     version: s.updateStatus?.version ?? 'unknown',
-    app: __SCANNER__ ? 'phone app' : 'desktop',
+    app: __WEB__ ? 'phone app' : 'desktop',
     userAgent: navigator.userAgent,
     screenSize: `${window.innerWidth}x${window.innerHeight}`,
     language: s.language,

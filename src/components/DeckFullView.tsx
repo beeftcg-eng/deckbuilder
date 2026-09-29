@@ -14,6 +14,7 @@ import { ShareDeckModal } from './ShareDeckModal'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
 import { DeckNotes } from './DeckNotes'
 import { CompareDecksModal } from './CompareDecksModal'
+import { ProxyPrintModal } from './ProxyPrintModal'
 import { SampleHandModal } from './SampleHandModal'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
 import { PairingsStatsModal } from './PairingsStatsModal'
@@ -55,6 +56,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
   const [showShare, setShowShare] = useState(false)
   const [showCompare, setShowCompare] = useState(false)
   const [showPractice, setShowPractice] = useState(false)
+  const [showProxies, setShowProxies] = useState(false)
 
   const zones = useMemo(() => rulesForFormat(adapter, deck.formatId), [adapter, deck.formatId])
   const sections = useMemo(() => buildDeckView(deck, zones, cardsById), [deck, zones, cardsById])
@@ -242,6 +244,9 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
           <button className="btn" onClick={() => setShowCompare(true)} title={t.compare.buttonTitle}>
             {t.compare.button}
           </button>
+          <button className="btn" onClick={() => setShowProxies(true)} title={t.proxies.buttonTitle}>
+            {t.proxies.button}
+          </button>
           {!readOnly && (
             <button className="btn" onClick={() => setShowShare(true)} title={t.share.buttonTitle}>
               {deck.shareToken ? t.share.buttonShared : t.share.button}
@@ -328,6 +333,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
       {showStats && <PairingsStatsModal deck={deck} onClose={() => setShowStats(false)} />}
       {showShare && <ShareDeckModal deck={deck} onClose={() => setShowShare(false)} />}
       {showPractice && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowPractice(false)} />}
+      {showProxies && <ProxyPrintModal deck={deck} cardsById={cardsById} onClose={() => setShowProxies(false)} />}
       {showCompare && <CompareDecksModal deck={deck} cardsById={cardsById} onClose={() => setShowCompare(false)} />}
       {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}
     </div>
