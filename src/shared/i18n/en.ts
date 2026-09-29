@@ -135,12 +135,8 @@ export const en = {
     autoAdd: 'Add automatically when sure',
     light: 'Light',
     camera: 'Camera',
-    cameraNoPicture: 'This camera isn’t sending a picture (a virtual camera like OBS’s only does while its app is running). Pick another camera at the top.',
+    cameraNoPicture: 'This camera isn’t sending a picture. Pick another camera at the top.',
     cameraBusyPickAnother: 'Couldn’t start this camera. It may be in use by another app. Close that app, or pick another camera at the top.',
-    loadingNoteDesktop: 'Getting the card reader ready…',
-    cameraDeniedDesktop:
-      'Brewhouse couldn’t use your webcam. On Windows, turn on Settings → Privacy & security → Camera → “Let desktop apps access your camera”, close any other app using the webcam, then try again.',
-    hintDesktop: 'Hold one card face up inside the frame, a hand’s width from the webcam, in good light.',
     soundOn: 'Sound on: a chime when a card is recognised (tap to mute)',
     soundOff: 'Sound off (tap for a chime when a card is recognised)',
     session: (n: number) => `Added this session: ${n}`,
@@ -820,7 +816,7 @@ export const en = {
     searchPlaceholder: 'Add a card: name or number…',
     bestPull: (name: string, value: string) => `Best pull: ${name} (${value})`,
     unpriced: (n: number) => `${n} without a price`,
-    empty: 'No pulls yet. Scan them, or search above and tap a card to add it.',
+    empty: 'No pulls yet. Search above and tap a card to add it (in the phone app you can scan them too).',
     inCollection: 'Pulls also go into your collection.',
     notInCollection: 'Pulls aren’t added to your collection.',
     delete: 'Delete opening',
@@ -1057,7 +1053,7 @@ export const en = {
       'Open a deck and the buttons along the top help you tune it: **🎴 Practice** deals sample hands (mulligan, draw, discard) and shows the odds of drawing your key cards, **⇄ Compare** shows what changed against another deck or a pasted list, **🖨 Proxies** prints the cards at real size for playtesting, and **🔗 Share** makes a link anyone can open. **Add notes** keeps your sideboard plan with the deck.',
     scannerTitle: 'Scan your cards',
     scannerBody:
-      'Point your camera (or your computer’s webcam) at a card and **📷 Scan cards** finds the exact printing (set, art and rarity, promos too) and adds it to your collection or wishlist, with a little chime each time. Already track your cards elsewhere? **⇪ Import** in the Collection reads a CSV from TCGplayer, Moxfield, Dragon Shield or ManaBox.',
+      'Point your camera at a card and **📷 Scan cards** finds the exact printing (set, art and rarity, promos too) and adds it to your collection or wishlist, with a little chime each time. Already track your cards elsewhere? **⇪ Import** in the Collection reads a CSV from TCGplayer, Moxfield, Dragon Shield or ManaBox.',
     navTitle: 'Everything else',
     navBody:
       '**Wishlist**: cards you want, with 🔔 price alerts, to export or send to Pawmodoro. **My Decks**: every deck from every game. **Collection**: what you own, what it’s worth over time, and how far along each set is. **Trade**: find people to trade with. **Binders**: group your cards however you like.',

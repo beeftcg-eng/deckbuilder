@@ -7,7 +7,6 @@ import { firstPassIsEnough, identify, partSimilarity, textTies } from './match'
 import { firstPass } from './priority'
 import { buildScanIndex, nameParts, printedName, printedNumber, variantName } from './scanIndex'
 import { digitsFromOcr, levenshtein, squash, substringDistance } from './text'
-import { defaultCamera } from './cameras'
 
 /** OCR lines, top to bottom; `big` marks the large print a name is in. */
 function lines(...texts: (string | { text: string; big?: boolean; y?: number })[]): OcrLine[] {
@@ -223,16 +222,3 @@ describe('first-pass reading', () => {
   })
 })
 
-describe('defaultCamera', () => {
-  it('skips virtual cameras and capture cards for a webcam', () => {
-    const cams = [
-      { id: 'obs', label: 'OBS Virtual Camera' },
-      { id: 'capture', label: 'USB Video: USB Video' },
-      { id: 'c920', label: 'HD Pro Webcam C920 (046d:082d)' },
-    ]
-    expect(defaultCamera(cams)).toBe('c920')
-    expect(defaultCamera(cams.slice(0, 2))).toBe('capture')
-    expect(defaultCamera([cams[0]])).toBe('obs')
-    expect(defaultCamera([])).toBeUndefined()
-  })
-})

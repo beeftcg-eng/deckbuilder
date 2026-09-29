@@ -8,7 +8,6 @@ import { registerFormatsIpc } from './ipc/formats'
 import { registerExportIpc } from './ipc/exportPaste'
 import { registerImagesIpc } from './ipc/images'
 import { registerImageProtocol, registerImageSchemePrivileges } from './ipc/imageProtocol'
-import { registerAssetProtocol } from './ipc/assetProtocol'
 import { ImageFetcher } from './lib/imageCache'
 import { userDataDir } from './lib/paths'
 import { registerWishlistIpc } from './ipc/wishlist'
@@ -100,7 +99,6 @@ app.on('activate', () => {
 
 app.whenReady().then(() => {
   registerImageProtocol(imageFetcher)
-  registerAssetProtocol(RENDERER_DIST)
   // A fresh snapshot of decks/wishlist/collection on every launch (skipped if
   // nothing changed since the last one), taken before the renderer can touch anything.
   withDataLock(() => snapshot('auto'))

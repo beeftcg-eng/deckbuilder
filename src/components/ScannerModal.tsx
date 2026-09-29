@@ -23,7 +23,6 @@ import {
   type Rect,
 } from '../lib/scan/scanner'
 import { printedNumber, variantName } from '../shared/scan/scanIndex'
-import { defaultCamera } from '../shared/scan/cameras'
 import { playChime, unlockChime } from '../lib/scan/chime'
 import { t } from '../shared/i18n'
 
@@ -88,7 +87,7 @@ function readAutoAdd(): boolean {
 }
 
 /**
- * The card scanner (the phone's camera, or a webcam on the desktop): a live camera view with a card-shaped guide. It reads whatever card
+ * The phone app's card scanner: a live camera view with a card-shaped guide. It reads whatever card
  * is held in the guide (name, set code, collector number - see lib/scan/scanner.ts), pauses on a
  * match and offers to add it to the collection or wishlist, with every other printing one tap away.
  */
@@ -165,7 +164,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
     }
   }, [attempt])
 
-  // Camera: the back one on a phone, a real webcam on a computer (or the one picked), as sharp as it gives.
+  // Camera: the back one (or the one picked), as sharp as the phone gives.
   useEffect(() => {
     let cancelled = false
     setCameraError(null)
@@ -177,10 +176,8 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
     async function start() {
       if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error('no camera'), { name: 'NotFoundError' })
       listed = await listCameras()
-      // A camera picked earlier that's still plugged in; else, on a computer, the likeliest real webcam
-      // (the first camera is often OBS's virtual one, which shows nothing unless OBS is running).
-      const picked = listed.some((c) => c.id === cameraId) ? cameraId : ''
-      const deviceId = picked || (__WEB__ ? '' : (defaultCamera(listed) ?? ''))
+      // The camera picked earlier, if it's still there; else the back one.
+      const deviceId = listed.some((c) => c.id === cameraId) ? cameraId : ''
       // About 1080p in whichever orientation the phone gives, and never cropped to a shape: asking for a
       // landscape 1920x1080 made Chrome cut a square out of a portrait camera, losing most of the card.
       // The device is `exact`: as a mere preference, Chrome picked whichever camera had the closest resolution.
@@ -226,19 +223,15 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
     start().catch((err: unknown) => {
       if (cancelled) return
       // The picker still shows, so another camera can be tried.
-      setCameras(listed.map((c) => ({ ...c, active: c.id === (cameraId || (__WEB__ ? '' : defaultCamera(listed))) })))
+      setCameras(listed.map((c) => ({ ...c, active: c.id === cameraId })))
       const name = (err as { name?: string })?.name
       setCameraError(
         name === 'NoPictureError'
           ? t.scanner.cameraNoPicture
           : name === 'NotAllowedError' || name === 'SecurityError'
-            ? __WEB__
-              ? t.scanner.cameraDenied
-              : t.scanner.cameraDeniedDesktop
-            : name === 'NotReadableError' && !__WEB__
-              ? listed.length > 1
-                ? t.scanner.cameraBusyPickAnother
-                : t.scanner.cameraDeniedDesktop
+            ? t.scanner.cameraDenied
+            : name === 'NotReadableError' && listed.length > 1
+              ? t.scanner.cameraBusyPickAnother
               : name === 'NotFoundError' || name === 'OverconstrainedError'
                 ? t.scanner.cameraMissing
                 : t.scanner.cameraFailed(err instanceof Error ? err.message : String(err)),
@@ -576,7 +569,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
         )}
         <div className={`scanner-status ${result || search != null ? 'hidden' : ''}`}>
           <span>{status}</span>
-          {!model && !loadError && <span className="scanner-note">{__WEB__ ? t.scanner.loadingNote : t.scanner.loadingNoteDesktop}</span>}
+          {!model && !loadError && <span className="scanner-note">{t.scanner.loadingNote}</span>}
           {(loadError || cameraError) && (
             <button className="btn" onClick={() => setAttempt((a) => a + 1)}>
               {t.scanner.retry}
@@ -587,7 +580,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
               {syncing ? t.sidebar.syncing(syncProgress?.loaded ?? 0, syncProgress?.total ?? '?') : t.sidebar.syncCardData}
             </button>
           )}
-          {ready && !result && <span className={`scanner-note ${glare ? 'scanner-glare' : ''}`}>{glare ? t.scanner.glareTip : __WEB__ ? t.scanner.hint : t.scanner.hintDesktop}</span>}
+          {ready && !result && <span className={`scanner-note ${glare ? 'scanner-glare' : ''}`}>{glare ? t.scanner.glareTip : t.scanner.hint}</span>}
         </div>
         {toast && <div className="scanner-toast">{toast}</div>}
 

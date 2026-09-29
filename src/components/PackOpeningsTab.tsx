@@ -117,9 +117,11 @@ function OpeningDetail(props: {
         <button className="btn" onClick={onBack}>
           {t.packs.back}
         </button>
-        <button className="btn btn-primary" title={t.packs.scanTitle} onClick={() => useAppStore.getState().setShowScanner(true)}>
-          {t.packs.scan}
-        </button>
+        {__SCANNER__ && (
+          <button className="btn btn-primary" title={t.packs.scanTitle} onClick={() => useAppStore.getState().setShowScanner(true)}>
+            {t.packs.scan}
+          </button>
+        )}
       </div>
       <div className="packs-new">
         <input value={opening.name} onChange={(e) => onSave({ ...opening, name: e.target.value })} aria-label={t.packs.namePlaceholder} />

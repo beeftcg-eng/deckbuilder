@@ -53,8 +53,7 @@ export async function loadPaddle(sources: ModelSources): Promise<PaddleModel> {
     return r.text()
   })
   let model: Omit<PaddleModel, 'dict'> | null = null
-  // __WEB__ is a build constant: the desktop build leaves the GPU engine (and its 27 MB .wasm) out entirely.
-  if (__WEB__ && sources.webgpuWasm && (await hasWebGpu())) {
+  if (sources.webgpuWasm && (await hasWebGpu())) {
     try {
       const ort = (await import('onnxruntime-web/webgpu')) as unknown as Ort
       ort.env.wasm.wasmPaths = { wasm: sources.webgpuWasm }

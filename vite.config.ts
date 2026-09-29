@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // The desktop app scans with a webcam; its OCR models are served by electron/ipc/assetProtocol.ts.
+  // The card scanner is phone-app only (vite.web.config.ts); this keeps it and its OCR models out of the desktop build.
   define: {
-    __SCANNER__: 'true',
+    __SCANNER__: 'false',
     __WEB__: 'false',
   },
   // The phone app's service worker registration (src/web/pwaUpdate.ts) doesn't exist on the desktop.

@@ -131,12 +131,8 @@ export const es: Messages = {
     autoAdd: 'Añadir automáticamente cuando esté seguro',
     light: 'Luz',
     camera: 'Cámara',
-    cameraNoPicture: 'Esta cámara no está enviando imagen (una cámara virtual como la de OBS solo lo hace mientras su app está abierta). Elige otra cámara arriba.',
+    cameraNoPicture: 'Esta cámara no está enviando imagen. Elige otra cámara arriba.',
     cameraBusyPickAnother: 'No se pudo iniciar esta cámara. Puede que otra app la esté usando. Cierra esa app o elige otra cámara arriba.',
-    loadingNoteDesktop: 'Preparando el lector de cartas…',
-    cameraDeniedDesktop:
-      'Brewhouse no pudo usar tu webcam. En Windows, activa Configuración → Privacidad y seguridad → Cámara → “Permitir que las aplicaciones de escritorio accedan a la cámara”, cierra cualquier otra app que la esté usando y vuelve a intentarlo.',
-    hintDesktop: 'Sostén una carta boca arriba dentro del marco, a un palmo de la webcam, con buena luz.',
     soundOn: 'Sonido activado: suena al reconocer una carta (toca para silenciar)',
     soundOff: 'Sonido desactivado (toca para que suene al reconocer una carta)',
     session: (n) => `Añadidas en esta sesión: ${n}`,
@@ -862,7 +858,7 @@ export const es: Messages = {
     searchPlaceholder: 'Añadir carta: nombre o número…',
     bestPull: (name: string, value: string) => `Mejor carta: ${name} (${value})`,
     unpriced: (n: number) => `${n} sin precio`,
-    empty: 'Aún no hay cartas. Escanéalas, o búscalas arriba y toca una para añadirla.',
+    empty: 'Aún no hay cartas. Búscalas arriba y toca una para añadirla (en la app del cel también puedes escanearlas).',
     inCollection: 'Las cartas también se añaden a tu colección.',
     notInCollection: 'Las cartas no se añaden a tu colección.',
     delete: 'Borrar apertura',
@@ -1093,7 +1089,7 @@ export const es: Messages = {
       'Abre un mazo y los botones de arriba te ayudan a afinarlo: **🎴 Practicar** reparte manos de prueba (mulligan, robar, descartar) y muestra la probabilidad de robar tus cartas clave, **⇄ Comparar** muestra qué cambió frente a otro mazo o una lista pegada, **🖨 Proxies** imprime las cartas a tamaño real para probar, y **🔗 Compartir** crea un enlace que cualquiera puede abrir. **Añadir notas** guarda tu plan de side con el mazo.',
     scannerTitle: 'Escanea tus cartas',
     scannerBody:
-      'Apunta la cámara (o la webcam de tu computadora) a una carta y **📷 Escanear cartas** encuentra la impresión exacta (expansión, arte y rareza, promos también) y la añade a tu colección o lista de deseos, con un sonidito cada vez. ¿Ya llevas tus cartas en otra app? **⇪ Importar** en la Colección lee un CSV de TCGplayer, Moxfield, Dragon Shield o ManaBox.',
+      'Apunta la cámara a una carta y **📷 Escanear cartas** encuentra la impresión exacta (expansión, arte y rareza, promos también) y la añade a tu colección o lista de deseos, con un sonidito cada vez. ¿Ya llevas tus cartas en otra app? **⇪ Importar** en la Colección lee un CSV de TCGplayer, Moxfield, Dragon Shield o ManaBox.',
     navTitle: 'Todo lo demás',
     navBody:
       '**Lista de deseos**: cartas que buscas, con 🔔 alertas de precio, para exportar o enviar a Pawmodoro. **Mis mazos**: todos los mazos de todos los juegos. **Colección**: lo que tienes, cuánto vale con el tiempo y cuánto llevas de cada expansión. **Intercambio**: encuentra con quién intercambiar. **Carpetas**: agrupa tus cartas como quieras.',
