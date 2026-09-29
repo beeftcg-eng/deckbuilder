@@ -38,6 +38,12 @@ export interface Card {
   colorIdentity?: string[]
   cost: string | null
   text: string | null
+  /**
+   * When this printing (or, for Yu-Gi-Oh, the card) was first released, as "YYYY-MM-DD". Used by the
+   * card browser's Newest/Oldest sorts. Missing for One Piece, whose card source has no dates, and
+   * for card data synced before the field existed.
+   */
+  released?: string
   legality: Record<string, CardLegalityStatus> | null
   /**
    * Market price in USD, when the source API provides one (One Piece and

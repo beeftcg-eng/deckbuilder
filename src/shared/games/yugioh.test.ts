@@ -60,6 +60,13 @@ describe('normalizeCard', () => {
     expect(card('ocg_only')).toMatchObject({ setId: 'none', setName: 'No set listed', rarity: null })
   })
 
+  it('dates every printing with the card’s first TCG release, or its OCG date when it has none', () => {
+    const misc = RAW.normal.misc_info?.[0] ?? {}
+    const dated = normalizeCard({ ...RAW.normal, misc_info: [{ ...misc, tcg_date: '2002-03-08', ocg_date: '1999-02-04' }] })
+    expect(dated.map((p) => p.released)).toEqual(['2002-03-08', '2002-03-08'])
+    expect(normalizeCard({ ...RAW.normal, misc_info: [{ ...misc, ocg_date: '1999-02-04' }] })[0].released).toBe('1999-02-04')
+  })
+
   it('creates one card per set/rarity printing, each with that printing’s own price', () => {
     const printings = normalizeCard(RAW.normal)
     expect(printings).toHaveLength(2)

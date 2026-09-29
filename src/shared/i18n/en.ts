@@ -566,6 +566,20 @@ export const en = {
     clear: 'Clear',
     matches: (n: number) => `${n} ${plural(n, 'match', 'matches')}`,
     showMore: (n: number, shown: number, total: number) => `Show ${n} more (${shown}/${total})`,
+    sortBy: 'Sort cards',
+    sorts: {
+      relevance: 'Sort: Best match',
+      name: 'Sort: Name A–Z',
+      nameDesc: 'Sort: Name Z–A',
+      newest: 'Sort: Newest first',
+      oldest: 'Sort: Oldest first',
+      set: 'Sort: Expansion',
+      costAsc: 'Sort: Cost, low to high',
+      costDesc: 'Sort: Cost, high to low',
+      priceDesc: 'Sort: Price, high to low',
+      priceAsc: 'Sort: Price, low to high',
+    },
+    sortNeedsResync: (label: string) => `${label} (update card data first)`,
   },
 
   /** Guided deckbuilding steps (GameAdapter.getGuidedStage). */

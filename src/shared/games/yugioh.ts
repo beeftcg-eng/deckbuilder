@@ -3,6 +3,7 @@ import { loadPriceFile, applyPriceFile } from '../priceFiles'
 import { yugiohKeys } from '../priceKeys'
 import type { FetchProgress, GameAdapter } from './types'
 import { fetchJsonWithRetry } from './fetchUtil'
+import { toIsoDate } from '../cardSort'
 
 // YGOPRODeck's card database: every card in one request (~3.4 MB compressed, about a second), with per-format
 // legality and the Forbidden / Limited / Semi-Limited lists. Its API guide forbids hotlinking card images
@@ -39,7 +40,7 @@ export interface YgoCard {
   card_sets?: { set_name: string; set_code: string; set_rarity?: string; set_price?: string }[]
   card_images?: { id: number }[]
   card_prices?: { tcgplayer_price?: string }[]
-  misc_info?: { formats?: string[] }[]
+  misc_info?: { formats?: string[]; tcg_date?: string; ocg_date?: string }[]
 }
 
 /** Skill Cards (a Speed Duel / Duel Links mechanic) aren't part of a deck and have no collection use case. */
@@ -153,6 +154,8 @@ export function normalizeCard(raw: YgoCard): Card[] {
       subtypes: [...(raw.typeline ?? (raw.race ? [raw.race] : [])), ...(extra ? ['Extra Deck'] : [])],
       colors: raw.attribute ? [titleCase(raw.attribute)] : [],
       cost: raw.level != null ? String(raw.level) : null,
+      // The card's first release (YGOPRODeck has no date per printing); OCG-only cards use their OCG date.
+      released: toIsoDate(raw.misc_info?.[0]?.tcg_date ?? raw.misc_info?.[0]?.ocg_date),
       text,
       legality,
       // This printing's own market price when YGOPRODeck has one. The card-wide fallback is only
@@ -237,6 +240,7 @@ export const yugiohAdapter: GameAdapter = {
   defaultFormats,
   legalitySource: 'api',
   hasPrices: true,
+  hasReleaseDates: true,
   // Prices from the price file stay when a later sync can't reach it.
   keepPricesWhenMissing: true,
   openingHandSize: 5,

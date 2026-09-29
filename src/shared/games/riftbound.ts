@@ -3,9 +3,11 @@ import { loadPriceFile, applyPriceFile } from '../priceFiles'
 import { riftboundKeys } from '../priceKeys'
 import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
+import { toIsoDate } from '../cardSort'
 import { t } from '../i18n'
 
 const API_BASE = 'https://api.riftcodex.com/cards'
+const SETS_URL = 'https://api.riftcodex.com/sets'
 const PAGE_SIZE = 100
 
 export const RUNE_DOMAINS = ['Fury', 'Calm', 'Mind', 'Body', 'Chaos', 'Order'] as const
@@ -25,6 +27,11 @@ interface RiftboundApiCard {
   orientation: 'portrait' | 'landscape'
 }
 
+interface RiftboundApiSet {
+  set_id: string
+  published_on?: string | null
+}
+
 interface RiftboundApiResponse {
   items: RiftboundApiCard[]
   total: number
@@ -33,7 +40,7 @@ interface RiftboundApiResponse {
   pages: number
 }
 
-function normalizeCard(raw: RiftboundApiCard): Card {
+function normalizeCard(raw: RiftboundApiCard, released?: string): Card {
   return {
     id: `riftbound:${raw.id}`,
     gameId: 'riftbound',
@@ -55,12 +62,32 @@ function normalizeCard(raw: RiftboundApiCard): Card {
     legality: null,
     // riftcodex has no prices; fetchAllCards fills them in from the price file by tcgplayer_id.
     price: null,
+    ...(released ? { released } : {}),
     ...(raw.tcgplayer_id ? { tcgplayerId: String(raw.tcgplayer_id) } : {}),
   }
 }
 
+/**
+ * Each set's release date by set id ("OGN" -> "2025-10-31"), for the browser's Newest/Oldest sorts.
+ * Cards don't carry a date, sets do. Optional: if the request fails, cards just have no date.
+ */
+async function fetchSetDates(): Promise<Map<string, string>> {
+  const dates = new Map<string, string>()
+  try {
+    const res = await fetchJson<{ items: RiftboundApiSet[] }>(`${SETS_URL}?size=100`)
+    for (const set of res.items ?? []) {
+      const date = toIsoDate(set.published_on)
+      if (date) dates.set(set.set_id.toUpperCase(), date)
+    }
+  } catch {
+    // No dates this sync; everything else still works.
+  }
+  return dates
+}
+
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   const cards: Card[] = []
+  const setDates = await fetchSetDates()
   let page = 1
   let pages = 1
 
@@ -68,7 +95,7 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
     const url = `${API_BASE}?size=${PAGE_SIZE}&page=${page}`
     const res = await fetchJson<RiftboundApiResponse>(url)
     pages = res.pages
-    for (const raw of res.items) cards.push(normalizeCard(raw))
+    for (const raw of res.items) cards.push(normalizeCard(raw, setDates.get(raw.set.set_id.toUpperCase())))
     onProgress({ loaded: cards.length, total: res.total })
     page += 1
   } while (page <= pages)
@@ -242,6 +269,7 @@ export const riftboundAdapter: GameAdapter = {
   defaultFormats,
   legalitySource: 'local',
   hasPrices: true,
+  hasReleaseDates: true,
   // The price file can be briefly unavailable; a sync then keeps the prices it already knew.
   keepPricesWhenMissing: true,
   openingHandSize: 4,

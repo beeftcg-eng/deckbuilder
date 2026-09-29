@@ -1,6 +1,7 @@
 import type { Card, CardLegalityStatus, Deck, DeckRules, Format } from '../types'
 import type { FetchProgress, GameAdapter, GuidedStage } from './types'
 import { SCRYFALL_HEADERS, fetchJson, fetchJsonWithRetry, sleep } from './fetchUtil'
+import { toIsoDate } from '../cardSort'
 import { t } from '../i18n'
 
 // Scryfall's "Default Cards" bulk file: every real-world printing (~80 MB) — alternate art, showcase,
@@ -52,6 +53,7 @@ export interface ScryfallCard extends ScryfallFace {
   set_name: string
   collector_number: string
   rarity?: string
+  released_at?: string
   digital?: boolean
   legalities?: Record<string, string>
   prices?: { usd?: string | null; usd_foil?: string | null; usd_etched?: string | null }
@@ -154,6 +156,7 @@ export function normalizeCard(raw: ScryfallCard): Card | null {
     colorIdentity: toColorNames(raw.color_identity),
     // Lands are left out of the cost curve and average, like deck sites do.
     cost: category === 'Land' || raw.cmc == null ? null : String(raw.cmc),
+    released: toIsoDate(raw.released_at),
     text: faces.map((face) => describeFace(face, faces.length > 1)).join('\n\n') || null,
     legality,
     price: priceOf(raw),
@@ -350,6 +353,7 @@ export const mtgAdapter: GameAdapter = {
   defaultFormats,
   legalitySource: 'api',
   hasPrices: true,
+  hasReleaseDates: true,
   openingHandSize: 7,
   fetchAllCards,
   formatDecklistText,

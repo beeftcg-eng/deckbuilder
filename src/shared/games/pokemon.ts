@@ -3,6 +3,7 @@ import { loadPriceFile, applyPriceFile } from '../priceFiles'
 import { pokemonKeys } from '../priceKeys'
 import type { GameAdapter, FetchProgress } from './types'
 import { HttpError, fetchJsonWithRetry, mapPool, sleep } from './fetchUtil'
+import { toIsoDate } from '../cardSort'
 
 // Cards come from the community's static dataset (github.com/PokemonTCG/pokemon-tcg-data): one small JSON file per
 // set on GitHub's CDN — about a minute for all ~20k cards, and it doesn't fail at random. The pokemontcg.io API
@@ -20,6 +21,7 @@ interface PokemonSetInfo {
   id: string
   name: string
   ptcgoCode?: string
+  releaseDate?: string
 }
 
 interface PokemonStaticSet extends PokemonSetInfo {
@@ -88,6 +90,7 @@ function normalizeCard(raw: PokemonCardData, set: PokemonSetInfo): Card {
     subtypes: raw.subtypes ?? [],
     colors: raw.types ?? [],
     cost: null,
+    released: toIsoDate(set.releaseDate),
     text: textParts.length ? textParts.join('\n') : (raw.flavorText ?? null),
     legality,
     price: null,
@@ -239,6 +242,7 @@ export const pokemonAdapter: GameAdapter = {
   defaultFormats,
   legalitySource: 'api',
   hasPrices: true,
+  hasReleaseDates: true,
   keepPricesWhenMissing: true,
   openingHandSize: 7,
   fetchAllCards: (onProgress) => fetchAllPokemonCards(onProgress),

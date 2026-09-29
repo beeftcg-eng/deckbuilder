@@ -6,7 +6,8 @@ import { poolKey } from '../shared/collection'
 import { currentDeckFor } from '../shared/decks'
 import { rulesForFormat } from '../shared/games/rules'
 import { identityColors } from '../shared/cardColors'
-import { matchRank, matchesSearch } from '../shared/cardSearch'
+import { matchesSearch } from '../shared/cardSearch'
+import { CARD_SORTS, availableSorts, isCardSort, sortCards, type CardSort } from '../shared/cardSort'
 import { kindOptions, matchesKinds, matchesTypes, typeOptions } from '../shared/cardFilters'
 import type { Card, DeckRules } from '../shared/types'
 import { CardTile } from './CardTile'
@@ -14,6 +15,17 @@ import { CardDetailModal } from './CardDetailModal'
 import { t } from '../shared/i18n'
 
 const PAGE_SIZE = 60
+// The Sort menu's choice, remembered on this device for every game.
+const SORT_KEY = 'brewhouse.browser.sort'
+
+function loadSort(): CardSort {
+  try {
+    const saved = localStorage.getItem(SORT_KEY)
+    return isCardSort(saved) ? saved : 'relevance'
+  } catch {
+    return 'relevance'
+  }
+}
 
 // Where a plain click puts a card: the first zone that takes it, skipping ones that are only filled deliberately (sideboard, commander).
 function primaryZoneFor(card: Card, rules: DeckRules) {
@@ -47,6 +59,7 @@ export function CardBrowser() {
   const [rarity, setRarity] = useState<string>('all')
   const [colors, setColors] = useState<Set<string>>(new Set())
   const [ownedOnly, setOwnedOnly] = useState(false)
+  const [sort, setSortState] = useState<CardSort>(loadSort)
   const [showAllDuringStage, setShowAllDuringStage] = useState(false)
   // Phone only (app.css): the filter rows fold away behind a Filters button so the cards start near the top.
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
@@ -129,6 +142,23 @@ export function CardBrowser() {
     return [...new Set(catalog.cards.flatMap(identityColors))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
   }, [catalog, adapter])
 
+  // Sorts this game's cards can use: no date sorts without release dates (One Piece, or card data
+  // synced before dates were stored), no price sorts without prices. A saved choice this game can't
+  // use falls back to Best match here without being forgotten for the next game.
+  const sorts = useMemo(() => (catalog ? availableSorts(catalog.cards) : []), [catalog])
+  const activeSort: CardSort = sorts.includes(sort) ? sort : 'relevance'
+  // Games whose source has dates, but whose cached cards don't yet: offer the date sorts disabled, with a hint.
+  const datesNeedResync = !!adapter.hasReleaseDates && !sorts.includes('newest')
+
+  function setSort(next: CardSort) {
+    setSortState(next)
+    try {
+      localStorage.setItem(SORT_KEY, next)
+    } catch {
+      // Private mode: just not remembered.
+    }
+  }
+
   const results = useMemo(() => {
     if (!catalog) return []
     const q = query.trim().toLowerCase()
@@ -160,12 +190,11 @@ export function CardBrowser() {
       if (q && !matchesSearch(c, q)) return false
       return true
     })
-    if (!q) return filtered
-    return filtered.slice().sort((a, b) => matchRank(a, q) - matchRank(b, q) || a.name.localeCompare(b.name))
-  }, [catalog, query, types, kinds, setId, rarity, colors, stageFilter, adapter, rules, format, ownedOnly, ownedIndex])
+    return sortCards(filtered, activeSort, q)
+  }, [catalog, query, types, kinds, setId, rarity, colors, stageFilter, adapter, rules, format, ownedOnly, ownedIndex, activeSort])
 
   // "Show more" only applies to the filters it was clicked under; any filter change starts back at one page.
-  const filterKey = [query, [...types].sort().join(','), [...kinds].sort().join(','), setId, rarity, [...colors].sort().join(','), ownedOnly, currentGameId, stage?.label ?? '', stageFilter ? 1 : 0].join('|')
+  const filterKey = [query, [...types].sort().join(','), [...kinds].sort().join(','), setId, rarity, [...colors].sort().join(','), ownedOnly, activeSort, currentGameId, stage?.label ?? '', stageFilter ? 1 : 0].join('|')
   const [page, setPage] = useState({ key: filterKey, count: PAGE_SIZE })
   const visibleCount = page.key === filterKey ? page.count : PAGE_SIZE
 
@@ -240,6 +269,13 @@ export function CardBrowser() {
             ))}
           </select>
         )}
+        <select className="mobile-filter" aria-label={t.browser.sortBy} title={t.browser.sortBy} value={activeSort} onChange={(e) => isCardSort(e.target.value) && setSort(e.target.value)}>
+          {CARD_SORTS.filter((s) => sorts.includes(s) || (datesNeedResync && (s === 'newest' || s === 'oldest'))).map((s) => (
+            <option key={s} value={s} disabled={!sorts.includes(s)}>
+              {sorts.includes(s) ? t.browser.sorts[s] : t.browser.sortNeedsResync(t.browser.sorts[s])}
+            </option>
+          ))}
+        </select>
       </div>
 
       {deck?.locked && (

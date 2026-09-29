@@ -94,6 +94,11 @@ describe('normalizeCard', () => {
     expect(normalizeCard({ ...RAW['Llanowar Elves'], prices: { usd: '0.00' } })?.price).toBeNull()
   })
 
+  it('keeps the printing’s release date for the browser’s date sorts', () => {
+    expect(normalizeCard({ ...RAW['Llanowar Elves'], released_at: '2020-07-03' })?.released).toBe('2020-07-03')
+    expect(normalizeCard({ ...RAW['Llanowar Elves'], released_at: undefined })?.released).toBeUndefined()
+  })
+
   it('leaves out tokens, sticker sheets and cards no supported format can play, but keeps upcoming-Standard cards', () => {
     expect(normalizeCard(RAW_TOKEN)).toBeNull()
     expect(normalizeCard(RAW_STICKER)).toBeNull()

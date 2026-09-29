@@ -608,6 +608,20 @@ export const pt: Messages = {
     clear: 'Limpar',
     matches: (n) => `${n} ${plural(n, 'resultado', 'resultados')}`,
     showMore: (n, shown, total) => `Mostrar mais ${n} (${shown}/${total})`,
+    sortBy: 'Ordenar cartas',
+    sorts: {
+      relevance: 'Ordem: Mais relevantes',
+      name: 'Ordem: Nome A–Z',
+      nameDesc: 'Ordem: Nome Z–A',
+      newest: 'Ordem: Mais novas',
+      oldest: 'Ordem: Mais antigas',
+      set: 'Ordem: Coleção (expansão)',
+      costAsc: 'Ordem: Custo, do menor ao maior',
+      costDesc: 'Ordem: Custo, do maior ao menor',
+      priceDesc: 'Ordem: Preço, do maior ao menor',
+      priceAsc: 'Ordem: Preço, do menor ao maior',
+    },
+    sortNeedsResync: (label) => `${label} (atualize os dados das cartas primeiro)`,
   },
 
   stages: {

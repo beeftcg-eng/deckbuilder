@@ -33,6 +33,8 @@ export interface GameAdapter {
   legalitySource: 'api' | 'local'
   /** Whether the source API gives card prices (Riftbound's doesn't), so the UI knows when to hint at re-syncing. */
   hasPrices: boolean
+  /** Whether synced cards carry a release date (`Card.released`), so the browser can sort by newest/oldest. One Piece's source has none. */
+  hasReleaseDates?: boolean
   /** A sync that couldn't get a card's price keeps the one it had before (Pokémon's price source is unreliable). */
   keepPricesWhenMissing?: boolean
   /** Cards drawn for an opening hand, used by the sample-hand simulator. */
