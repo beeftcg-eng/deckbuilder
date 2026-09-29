@@ -234,3 +234,18 @@ export function textTies(result: MatchResult, margin = 0.08): Candidate[] {
   if (!best) return []
   return result.candidates.filter((c) => c.score >= best.score - margin)
 }
+
+/**
+ * Whether a reading of just the first-pass lines (priority.ts) already identifies the card well enough
+ * that reading the rest (mostly rules text) wouldn't change the answer.
+ */
+/** A name read this clearly settles the card; rules text wouldn't change it (checked on the test photos). */
+const NAME_ENOUGH = 0.95
+
+export function firstPassIsEnough(result: MatchResult): boolean {
+  const best = result.candidates[0]
+  if (!best) return false
+  // A full printed code (set + number + total, or One Piece's / Yu-Gi-Oh!'s card code) that agrees with
+  // part of the name read so far ("Kennen" of "Kennen, Storm of Shuriken") pins the printing by itself.
+  return result.status === 'exact' || best.nameScore >= NAME_ENOUGH || (best.nameScore >= 0.8 && best.codeWeight >= 0.8) || (best.codeWeight >= 0.95 && best.nameScore >= 0.25)
+}

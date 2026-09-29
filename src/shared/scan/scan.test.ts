@@ -3,7 +3,8 @@ import { makeCard } from '../testFixtures'
 import type { Card, GameId } from '../types'
 import type { OcrLine } from './evidence'
 import { extractEvidence } from './evidence'
-import { identify, partSimilarity, textTies } from './match'
+import { firstPassIsEnough, identify, partSimilarity, textTies } from './match'
+import { firstPass } from './priority'
 import { buildScanIndex, nameParts, printedName, printedNumber, variantName } from './scanIndex'
 import { digitsFromOcr, levenshtein, squash, substringDistance } from './text'
 
@@ -191,5 +192,32 @@ describe('evidence', () => {
     const index = buildScanIndex('onepiece', [card])
     const ev = extractEvidence('onepiece', lines('OP09-999', 'OP01-016'), index)
     expect(ev.codes.map((c) => c.key)).toEqual(['code:op01-016'])
+  })
+})
+
+describe('first-pass reading', () => {
+  it('reads names, codes and card types before rules text', () => {
+    const shape = (cy: number, textHeight: number, width: number) => ({ cy, textHeight, width })
+    const lines = [
+      shape(0.06, 0.04, 0.6), // 0: name, big print at the top
+      shape(0.93, 0.012, 0.25), // 1: collector code, short line at the bottom
+      shape(0.95, 0.011, 0.7), // 2: copyright line, long, at the bottom
+      shape(0.12, 0.014, 0.3), // 3: type line
+      ...Array.from({ length: 12 }, (_, i) => shape(0.5 + i * 0.02, 0.014, 0.85)), // 4..15: rules text
+    ]
+    expect(new Set(firstPass(lines, 3))).toEqual(new Set([0, 1, 3]))
+    // Spare slots go to the copyright line, never to rules text.
+    expect(firstPass(lines, 6).some((i) => i >= 4)).toBe(false)
+  })
+
+  it('reads everything when there are only a few lines', () => {
+    expect(firstPass([{ cy: 0.5, textHeight: 0.02, width: 0.9 }])).toEqual([0])
+  })
+
+  it('stops after the first pass only when the name is clear', () => {
+    const card = makeCard('mtg', { name: 'Lightning Bolt', setCode: 'M10', number: '146' })
+    const index = buildScanIndex('mtg', [card, makeCard('mtg', { name: 'Lightning Bolt', setCode: 'LEA', number: '161' })])
+    expect(firstPassIsEnough(identify(lines({ text: 'Lightning Bolt', big: true }), index))).toBe(true)
+    expect(firstPassIsEnough(identify(lines({ text: 'Lightnlng Bo', big: true }), index))).toBe(false)
   })
 })

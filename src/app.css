@@ -2243,6 +2243,11 @@
   color: #0b1a10;
 }
 
+.scanner-verdict.busy {
+  background: var(--bg-elevated-2);
+  color: var(--text-dim);
+}
+
 .scanner-verdict.check {
   background: var(--warning);
   color: #241400;

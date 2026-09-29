@@ -14,6 +14,7 @@ import {
   loadScannerModel,
   printingKey,
   rankByPicture,
+  rankByText,
   readCard,
   scanIndexFor,
   type RankedCandidate,
@@ -33,6 +34,12 @@ interface Result {
   allPrintings: Card[]
   /** The printed name as the scanner read it, so the card isn't offered again while it's still in view. */
   seenName: string | null
+  /** The picture comparison is still ranking the printings. */
+  refining: boolean
+  /** The person tapped a printing themselves: the picture comparison mustn't change it. */
+  picked: boolean
+  /** Which reading this sheet shows, so a late picture result only updates its own sheet. */
+  token: number
 }
 
 interface Added {
@@ -94,6 +101,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   const autoAddRef = useRef(autoAdd)
   const targetRef = useRef(target)
   const addRef = useRef<(card: Card, qty: number) => void>(() => {})
+  const resultToken = useRef(0)
   /** Tells the reading loop a card was just added or skipped (by printed name), so it isn't offered again while in view. */
   const addedNameRef = useRef<(name: string) => void>(() => {})
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 })
@@ -204,6 +212,8 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
       justAdded = name
     }
     addedNameRef.current = onAdded
+    let readsSinceResult = 0
+    let cycleStart = performance.now()
     async function loop() {
       while (!cancelled) {
         const video = videoRef.current
@@ -215,7 +225,9 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
         const guide = guideInVideo(guideRect(stage.clientWidth, stage.clientHeight), { width: stage.clientWidth, height: stage.clientHeight }, video)
         const crop = cropFrame(video, guide)
         setPhase('reading')
+        readsSinceResult++
         const reading = await readCard(model!, index!, crop).catch(() => null)
+        if (import.meta.env.DEV && reading) console.debug('[scan] read', JSON.stringify(reading.timings), reading.match.status)
         if (cancelled) return
         const best = reading?.match.candidates[0]
         const name = reading?.match.name?.display ?? best?.card.name ?? null
@@ -234,31 +246,62 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
           }
           justAdded = null
         }
-        // One read is enough when the name (or a printed code) is clear; otherwise wait for a second one that agrees.
-        const clear = reading.match.status === 'exact' || best.nameScore >= 0.85
-        if (!clear && previousName !== name) {
+        // One read is enough unless the match is genuinely unsure; then wait for a second read that agrees.
+        if (reading.match.status === 'unsure' && previousName !== name) {
           previousName = name
           setPhase('steady')
           continue
         }
         previousName = null
-        setPhase('checking')
+        // Show the text's answer straight away; the picture comparison re-ranks the printings a moment later.
+        const textRanked = rankByText(reading)
+        if (!textRanked.length) continue
+        const entryPrintings = reading.match.name?.printings ?? []
+        const allPrintingsOf = (ranked: RankedCandidate[]) => {
+          const seen = new Set(ranked.map((c) => printingKey(c.card)))
+          return [...ranked.map((c) => c.card), ...entryPrintings.filter((c) => !seen.has(printingKey(c)) && (seen.add(printingKey(c)), true))]
+        }
+        const needsPicture = textRanked.length > 1
+        const tv = performance.now()
+        const token = ++resultToken.current
+        if (!autoAddRef.current || !needsPicture) {
+          navigator.vibrate?.(35)
+          if (!needsPicture && autoAddRef.current && isConfident(textRanked, reading)) {
+            addRef.current(textRanked[0].card, 1)
+            justAdded = name
+            continue
+          }
+          setQuantity(1)
+          setShowAll(false)
+          setResult({ ranked: textRanked, confident: !needsPicture && isConfident(textRanked, reading), selected: textRanked[0].card, allPrintings: allPrintingsOf(textRanked), seenName: name, refining: needsPicture, picked: false, token })
+          if (!needsPicture) continue
+        } else {
+          setPhase('checking')
+        }
         const ranked = await rankByPicture(reading, crop)
+        if (import.meta.env.DEV) {
+          const timing = { reads: readsSinceResult, lastRead: reading.timings, visualMs: Math.round(performance.now() - tv), sinceLastResult: Math.round(performance.now() - cycleStart), candidates: ranked.length }
+          console.debug('[scan] result', JSON.stringify(timing))
+        }
+        readsSinceResult = 0
+        cycleStart = performance.now()
         if (cancelled) return
         if (!ranked.length) continue
         const confident = isConfident(ranked, reading)
-        const entryPrintings = reading.match.name?.printings ?? []
-        const seen = new Set(ranked.map((c) => printingKey(c.card)))
-        const allPrintings = [...ranked.map((c) => c.card), ...entryPrintings.filter((c) => !seen.has(printingKey(c)) && (seen.add(printingKey(c)), true))]
-        navigator.vibrate?.(35)
-        if (confident && autoAddRef.current) {
-          addRef.current(ranked[0].card, 1)
-          justAdded = name
+        if (autoAddRef.current) {
+          navigator.vibrate?.(35)
+          if (confident) {
+            addRef.current(ranked[0].card, 1)
+            justAdded = name
+            continue
+          }
+          setQuantity(1)
+          setShowAll(false)
+          setResult({ ranked, confident, selected: ranked[0].card, allPrintings: allPrintingsOf(ranked), seenName: name, refining: false, picked: false, token })
           continue
         }
-        setQuantity(1)
-        setShowAll(false)
-        setResult({ ranked, confident, selected: ranked[0].card, allPrintings, seenName: name })
+        // Only update the sheet still showing this card, and keep a printing the person already tapped.
+        setResult((r) => (r && r.token === token ? { ...r, ranked, confident, refining: false, selected: r.picked ? r.selected : ranked[0].card, allPrintings: allPrintingsOf(ranked) } : r))
       }
     }
     void loop()
@@ -311,7 +354,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   }
 
   function pick(card: Card) {
-    setResult((r) => (r ? { ...r, selected: card, confident: r.confident && r.ranked[0]?.card.id === card.id } : r))
+    setResult((r) => (r ? { ...r, selected: card, picked: true, confident: r.confident && r.ranked[0]?.card.id === card.id } : r))
   }
 
   async function toggleTorch() {
@@ -454,8 +497,8 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
               <div className="scanner-card-placeholder">{selected.name}</div>
             )}
             <div className="scanner-card-info">
-              <span className={`scanner-verdict ${result.confident && selected.id === result.ranked[0]?.card.id ? 'ok' : 'check'}`}>
-                {result.confident && selected.id === result.ranked[0]?.card.id ? t.scanner.match : t.scanner.bestGuess}
+              <span className={`scanner-verdict ${result.refining ? 'busy' : result.confident && selected.id === result.ranked[0]?.card.id ? 'ok' : 'check'}`}>
+                {result.refining ? t.scanner.checking : result.confident && selected.id === result.ranked[0]?.card.id ? t.scanner.match : t.scanner.bestGuess}
               </span>
               <strong>{selected.name}</strong>
               <span>{selected.setName}</span>
@@ -542,7 +585,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
                   setSearch(null)
                   setQuantity(1)
                   setShowAll(true)
-                  setResult({ ranked: [], confident: false, selected: card, allPrintings: [card, ...printings.filter((c) => c.id !== card.id)], seenName: null })
+                  setResult({ ranked: [], confident: false, selected: card, allPrintings: [card, ...printings.filter((c) => c.id !== card.id)], seenName: null, refining: false, picked: true, token: ++resultToken.current })
                 }}
               >
                 {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="scanner-alt-blank" />}

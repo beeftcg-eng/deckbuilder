@@ -9,15 +9,51 @@ import detUrl from './models/det.onnx?url'
 import recUrl from './models/rec.onnx?url'
 import dictUrl from './models/dict.txt?url'
 import wasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url'
-import { loadPaddle, recognize, type PaddleModel } from './paddle'
+import webgpuWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
+import { loadPaddle, recognize, warmUp, type PaddleModel } from './paddle'
 import { buildScanIndex, type ScanIndex } from '../../shared/scan/scanIndex'
-import { identify, textTies, type Candidate, type MatchResult } from '../../shared/scan/match'
+import { firstPassIsEnough, identify, textTies, type Candidate, type MatchResult } from '../../shared/scan/match'
+import type { OcrLine } from '../../shared/scan/evidence'
 import { describeCardImage, describePhoto, visualSimilarity, type RawImage } from '../../shared/scan/visual'
 import type { Card, GameId } from '../../shared/types'
 
 // ---------- models ----------
 
 let modelPromise: Promise<PaddleModel> | null = null
+let modelBytes: { det: Uint8Array; rec: Uint8Array } | null = null
+
+/**
+ * Some phones report WebGPU but fail once the models actually run on it. Then the models are loaded
+ * again on the CPU engine, into the same object the scanner already holds.
+ */
+async function fallBackToCpu(model: PaddleModel): Promise<void> {
+  if (model.backend !== 'webgpu' || !modelBytes) return
+  const cpu = await loadPaddle({ det: modelBytes.det, rec: modelBytes.rec, dict: dictUrl, wasm: wasmUrl })
+  await warmUp(cpu, 1000, 1400, DET_MAX).catch(() => undefined)
+  Object.assign(model, cpu)
+}
+
+/**
+ * The GPU engine is only kept if it reads a known phrase right and is actually quick: some phones'
+ * GPUs run the models slower than the CPU would, or (rarely) get the numbers wrong without an error.
+ */
+async function gpuEarnsItsKeep(model: PaddleModel): Promise<boolean> {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1000
+  canvas.height = 1400
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = '#000'
+  ctx.font = 'bold 72px sans-serif'
+  ctx.fillText('BREWHOUSE 2048', 120, 300)
+  const t0 = performance.now()
+  const result = await recognize(model, canvas, { detMax: DET_MAX, autoRotate: false })
+  const ms = performance.now() - t0
+  const read = result.lines.map((l) => l.text.toUpperCase().replace(/[^A-Z0-9]/g, '')).join('')
+  // Some fonts' O reads as 0; that's the font, not the GPU.
+  return read.replace(/0/g, 'O').includes('BREWHOUSE') && read.includes('2048') && ms < 500
+}
 
 async function download(url: string, onBytes: (loaded: number, total: number) => void): Promise<Uint8Array> {
   const res = await fetch(url)
@@ -54,7 +90,18 @@ export function loadScannerModel(onProgress?: (fraction: number) => void): Promi
       download(detUrl, (l, t) => ((progress.det = [l, t || progress.det[1]]), report())),
       download(recUrl, (l, t) => ((progress.rec = [l, t || progress.rec[1]]), report())),
     ])
-      .then(([det, rec]) => loadPaddle({ det, rec, dict: dictUrl, wasm: { wasm: wasmUrl } }))
+      .then(async ([det, rec]) => {
+        modelBytes = { det, rec }
+        const model = await loadPaddle({ det, rec, dict: dictUrl, wasm: wasmUrl, webgpuWasm: webgpuWasmUrl })
+        // A card-shaped crop is what every scan feeds it; warming up on that size keeps the first scan quick.
+        try {
+          await warmUp(model, 1000, 1400, DET_MAX)
+          if (model.backend === 'webgpu' && !(await gpuEarnsItsKeep(model))) await fallBackToCpu(model)
+        } catch {
+          if (model.backend === 'webgpu') await fallBackToCpu(model)
+        }
+        return model
+      })
       .catch((err) => {
         modelPromise = null // let the next open try again
         throw err
@@ -81,6 +128,11 @@ export function scanIndexFor(gameId: GameId, cards: readonly Card[]): ScanIndex 
 
 /** Extra room around the guide, as a fraction of its size, so a card held a little off still fits. */
 export const GUIDE_MARGIN = 0.06
+/**
+ * Longest side of the image the text detector sees. 640 finds the same cards as 960 did on the test
+ * photos (the picture comparison makes up for the odd missed code) at well under half the time.
+ */
+const DET_MAX = 640
 const MAX_CROP_SIDE = 1400
 
 export interface Rect {
@@ -139,13 +191,26 @@ export interface Reading {
   match: MatchResult
   rotation: 0 | 90 | -90
   ms: number
+  /** Where the time went: text detection, line recognition, matching. */
+  timings: { detMs: number; recMs: number; matchMs: number; secondPass: boolean; backend: string }
 }
 
 export async function readCard(model: PaddleModel, index: ScanIndex, crop: Crop): Promise<Reading> {
   const t0 = performance.now()
-  const ocr = await recognize(model, crop.canvas)
+  // The name, codes and type lines are read first; the rules text only when they weren't enough.
+  const options = { detMax: DET_MAX, enough: (lines: OcrLine[]) => firstPassIsEnough(identify(lines, index)) }
+  let ocr
+  try {
+    ocr = await recognize(model, crop.canvas, options)
+  } catch (err) {
+    if (model.backend !== 'webgpu') throw err
+    await fallBackToCpu(model)
+    ocr = await recognize(model, crop.canvas, options)
+  }
+  const t1 = performance.now()
   const match = identify(ocr.lines, index)
-  return { match, rotation: ocr.rotation, ms: performance.now() - t0 }
+  const t2 = performance.now()
+  return { match, rotation: ocr.rotation, ms: t2 - t0, timings: { detMs: ocr.detMs, recMs: ocr.recMs, matchMs: t2 - t1, secondPass: ocr.secondPass, backend: model.backend } }
 }
 
 // ---------- picture comparison ----------
@@ -247,6 +312,21 @@ export function isPromo(card: Card): boolean {
     set.startsWith('PR-') ||
     (card.gameId === 'mtg' && set.length >= 4 && set.startsWith('P'))
   )
+}
+
+/** The printings the text can't separate, merged like rankByPicture's but without the picture (shown while it runs). */
+export function rankByText(reading: Reading, limit = 30): RankedCandidate[] {
+  const seen = new Set<string>()
+  return textTies(reading.match)
+    .slice(0, limit)
+    .map((c) => ({ ...c, visual: null, final: c.score }))
+    .sort((a, b) => b.final - a.final || Number(isPromo(a.card)) - Number(isPromo(b.card)))
+    .filter((c) => {
+      const key = printingKey(c.card)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
 }
 
 /** Whether the top printing clearly beats the next one, so it can be trusted without a look. */
