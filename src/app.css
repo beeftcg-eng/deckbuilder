@@ -1938,6 +1938,448 @@
   display: flex;
 }
 
+/* Share links: the Share dialog (ShareDeckModal) and a shared deck opened from a link (SharedDeckView),
+   which covers the app but stays under dialogs (z 10) so its Export / card details still open on top. */
+.share-modal {
+  width: 520px;
+  gap: 12px;
+}
+
+.share-intro {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.share-link {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.share-message {
+  margin: 0;
+  font-size: 13px;
+  color: var(--warning);
+}
+
+.shared-deck-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.shared-deck-layer > .deck-view {
+  flex: 1 0 auto;
+}
+
+.fv-shared-by {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.shared-need-cards {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  padding: 10px 18px;
+  background: var(--bg-elevated-2);
+  border-bottom: 1px solid var(--accent);
+  font-size: 13px;
+}
+
+.shared-status {
+  margin: auto;
+  max-width: 420px;
+  padding: 24px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Card scanner (ScannerModal, phone app only): camera view with a card-shaped guide, and a result sheet. */
+.scanner-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: #000;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.scanner-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.scanner-bar select {
+  height: 38px;
+  min-width: 0;
+}
+
+.scanner-target {
+  display: flex;
+  gap: 4px;
+}
+
+.scanner-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scanner-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The guide darkens everything around it with one huge shadow. */
+.scanner-guide {
+  position: absolute;
+  border: 3px solid #ffffffd9;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px #00000070;
+  transition: border-color 0.2s ease;
+  pointer-events: none;
+}
+
+.scanner-guide.busy {
+  border-color: var(--accent);
+  animation: scanner-pulse 1.2s ease-in-out infinite;
+}
+
+.scanner-guide.found {
+  border-color: var(--success);
+  animation: none;
+}
+
+@keyframes scanner-pulse {
+  50% {
+    border-color: #ffffffd9;
+  }
+}
+
+.scanner-status {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(92%, 440px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #000000a6;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.scanner-note {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.scanner-toast {
+  position: absolute;
+  left: 50%;
+  top: 96px;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  background: var(--success);
+  color: #0b1a10;
+  font-weight: 700;
+  border-radius: 999px;
+  white-space: nowrap;
+  max-width: 92%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scanner-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 14px;
+  background: linear-gradient(transparent, #000000c0 35%);
+}
+
+.scanner-auto {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.scanner-auto input {
+  width: 20px;
+  height: 20px;
+}
+
+.scanner-footer .link-btn {
+  color: #fff;
+  opacity: 0.85;
+}
+
+.scanner-session {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  width: min(100%, 480px);
+  max-height: 36vh;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  color: var(--text);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scanner-session li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scanner-session li > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scanner-sheet {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border-top: 1px solid var(--border-strong);
+  border-radius: 16px 16px 0 0;
+  padding: 14px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 62vh;
+  overflow-y: auto;
+}
+
+.scanner-card {
+  display: flex;
+  gap: 12px;
+}
+
+.scanner-card img,
+.scanner-card-placeholder {
+  width: 96px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  align-self: flex-start;
+}
+
+.scanner-card-placeholder {
+  aspect-ratio: 5 / 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 12px;
+  background: var(--bg-elevated-2);
+}
+
+.scanner-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.scanner-card-info strong {
+  font-size: 17px;
+}
+
+.scanner-verdict {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.scanner-verdict.ok {
+  background: var(--success);
+  color: #0b1a10;
+}
+
+.scanner-verdict.check {
+  background: var(--warning);
+  color: #241400;
+}
+
+.scanner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scanner-actions .stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scanner-actions .stepper-btn {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+.scanner-add {
+  flex: 1;
+  min-height: 44px;
+}
+
+.scanner-alts-label {
+  font-size: 12px;
+}
+
+.scanner-alts {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.scanner-alt {
+  flex: 0 0 auto;
+  width: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--bg-elevated-2);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 11px;
+}
+
+.scanner-alt.active {
+  border-color: var(--accent);
+}
+
+.scanner-alt img,
+.scanner-alt-blank {
+  width: 72px;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--bg);
+}
+
+.scanner-alt-code {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.scanner-variant {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.scanner-alt-variant {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent);
+  font-size: 10px;
+}
+
+.scanner-alt-rarity {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scanner-search {
+  flex: 1;
+  max-height: none;
+  border-radius: 0;
+}
+
+.scanner-search input {
+  height: 44px;
+  font-size: 16px;
+}
+
+.scanner-search-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scanner-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  background: var(--bg-elevated-2);
+  border: none;
+  border-radius: 8px;
+  color: var(--text);
+  text-align: left;
+  font-size: 14px;
+}
+
+.scanner-search-row img,
+.scanner-search-row .scanner-alt-blank {
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.collection-panel .wishlist-header .btn-primary {
+  margin-left: auto;
+}
+
 /* Mobile layout (phone-width PWA) - the desktop build never gets this narrow (Electron's window
    has a 1000px minWidth), so everything below is purely for the phone app. .sidebar-wrap is
    `display: contents` outside the breakpoint so it doesn't add an extra box to the desktop flex
@@ -2438,6 +2880,17 @@
      is still technically open behind it. */
   .modal-overlay {
     z-index: 100;
+  }
+
+  /* Over the top and bottom bars (z 35), under dialogs (z 100). */
+  .shared-deck-layer {
+    z-index: 45;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .shared-need-cards {
+    padding: 10px 12px;
   }
 
   .modal {

@@ -14,6 +14,7 @@ export default defineConfig({
   base: '/deckbuilder/',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __SCANNER__: 'true',
   },
   build: {
     outDir: 'dist-web',

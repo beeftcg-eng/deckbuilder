@@ -4,6 +4,10 @@ import electron from 'vite-plugin-electron/simple'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // The card scanner is phone-app only (vite.web.config.ts); this keeps it and its OCR models out of the desktop build.
+  define: {
+    __SCANNER__: 'false',
+  },
   plugins: [
     react(),
     electron({

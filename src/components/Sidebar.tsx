@@ -199,6 +199,11 @@ export function Sidebar() {
         {decks.length > 0 ? ` (${decks.length})` : ''}
       </button>
 
+      {__SCANNER__ && (
+        <button className="wishlist-nav-btn" title={t.scanner.openTitle} onClick={() => useAppStore.getState().setShowScanner(true)}>
+          {t.scanner.open}
+        </button>
+      )}
       <button data-tour="nav" className={`wishlist-nav-btn ${showCollection ? 'active' : ''}`} onClick={() => setShowCollection(!showCollection)}>
         {t.sidebar.collection}
         {collectionCopies > 0 ? ` (${collectionCopies})` : ''}

@@ -8,6 +8,7 @@ import type { PrintingPrefs } from '../shared/printings'
 import type { GameId } from '../shared/types'
 import { t } from '../shared/i18n'
 import { formatLabel } from '../shared/formatText'
+import { parseShareToken } from '../shared/deckShare'
 import { Rich } from './Rich'
 
 const MAX_UNMATCHED_SHOWN = 8
@@ -45,6 +46,14 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
   const catalogReady = cardsById.size > 0
 
   const name = nameDraft ?? parsed.name ?? t.importDeck.defaultName
+  // A pasted Brewhouse share link opens that deck (from any game) instead of being parsed as a list.
+  const shareToken = parseShareToken(text)
+
+  function openShareLink() {
+    if (!shareToken) return
+    void useAppStore.getState().openSharedLink(shareToken)
+    onClose()
+  }
 
   async function handleImport() {
     setImporting(true)
@@ -75,12 +84,18 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
             <textarea
               className="export-textarea"
               autoFocus
-              placeholder={t.importDeck.placeholder}
+              placeholder={`${t.importDeck.placeholder}\n${t.share.importHint}`}
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
 
-            {text.trim() && (
+            {shareToken ? (
+              <div className="import-summary">
+                <button className="btn btn-primary" onClick={openShareLink}>
+                  {t.share.openLink}
+                </button>
+              </div>
+            ) : text.trim() && (
               <div className="import-summary">
                 <div>
                   <Rich text={t.importDeck.recognised(parsed.matchedCopies)} />

@@ -16,6 +16,7 @@ import type {
   PairingsLink,
   PairingsResult,
   PawmodoroConfig,
+  SharedDeck,
   SyncProgress,
   TradeMatch,
   TraderProfile,
@@ -28,6 +29,7 @@ import type { ParsedDeck } from '../shared/importDeck'
 import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import type { UpdateStatus } from '../shared/updateStatus'
 import { currentDeckFor } from '../shared/decks'
+import { parseShareToken } from '../shared/deckShare'
 import { applyVisibleOrder, reorderByDrop, type DeckSortMode } from '../shared/deckOrder'
 import { orderGames } from '../shared/gameOrder'
 import { applyTheme } from '../lib/theme'
@@ -170,6 +172,19 @@ interface AppState {
   setDeckViewing: (viewing: boolean) => void
   /** Locks a deck so it can't be changed or deleted, or unlocks it. Not an edit itself, so it isn't undoable. */
   setDeckLocked: (deckId: string, locked: boolean) => Promise<void>
+  /** Records (or clears) a deck's share-link token. Not an edit, so it isn't undoable and works on a locked deck. */
+  setDeckShareToken: (deckId: string, token: string | null) => Promise<void>
+  /** The phone app's card scanner (ScannerModal.tsx), opened from Collection or the menu. */
+  showScanner: boolean
+  setShowScanner: (show: boolean) => void
+  /** A deck someone shared by link (?share=<token>), shown over everything else until closed. */
+  sharedDeck: SharedDeck | null
+  sharedDeckState: 'loading' | 'ready' | 'dead' | 'error' | null
+  sharedDeckError: string | null
+  openSharedLink: (token: string) => Promise<void>
+  closeSharedDeck: () => void
+  /** Saves the shared deck as a new deck of your own and opens it. */
+  copySharedDeck: () => Promise<void>
   /** Saves the order of the game tabs in the sidebar. */
   setGameOrder: (order: GameId[]) => void
   /** Shows or hides a game's tab in the sidebar. Never lets the last visible game be hidden, and switches off a game you're hiding. */
@@ -345,6 +360,10 @@ export const useAppStore = create<AppState>((set, get) => {
     forTrade: new Set(),
     language: getLanguage(),
     showTour: false,
+    showScanner: false,
+    sharedDeck: null,
+    sharedDeckState: null,
+    sharedDeckError: null,
     tradeSyncing: false,
     browseTraders: [],
     tradeMatches: [],
@@ -356,7 +375,9 @@ export const useAppStore = create<AppState>((set, get) => {
         applyTheme(settings.theme)
         // A first launch (no decks, never toured) opens the tour. Someone who already has decks can
         // start it from the sidebar instead of having it pop up after an update.
-        if (!settings.tourSeen && decks.length === 0) set({ showTour: true })
+        // Not over a share link, though: a friend opening one came to see that deck.
+        const openingShareLink = typeof location !== 'undefined' && new URLSearchParams(location.search).has('share')
+        if (!settings.tourSeen && decks.length === 0 && !openingShareLink) set({ showTour: true })
         if (isLanguage(settings.language) && settings.language !== get().language) {
           applyLanguage(settings.language)
           set({ language: settings.language })
@@ -364,8 +385,12 @@ export const useAppStore = create<AppState>((set, get) => {
 
         // Open the deck a link names (Pairings' "Open in Brewhouse" goes to the phone app with ?deck=<id>),
         // else reopen where you left off: the last deck (which also implies its game), else the last game.
-        const linkedDeckId = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('deck')
-        if (linkedDeckId) history.replaceState(null, '', location.pathname + location.hash)
+        const params = typeof location === 'undefined' ? null : new URLSearchParams(location.search)
+        const linkedDeckId = params?.get('deck') ?? null
+        // A share link (?share=<token>, see deckShare.ts) opens that deck over everything else.
+        const shareToken = params ? parseShareToken(`?share=${params.get('share') ?? ''}`) : null
+        if (linkedDeckId || params?.has('share')) history.replaceState(null, '', location.pathname + location.hash)
+        if (shareToken) void get().openSharedLink(shareToken)
         const lastDeck = decks.find((d) => d.id === linkedDeckId) ?? decks.find((d) => d.id === settings.lastDeckId)
         if (lastDeck) set({ currentDeckId: lastDeck.id, currentGameId: lastDeck.gameId, deckViewing: true })
         else if (settings.lastGameId) set({ currentGameId: settings.lastGameId })
@@ -498,7 +523,8 @@ export const useAppStore = create<AppState>((set, get) => {
       const source = get().decks.find((d) => d.id === deckId)
       if (!source) return
       const now = new Date().toISOString()
-      const { locked: _wasLocked, ...unlocked } = structuredClone(source) // a copy is for editing, so it starts unlocked
+      // A copy is for editing, so it starts unlocked, and it isn't shared by the original's link.
+      const { locked: _wasLocked, shareToken: _wasShared, ...unlocked } = structuredClone(source)
       const copy: Deck = { ...unlocked, id: crypto.randomUUID(), name: `${source.name} (copy)`, createdAt: now, updatedAt: now }
       await addAndSelectDeck(copy, `Duplicate "${source.name}"`)
     },
@@ -738,6 +764,37 @@ export const useAppStore = create<AppState>((set, get) => {
       const next: Deck = locked ? { ...rest, locked: true } : rest
       set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? next : d)) }))
       await persistDeck(next, { keepUpdatedAt: true })
+    },
+    setDeckShareToken: async (deckId, token) => {
+      const deck = get().decks.find((d) => d.id === deckId)
+      if (!deck || (deck.shareToken ?? null) === token) return
+      const { shareToken: _previous, ...rest } = deck
+      const next: Deck = token ? { ...rest, shareToken: token } : rest
+      set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? next : d)) }))
+      await persistDeck(next, { keepUpdatedAt: true })
+    },
+    openSharedLink: async (token) => {
+      set({ sharedDeck: null, sharedDeckState: 'loading', sharedDeckError: null })
+      try {
+        const shared = await window.api.pawmodoro.getSharedDeck(token)
+        if (get().sharedDeckState !== 'loading') return // closed while loading
+        set(shared ? { sharedDeck: shared, sharedDeckState: 'ready' } : { sharedDeckState: 'dead' })
+        if (shared && !get().catalogs[shared.deck.gameId] && (get().syncMeta[shared.deck.gameId]?.count ?? 0) > 0) {
+          void get().loadCatalog(shared.deck.gameId)
+        }
+      } catch (err) {
+        if (get().sharedDeckState === 'loading') set({ sharedDeckState: 'error', sharedDeckError: errorMessage(err) })
+      }
+    },
+    closeSharedDeck: () => set({ sharedDeck: null, sharedDeckState: null, sharedDeckError: null }),
+    setShowScanner: (show) => set({ showScanner: show }),
+    copySharedDeck: async () => {
+      const shared = get().sharedDeck
+      if (!shared) return
+      const now = new Date().toISOString()
+      const copy: Deck = { ...structuredClone(shared.deck), id: crypto.randomUUID(), createdAt: now, updatedAt: now }
+      set({ sharedDeck: null, sharedDeckState: null, sharedDeckError: null })
+      await addAndSelectDeck(copy, t.store.copySharedDeck(copy.name), true)
     },
     setGameOrder: (order) => {
       set((s) => ({ settings: { ...s.settings, gameOrder: order } }))

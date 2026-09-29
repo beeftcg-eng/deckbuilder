@@ -112,6 +112,11 @@ export function CollectionPanel() {
     <div className="wishlist-panel collection-panel">
       <div className="wishlist-header">
         <h2>{t.collection.title(adapter.shortName)}</h2>
+        {__SCANNER__ && (
+          <button className="btn btn-primary" title={t.scanner.openTitle} onClick={() => useAppStore.getState().setShowScanner(true)}>
+            {t.scanner.open}
+          </button>
+        )}
         <span className="text-dim">
           {t.common.cards(owned.entries.length)} · {t.collection.copies(totalCopies)}
           {adapter.hasPrices && value.total > 0 ? ` · ≈ ${formatPrice(value.total)}` : ''}

@@ -11,6 +11,7 @@ import type {
   PairingsConfig,
   PairingsDeckRecord,
   PawmodoroConfig,
+  SharedDeck,
   SyncProgress,
   TradeListing,
   TradeMatch,
@@ -87,6 +88,11 @@ const api = {
     syncTradeWants: (entries: TradeWant[]): Promise<void> => ipcRenderer.invoke('pawmodoro:syncTradeWants', entries),
     browseTraders: (): Promise<TraderProfile[]> => ipcRenderer.invoke('pawmodoro:browseTraders'),
     tradeMatches: (): Promise<TradeMatch[]> => ipcRenderer.invoke('pawmodoro:tradeMatches'),
+    /** A share link's token for one of your decks (made the first time). Needs the deck uploaded already. */
+    shareDeck: (deckId: string): Promise<string> => ipcRenderer.invoke('pawmodoro:shareDeck', deckId),
+    unshareDeck: (deckId: string): Promise<void> => ipcRenderer.invoke('pawmodoro:unshareDeck', deckId),
+    /** Anyone's shared deck by token - no account needed. Null for a dead link. */
+    getSharedDeck: (token: string): Promise<SharedDeck | null> => ipcRenderer.invoke('pawmodoro:getSharedDeck', token),
     // Fires when this app's own decks/collection/wishlist sync (separate from the trading calls
     // above) applies a background pull - e.g. a deck added on the phone. No payload; the listener
     // just re-fetches via decks.list()/collection.get()/wishlist.list().

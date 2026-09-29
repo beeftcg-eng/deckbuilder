@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
-import type { PawmodoroConfig, TradeListing, TradeMatch, TradeWant, TraderProfile } from '../../src/shared/types'
+import type { PawmodoroConfig, SharedDeck, TradeListing, TradeMatch, TradeWant, TraderProfile } from '../../src/shared/types'
+import { fetchSharedDeck } from '../../src/shared/deckShare'
 import {
   clearPawmodoroConfig,
   readPawmodoroConfig,
@@ -163,6 +164,22 @@ export function registerPawmodoroIpc(): void {
       })),
       wants: r.wants.map((w) => ({ gameId: w.game_id as TradeWant['gameId'], cardId: w.card_id, cardName: w.card_name, quantity: w.quantity })),
     }))
+  })
+
+  ipcMain.handle('pawmodoro:shareDeck', async (_e, deckId: string): Promise<string> => {
+    const { config, accessToken } = await authorizedConfig()
+    return (await callRpc(config, accessToken, 'deckbuilder_share_deck', { p_deck_id: deckId })) as string
+  })
+
+  ipcMain.handle('pawmodoro:unshareDeck', async (_e, deckId: string): Promise<void> => {
+    const { config, accessToken } = await authorizedConfig()
+    await callRpc(config, accessToken, 'deckbuilder_unshare_deck', { p_deck_id: deckId })
+  })
+
+  // No account needed to read a shared deck: the project's anon key is enough.
+  ipcMain.handle('pawmodoro:getSharedDeck', async (_e, token: string): Promise<SharedDeck | null> => {
+    const config = toPublicConfig(await readConfig())
+    return fetchSharedDeck(config.url, config.anonKey, token)
   })
 
   ipcMain.handle('pawmodoro:tradeMatches', async (): Promise<TradeMatch[]> => {

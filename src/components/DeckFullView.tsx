@@ -10,6 +10,7 @@ import type { Card, Deck, Format } from '../shared/types'
 import { CardDetailModal } from './CardDetailModal'
 import { DeckLockButton } from './DeckLockButton'
 import { ExportModal } from './ExportModal'
+import { ShareDeckModal } from './ShareDeckModal'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
 import { PairingsStatsModal } from './PairingsStatsModal'
@@ -21,19 +22,26 @@ interface Props {
   format: Format | undefined
   cardsById: Map<string, Card>
   /** Go to the deck editor. */
-  onEdit: () => void
+  onEdit?: () => void
+  /**
+   * Someone else's deck opened from a share link (SharedDeckView.tsx): read-only, so no steppers,
+   * lock, edit, share or Pairings record - just looking, copying the list, exporting, and copying it
+   * into your own decks.
+   */
+  shared?: { ownerName: string | null; onCopy: () => void; onClose: () => void }
 }
 
 /**
  * The finished deck, filling the deck area (the whole window while it's showing): card images (Grid), compact rows (List) or the
  * plain-text decklist (Text). A button hands the window over to the OS's real full screen too.
  */
-export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
+export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props) {
   const adapter = getAdapter(deck.gameId)
   const mode = useAppStore((s) => s.settings.deckViewMode ?? 'grid')
   const setMode = useAppStore((s) => s.setDeckViewMode)
   const setCardQuantity = useAppStore((s) => s.setCardQuantity)
-  const locked = Boolean(deck.locked)
+  const readOnly = shared != null
+  const locked = Boolean(deck.locked) || readOnly
 
   const [cardWidth, setCardWidth] = useState(200)
   const [detail, setDetail] = useState<Card | null>(null)
@@ -41,6 +49,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
   const [copied, setCopied] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [showStats, setShowStats] = useState(false)
+  const [showShare, setShowShare] = useState(false)
 
   const zones = useMemo(() => rulesForFormat(adapter, deck.formatId), [adapter, deck.formatId])
   const sections = useMemo(() => buildDeckView(deck, zones, cardsById), [deck, zones, cardsById])
@@ -166,13 +175,14 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
       <div className="fv-header">
         <div className="fv-title">
           <strong>
-            {deck.locked ? '🔒 ' : ''}
+            {deck.locked && !readOnly ? '🔒 ' : ''}
             {deck.name}
           </strong>
           <span className="text-dim">
             {adapter.shortName}
             {format ? ` · ${formatLabel(deck.gameId, format)}` : ''}
           </span>
+          {shared && <span className="fv-shared-by">{shared.ownerName ? t.share.sharedBy(shared.ownerName) : t.share.sharedDeck}</span>}
         </div>
         <div className="fv-summary">
           <span>{t.common.cards(stats.totalCards)}</span>
@@ -203,6 +213,16 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
         )}
 
         <div className="fv-actions">
+          {shared && (
+            <>
+              <button className="btn btn-primary" onClick={shared.onCopy}>
+                {t.share.copyToMine}
+              </button>
+              <button className="btn" onClick={shared.onClose}>
+                {t.share.close}
+              </button>
+            </>
+          )}
           <button className="btn" onClick={handleCopy}>
             {copied ? t.common.copied : t.deckView.copyList}
           </button>
@@ -211,21 +231,30 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
               {t.deckView.export}
             </button>
           )}
-          <button className="btn" onClick={() => setShowStats(true)} title={t.deckStatsModal.buttonTitle}>
-            {t.deckStatsModal.button}
-          </button>
+          {!readOnly && (
+            <button className="btn" onClick={() => setShowShare(true)} title={t.share.buttonTitle}>
+              {deck.shareToken ? t.share.buttonShared : t.share.button}
+            </button>
+          )}
+          {!readOnly && (
+            <button className="btn" onClick={() => setShowStats(true)} title={t.deckStatsModal.buttonTitle}>
+              {t.deckStatsModal.button}
+            </button>
+          )}
           <button className="btn" onClick={toggleOsFullscreen} title={t.deckView.fullscreenTitle}>
             {osFullscreen ? t.deckView.exitFullscreen : t.deckView.fullscreen}
           </button>
-          <DeckLockButton deck={deck} />
-          <button className="btn btn-primary" onClick={onEdit} title={deck.locked ? t.deckView.editLockedTitle : t.deckView.editTitle}>
-            {t.deckView.edit}
-          </button>
+          {!readOnly && <DeckLockButton deck={deck} />}
+          {!readOnly && onEdit && (
+            <button className="btn btn-primary" onClick={onEdit} title={deck.locked ? t.deckView.editLockedTitle : t.deckView.editTitle}>
+              {t.deckView.edit}
+            </button>
+          )}
         </div>
       </div>
 
-      <PairingsRecordStrip deck={deck} />
-      <PairingsSyncReminder deck={deck} inset />
+      {!readOnly && <PairingsRecordStrip deck={deck} />}
+      {!readOnly && <PairingsSyncReminder deck={deck} inset />}
 
       <div className="fv-body">
         {sections.length === 0 ? (
@@ -285,6 +314,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit }: Props) {
 
       {detail && <CardDetailModal card={detail} onClose={() => setDetail(null)} />}
       {showStats && <PairingsStatsModal deck={deck} onClose={() => setShowStats(false)} />}
+      {showShare && <ShareDeckModal deck={deck} onClose={() => setShowShare(false)} />}
       {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}
     </div>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import './app.css'
 import { Sidebar } from './components/Sidebar'
 import { CardBrowser } from './components/CardBrowser'
@@ -17,6 +17,10 @@ import { currentDeckFor } from './shared/decks'
 import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeTour } from './components/WelcomeTour'
 import { MobileNav, type MobileView } from './components/MobileNav'
+import { SharedDeckView } from './components/SharedDeckView'
+
+// The card scanner and its OCR models only exist in the phone app's build (__SCANNER__, see vite.config.ts).
+const ScannerModal = __SCANNER__ ? lazy(() => import('./components/ScannerModal')) : null
 import { t } from './shared/i18n'
 
 export default function App() {
@@ -40,6 +44,7 @@ export default function App() {
   // Keying the screens on it re-mounts them on a language change, so every string (and memoized legality message) is redone.
   const language = useAppStore((s) => s.language)
   const showTour = useAppStore((s) => s.showTour)
+  const showScanner = useAppStore((s) => s.showScanner)
 
   const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist && !showTrade && !showBinders
   // On mobile (app.css), a side panel takes the whole screen instead of squeezing next to the
@@ -131,6 +136,12 @@ export default function App() {
       )}
       <UpdateBanner />
       {showTour && <WelcomeTour />}
+      <SharedDeckView />
+      {ScannerModal && showScanner && (
+        <Suspense fallback={null}>
+          <ScannerModal onClose={() => useAppStore.getState().setShowScanner(false)} />
+        </Suspense>
+      )}
       <MobileNav
         view={mobileView}
         onViewChange={changeMobileView}

@@ -127,6 +127,8 @@ export interface Deck {
   iconCardId?: string
   /** A locked deck can't be changed (cards, name, format, icon) or deleted until it's unlocked. */
   locked?: boolean
+  /** Set while the deck has a share link (deckShare.ts); synced with the deck so every device knows. */
+  shareToken?: string
   /** zoneId -> entries. Most zones use DeckCardEntry[]; freeText zones use DeckFreeTextEntry[]. */
   zones: Record<string, DeckCardEntry[]>
   freeTextZones: Record<string, DeckFreeTextEntry[]>
@@ -138,6 +140,15 @@ export interface Deck {
    * nothing outside this app, so this is what Pairings shows for a deck it imported from here.
    */
   summary?: DeckSummary
+}
+
+/** A deck someone shared by link, as read with deckShare.ts's fetchSharedDeck. */
+export interface SharedDeck {
+  token: string
+  deck: Deck
+  /** The owner's trading display name, if they set one. */
+  ownerName: string | null
+  updatedAt: string
 }
 
 export interface DeckSummary {

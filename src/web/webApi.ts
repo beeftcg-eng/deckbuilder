@@ -21,6 +21,7 @@ import type {
   PairingsConfig,
   PairingsDeckRecord,
   PawmodoroConfig,
+  SharedDeck,
   SyncProgress,
   TradeListing,
   TradeMatch,
@@ -45,6 +46,7 @@ import { applyIdRepairs, type RepairableData } from '../shared/cardIdRepair'
 import { idbGet, idbGetAll, idbSet, idbDelete, idbReplaceAll } from './idb'
 import { WebSyncStore } from './webSyncStore'
 import { t } from '../shared/i18n'
+import { fetchSharedDeck } from '../shared/deckShare'
 
 const RELEASES_REPO = 'beeftcg-eng/deckbuilder-releases'
 
@@ -380,6 +382,20 @@ function toPublicConfig(config: SyncConfig | null): PawmodoroConfig {
   }
 }
 
+/**
+ * A fresh access token for a one-off call (trading, wishlist push, sharing). Supabase rotates the
+ * refresh token on every use, so the new one is saved straight away - the sync engine reads it back
+ * from syncStore before its own next call. Not saving it (as these calls used to) left the engine
+ * holding a token the server had already replaced, which can end the session.
+ */
+async function authorized(): Promise<{ config: SyncConfig; accessToken: string }> {
+  const config = await syncStore.getConfig()
+  if (!config) throw new Error(t.store.notConnectedPawmodoro)
+  const { accessToken, refreshToken } = await refreshAccessToken(config)
+  if (refreshToken !== config.refreshToken) await syncStore.setConfig({ ...config, refreshToken })
+  return { config: { ...config, refreshToken }, accessToken }
+}
+
 const pawmodoro = {
   getConfig: async (): Promise<PawmodoroConfig> => toPublicConfig(await syncStore.getConfig()),
   connect: async (url: string, anonKey: string, email: string, password: string, doSignUp = false): Promise<PawmodoroConfig> => {
@@ -408,9 +424,7 @@ const pawmodoro = {
   pushWishlist: async (
     items: { entryId: string; text: string }[],
   ): Promise<{ pushed: { entryId: string; taskId: string }[]; failed: { entryId: string; message: string }[] }> => {
-    const config = await syncStore.getConfig()
-    if (!config) throw new Error(t.store.notConnectedPawmodoro)
-    const { accessToken } = await refreshAccessToken(config)
+    const { config, accessToken } = await authorized()
     const pushed: { entryId: string; taskId: string }[] = []
     const failed: { entryId: string; message: string }[] = []
     for (const item of items) {
@@ -428,15 +442,11 @@ const pawmodoro = {
     return { pushed, failed }
   },
   setTradeProfile: async (isPublic: boolean, displayName: string): Promise<void> => {
-    const config = await syncStore.getConfig()
-    if (!config) throw new Error(t.store.notConnectedPawmodoro)
-    const { accessToken } = await refreshAccessToken(config)
+    const { config, accessToken } = await authorized()
     await callRpc(config, accessToken, 'deckbuilder_set_profile', { p_public: isPublic, p_display_name: displayName })
   },
   syncTradeCollection: async (entries: TradeListing[]): Promise<void> => {
-    const config = await syncStore.getConfig()
-    if (!config) throw new Error(t.store.notConnectedPawmodoro)
-    const { accessToken } = await refreshAccessToken(config)
+    const { config, accessToken } = await authorized()
     await callRpc(config, accessToken, 'deckbuilder_sync_collection', {
       p_entries: entries.map((e) => ({
         game_id: e.gameId, card_id: e.cardId, card_name: e.cardName, set_code: e.setCode, quantity: e.quantity, for_trade: e.forTrade,
@@ -444,17 +454,13 @@ const pawmodoro = {
     })
   },
   syncTradeWants: async (entries: TradeWant[]): Promise<void> => {
-    const config = await syncStore.getConfig()
-    if (!config) throw new Error(t.store.notConnectedPawmodoro)
-    const { accessToken } = await refreshAccessToken(config)
+    const { config, accessToken } = await authorized()
     await callRpc(config, accessToken, 'deckbuilder_sync_wants', {
       p_entries: entries.map((e) => ({ game_id: e.gameId, card_id: e.cardId, card_name: e.cardName, quantity: e.quantity })),
     })
   },
   browseTraders: async (): Promise<TraderProfile[]> => {
-    const config = await syncStore.getConfig()
-    if (!config) throw new Error(t.store.notConnectedPawmodoro)
-    const { accessToken } = await refreshAccessToken(config)
+    const { config, accessToken } = await authorized()
     const rows = (await callRpc(config, accessToken, 'deckbuilder_browse', {})) as Array<{
       user_id: string
       display_name: string
@@ -472,10 +478,20 @@ const pawmodoro = {
       wants: r.wants.map((w) => ({ gameId: w.game_id as TradeWant['gameId'], cardId: w.card_id, cardName: w.card_name, quantity: w.quantity })),
     }))
   },
+  shareDeck: async (deckId: string): Promise<string> => {
+    const { config, accessToken } = await authorized()
+    return (await callRpc(config, accessToken, 'deckbuilder_share_deck', { p_deck_id: deckId })) as string
+  },
+  unshareDeck: async (deckId: string): Promise<void> => {
+    const { config, accessToken } = await authorized()
+    await callRpc(config, accessToken, 'deckbuilder_unshare_deck', { p_deck_id: deckId })
+  },
+  getSharedDeck: async (token: string): Promise<SharedDeck | null> => {
+    const config = toPublicConfig(await syncStore.getConfig())
+    return fetchSharedDeck(config.url, config.anonKey, token)
+  },
   tradeMatches: async (): Promise<TradeMatch[]> => {
-    const config = await syncStore.getConfig()
-    if (!config) throw new Error(t.store.notConnectedPawmodoro)
-    const { accessToken } = await refreshAccessToken(config)
+    const { config, accessToken } = await authorized()
     const rows = (await callRpc(config, accessToken, 'deckbuilder_matches', {})) as Array<{
       user_id: string
       display_name: string
