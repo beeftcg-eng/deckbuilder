@@ -15,6 +15,9 @@ installErrorLog()
 // module ever runs) - only takes effect when this bundle is loaded as a plain web page (the PWA).
 installWebApiIfNeeded()
 
+// The phone app reloads itself onto a new version as soon as one is ready (pwaUpdate.ts).
+if (__SCANNER__) void import('./web/pwaUpdate').then((m) => m.keepPwaUpdated())
+
 applyCachedTheme()
 applyCachedLanguage()
 // The store was created (on import) before the language above was picked.
