@@ -11,7 +11,7 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { pokemonKey, pokemonPromoKey, splitYugiohCode, yugiohExactKey, yugiohKey, type PriceFile } from '../src/shared/priceKeys.ts'
+import { pokemonKey, pokemonPromoKey, riftboundKey, splitYugiohCode, yugiohExactKey, yugiohKey, type PriceFile } from '../src/shared/priceKeys.ts'
 
 const BASE = 'https://tcgcsv.com/tcgplayer'
 const CATEGORY = { riftbound: 89, pokemon: 3, yugioh: 2 } as const
@@ -84,8 +84,12 @@ function keep(prices: Record<string, number>, key: string, price: number) {
 }
 
 async function riftbound(): Promise<Record<string, number>> {
-  const prices: Record<string, number> = {}
-  // Riftbound's card data carries each card's TCGplayer product id, so no product list is needed.
+  // Riftbound's card data carries each card's TCGplayer product id; set + printed number covers the
+  // cards it doesn't have one for yet (a brand-new set).
+  const prices = await byProductList(CATEGORY.riftbound, (group, p) => {
+    const number = extended(p, 'Number')
+    return group.abbreviation && number ? [riftboundKey(group.abbreviation, number)] : []
+  })
   for (const byProduct of await mapPool(await groupsOf(CATEGORY.riftbound), CONCURRENCY, (g) => groupPrices(CATEGORY.riftbound, g.groupId))) {
     for (const [id, price] of byProduct) keep(prices, String(id), price)
   }

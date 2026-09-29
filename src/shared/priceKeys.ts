@@ -20,6 +20,25 @@ export function normalizeNumber(number: string): string {
   return main.replace(/^([a-z]*)0+(?=\d)/, '$1')
 }
 
+/**
+ * Riftbound by set and printed number, variant suffix included ("VEN" + "021a/166" = the alternate
+ * art): for cards whose TCGplayer id the card data doesn't have yet (a brand-new set).
+ */
+export function riftboundKey(setCode: string, number: string): string {
+  return `RB|${setCode.toUpperCase()}|${normalizeNumber(number)}`
+}
+
+/**
+ * A Riftbound card's price key: its TCGplayer product id, or - only when the card data has none yet -
+ * set + printed number from its source id ("ven-021a-166"). A card with an id but no price stays
+ * unpriced: its slot can be shared by a different product (a Metal promo and the regular one).
+ */
+export function riftboundKeys(productId: string | undefined, sourceId: string): string[] {
+  if (productId) return [productId]
+  const [set, number] = sourceId.split('-')
+  return set && number ? [riftboundKey(set, number)] : []
+}
+
 /** Pokémon: set code (TCGplayer's abbreviation = the card data's ptcgo code) + collector number. */
 export function pokemonKey(setCode: string, number: string): string {
   // "SWSH08" and "swsh8" are the same set; so are "SWSH12: TG" and "swsh12tg".

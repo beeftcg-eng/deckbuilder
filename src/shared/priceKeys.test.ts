@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeNumber, pokemonKey, pokemonKeys, pokemonPromoKey, splitYugiohCode, yugiohExactKey, yugiohKey, yugiohKeys } from './priceKeys'
+import { riftboundKey, riftboundKeys, normalizeNumber, pokemonKey, pokemonKeys, pokemonPromoKey, splitYugiohCode, yugiohExactKey, yugiohKey, yugiohKeys } from './priceKeys'
 import { applyPriceFile } from './priceFiles'
 import { makeCard } from './testFixtures'
 
@@ -26,6 +26,11 @@ describe('price keys', () => {
     expect(yugiohKeys('LOB', '001', 'Ultra Rare')[0]).toBe(yugiohExactKey('LOB', '001', 'Ultra Rare'))
     expect(splitYugiohCode('MP21-EN144')).toEqual(['MP21', 'EN144'])
     expect(splitYugiohCode('not a code')).toBeNull()
+  })
+
+  it('matches Riftbound by product id, else set + printed number with its variant suffix', () => {
+    expect(riftboundKeys('705998', 'ven-021-166')).toEqual(['705998'])
+    expect(riftboundKeys(undefined, 'ven-021a-166')).toEqual([riftboundKey('VEN', '021a/166')])
   })
 
   it('applies the first price found and leaves the rest alone', () => {

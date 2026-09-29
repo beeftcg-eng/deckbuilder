@@ -1,5 +1,6 @@
 import type { Card, DeckRules, Deck, Format } from '../types'
 import { loadPriceFile, applyPriceFile } from '../priceFiles'
+import { riftboundKeys } from '../priceKeys'
 import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
 import { t } from '../i18n'
@@ -77,10 +78,7 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
   } while (page <= pages)
 
   // TCGplayer market prices, from the price file the phone app's deploy publishes.
-  return applyPriceFile(cards, await loadPriceFile('riftbound'), (card) => {
-    const id = productIds.get(card.id)
-    return id ? [id] : []
-  })
+  return applyPriceFile(cards, await loadPriceFile('riftbound'), (card) => riftboundKeys(productIds.get(card.id), card.sourceId))
 }
 
 const deckRules: DeckRules = {
