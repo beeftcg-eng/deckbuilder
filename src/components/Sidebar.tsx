@@ -13,6 +13,7 @@ import type { GameId } from '../shared/types'
 import type { Language } from '../shared/i18n'
 import { DeckIcon } from './DeckIcon'
 import { LANGUAGES, t } from '../shared/i18n'
+import { CURRENCIES, displayCurrency } from '../shared/currency'
 
 function formatRelativeTime(iso: string | null): string {
   if (!iso) return t.sidebar.neverSynced
@@ -164,6 +165,16 @@ export function Sidebar() {
           {LANGUAGES.map((l) => (
             <option key={l.id} value={l.id}>
               {l.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="theme-row" data-tour="settings" title={t.sidebar.currencyTitle}>
+        <span className="text-dim">{t.sidebar.currency}</span>
+        <select value={displayCurrency()} onChange={(e) => useAppStore.getState().setCurrency(e.target.value)}>
+          {CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.label}
             </option>
           ))}
         </select>

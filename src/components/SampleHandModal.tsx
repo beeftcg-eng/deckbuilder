@@ -17,8 +17,10 @@ const TURNS = [0, 1, 2, 3, 4, 5]
 
 function deal(from: Card[], size: number, mulligans: number) {
   const library = shuffled(from)
-  return { hand: library.slice(0, size), library: library.slice(size), turn: 0, mulligans, bottomed: 0 }
+  return { hand: library.slice(0, size), library: library.slice(size), discard: [] as Card[], turn: 0, mulligans, bottomed: 0 }
 }
+
+type TapAction = 'discard' | 'bottom'
 
 /**
  * Practising the deck: deal an opening hand, mulligan, put cards on the bottom (Magic's London
@@ -32,6 +34,7 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
   const [state, setState] = useState(() => deal(cards, handSize, 0))
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [atLeast, setAtLeast] = useState(1)
+  const [tapAction, setTapAction] = useState<TapAction>('discard')
 
   function draw() {
     setState((s) => ({ ...s, hand: [...s.hand, ...s.library.slice(0, 1)], library: s.library.slice(1) }))
@@ -47,6 +50,15 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
 
   function bottom(index: number) {
     setState((s) => ({ ...s, hand: s.hand.filter((_, i) => i !== index), library: [...s.library, s.hand[index]], bottomed: s.bottomed + 1 }))
+  }
+
+  function discard(index: number) {
+    setState((s) => ({ ...s, hand: s.hand.filter((_, i) => i !== index), discard: [...s.discard, s.hand[index]] }))
+  }
+
+  /** A discarded card back to the hand (a mis-tap, or an effect that returns it). */
+  function recover(index: number) {
+    setState((s) => ({ ...s, discard: s.discard.filter((_, i) => i !== index), hand: [...s.hand, s.discard[index]] }))
   }
 
   // One row per card (printings together), for the odds.
@@ -121,15 +133,40 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
                   {t.sampleHand.status(state.hand.length, state.library.length)}
                   {state.mulligans > 0 && ` · ${t.sampleHand.mulligans(state.mulligans)}`}
                   {state.bottomed > 0 && ` · ${t.sampleHand.bottomed(state.bottomed)}`}
+                  {state.discard.length > 0 && ` · ${t.sampleHand.discarded(state.discard.length)}`}
                 </div>
-                <div className="text-dim practice-hint">{t.sampleHand.bottomHint}</div>
+                <div className="practice-tap" role="group" aria-label={t.sampleHand.tapLabel}>
+                  <span className="text-dim">{t.sampleHand.tapLabel}</span>
+                  {(['discard', 'bottom'] as const).map((a) => (
+                    <button key={a} className={`btn ${tapAction === a ? 'btn-primary' : ''}`} aria-pressed={tapAction === a} onClick={() => setTapAction(a)}>
+                      {a === 'discard' ? t.sampleHand.tapDiscard : t.sampleHand.tapBottom}
+                    </button>
+                  ))}
+                </div>
                 <div className="sample-hand-grid">
                   {state.hand.map((card, i) => (
-                    <button className="sample-hand-card" key={`${card.id}-${i}`} title={t.sampleHand.bottomTitle(card.name)} onClick={() => bottom(i)}>
+                    <button
+                      className="sample-hand-card"
+                      key={`${card.id}-${i}`}
+                      title={tapAction === 'discard' ? t.sampleHand.discardTitle(card.name) : t.sampleHand.bottomTitle(card.name)}
+                      onClick={() => (tapAction === 'discard' ? discard(i) : bottom(i))}
+                    >
                       {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <div className="card-tile-placeholder">{card.name}</div>}
                     </button>
                   ))}
                 </div>
+                {state.discard.length > 0 && (
+                  <div className="practice-discard">
+                    <div className="text-dim">{t.sampleHand.discardPile(state.discard.length)}</div>
+                    <div className="practice-discard-row">
+                      {state.discard.map((card, i) => (
+                        <button className="practice-discard-card" key={`${card.id}-d${i}`} title={t.sampleHand.recoverTitle(card.name)} onClick={() => recover(i)}>
+                          {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <span>{card.name}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div className="odds">

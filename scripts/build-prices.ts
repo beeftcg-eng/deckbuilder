@@ -1,5 +1,5 @@
 /**
- * Writes TCGplayer market prices for the games whose own card sources lack them (Riftbound: none;
+ * Writes the day's USD exchange rates (<out>/rates.json) and TCGplayer market prices for the games whose own card sources lack them (Riftbound: none;
  * Pokémon and Yu-Gi-Oh!: patchy) to <out>/<game>.json, from tcgcsv.com's daily dump of TCGplayer's
  * catalog. Run by .github/workflows/deploy-pwa.yml when the phone app is deployed (and daily), so the
  * files sit on the phone app's own site: tcgcsv doesn't allow a web page to read it directly.
@@ -134,8 +134,22 @@ const yugioh = () =>
     return [yugiohKey(split[0], split[1]), yugiohExactKey(split[0], split[1]), ...(rarity ? [yugiohKey(split[0], split[1], rarity), yugiohExactKey(split[0], split[1], rarity)] : [])]
   })
 
+/** Exchange rates for showing prices in other currencies (European Central Bank, via frankfurter.dev). */
+async function rates(): Promise<Record<string, number>> {
+  const res = await getJson<{ rates: Record<string, number> }>('https://api.frankfurter.dev/v1/latest?from=USD')
+  return res.rates
+}
+
 const out = process.argv[2] ?? 'dist-web/prices'
 await mkdir(out, { recursive: true })
+try {
+  const r = await rates()
+  if (!Object.keys(r).length) throw new Error('no rates')
+  await writeFile(join(out, 'rates.json'), JSON.stringify({ updatedAt: new Date().toISOString(), base: 'USD', rates: r }))
+  console.log(`rates: ${Object.keys(r).length} currencies`)
+} catch (err) {
+  console.warn(`::warning::exchange rates skipped: ${err instanceof Error ? err.message : err}`)
+}
 for (const [game, build] of Object.entries({ riftbound, pokemon, yugioh })) {
   try {
     const prices = await build()

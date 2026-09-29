@@ -30,6 +30,19 @@ import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import type { UpdateStatus } from '../shared/updateStatus'
 import { currentDeckFor } from '../shared/decks'
 import { parseShareToken } from '../shared/deckShare'
+import { displayCurrency, setDisplayCurrency, type RatesFile } from '../shared/currency'
+import { PRICE_FILES_URL } from '../shared/priceKeys'
+import { fetchJson } from '../shared/games/fetchUtil'
+
+/** Today's exchange rates, published with the price files (scripts/build-prices.ts). Null when unreachable. */
+async function loadExchangeRates(): Promise<RatesFile | null> {
+  try {
+    const file = await fetchJson<RatesFile>(`${PRICE_FILES_URL}/rates.json`, 3)
+    return file && typeof file.rates === 'object' ? file : null
+  } catch {
+    return null
+  }
+}
 import { applyVisibleOrder, reorderByDrop, type DeckSortMode } from '../shared/deckOrder'
 import { orderGames } from '../shared/gameOrder'
 import { applyTheme } from '../lib/theme'
@@ -196,6 +209,10 @@ interface AppState {
   setDeckViewMode: (mode: DeckViewMode) => void
   setUpdateStatus: (status: UpdateStatus) => void
   setTheme: (id: string) => void
+  /** Shows prices in this currency (converted from US dollars at the day's rate). */
+  setCurrency: (code: string) => void
+  /** Changes whenever the currency or its rate does, so price text re-renders (App.tsx keys on it). */
+  currencyKey: string
   /** The welcome tour (WelcomeTour.tsx): opens by itself on a first launch, or from the sidebar. */
   showTour: boolean
   setShowTour: (show: boolean) => void
@@ -363,6 +380,7 @@ export const useAppStore = create<AppState>((set, get) => {
     language: getLanguage(),
     showTour: false,
     showScanner: false,
+    currencyKey: 'USD',
     sharedDeck: null,
     sharedDeckState: null,
     sharedDeckError: null,
@@ -375,6 +393,17 @@ export const useAppStore = create<AppState>((set, get) => {
         const [decks, settings] = await Promise.all([window.api.decks.list(), window.api.settings.get()])
         set({ decks, settings })
         applyTheme(settings.theme)
+        // Prices: the picked currency with the last known rate straight away, fresher rates in the background.
+        const currency = settings.currency ?? (typeof navigator !== 'undefined' && /^es-MX/i.test(navigator.language) ? 'MXN' : 'USD')
+        setDisplayCurrency(currency, settings.currencyRates?.rates)
+        set({ currencyKey: `${displayCurrency()}:${settings.currencyRates?.updatedAt ?? ''}` })
+        void loadExchangeRates().then((file) => {
+          if (!file || file.updatedAt === get().settings.currencyRates?.updatedAt) return
+          const currencyRates = { updatedAt: file.updatedAt, rates: file.rates }
+          setDisplayCurrency(get().settings.currency ?? currency, currencyRates.rates)
+          set((s) => ({ settings: { ...s.settings, currencyRates }, currencyKey: `${displayCurrency()}:${file.updatedAt}` }))
+          persistSettings({ currencyRates })
+        })
         // A first launch (no decks, never toured) opens the tour. Someone who already has decks can
         // start it from the sidebar instead of having it pop up after an update.
         // Not over a share link, though: a friend opening one came to see that deck.
@@ -840,6 +869,12 @@ export const useAppStore = create<AppState>((set, get) => {
       }, cardId ? t.store.setIcon : t.store.clearIcon)
     },
 
+    setCurrency: (code) => {
+      const rates = get().settings.currencyRates?.rates
+      setDisplayCurrency(code, rates)
+      set((s) => ({ settings: { ...s.settings, currency: code }, currencyKey: `${displayCurrency()}:${s.settings.currencyRates?.updatedAt ?? ''}` }))
+      persistSettings({ currency: code })
+    },
     setTheme: (id) => {
       applyTheme(id) // instant; the saved copy follows
       persistSettings({ theme: id })

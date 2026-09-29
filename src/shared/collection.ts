@@ -1,3 +1,4 @@
+import { formatMoney } from './currency'
 import type { Card, Deck, GameId } from './types'
 import { GAME_ADAPTERS, getAdapter } from './games/registry'
 
@@ -110,6 +111,7 @@ export function totalPrice(items: { card: Card; quantity: number }[]): PriceTota
   return { total, unpricedCopies }
 }
 
+/** A US-dollar price, shown in the currency picked in settings (see currency.ts). */
 export function formatPrice(value: number): string {
-  return `$${value.toFixed(2)}`
+  return formatMoney(value)
 }

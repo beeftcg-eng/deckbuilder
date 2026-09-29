@@ -190,6 +190,8 @@ export function guideRect(width: number, height: number): Rect {
 export interface Reading {
   match: MatchResult
   rotation: 0 | 90 | -90
+  /** How many text lines were read: plenty of text but no match usually means glare on a foil card. */
+  lineCount: number
   ms: number
   /** Where the time went: text detection, line recognition, matching. */
   timings: { detMs: number; recMs: number; matchMs: number; secondPass: boolean; backend: string }
@@ -210,7 +212,7 @@ export async function readCard(model: PaddleModel, index: ScanIndex, crop: Crop)
   const t1 = performance.now()
   const match = identify(ocr.lines, index)
   const t2 = performance.now()
-  return { match, rotation: ocr.rotation, ms: t2 - t0, timings: { detMs: ocr.detMs, recMs: ocr.recMs, matchMs: t2 - t1, secondPass: ocr.secondPass, backend: model.backend } }
+  return { match, rotation: ocr.rotation, lineCount: ocr.lines.length, ms: t2 - t0, timings: { detMs: ocr.detMs, recMs: ocr.recMs, matchMs: t2 - t1, secondPass: ocr.secondPass, backend: model.backend } }
 }
 
 // ---------- picture comparison ----------
@@ -335,4 +337,85 @@ export function isConfident(ranked: readonly RankedCandidate[], reading: Reading
   if (!best || reading.match.status === 'unsure' || reading.match.status === 'none') return false
   if (best.nameScore < 0.75 && best.codeWeight < 0.9) return false
   return !next || best.final - next.final >= 0.04
+}
+
+// ---------- frame quality ----------
+
+export interface FrameCheck {
+  /** Edge contrast of the guide area: blur (a moving card, a missed focus) lowers it. */
+  sharpness: number
+  /** How much the guide area changed since the previous check, 0..255. */
+  motion: number
+}
+
+const QUALITY_W = 96
+let previousSample: Float32Array | null = null
+
+/**
+ * A quick look at the guide area before spending seconds reading it: small grey sample, its
+ * Laplacian energy (sharpness) and its difference from the last sample (motion).
+ */
+export function checkFrame(video: HTMLVideoElement, guide: Rect): FrameCheck {
+  const h = Math.max(8, Math.round((QUALITY_W * guide.h) / guide.w))
+  const c = document.createElement('canvas')
+  c.width = QUALITY_W
+  c.height = h
+  const ctx = c.getContext('2d', { willReadFrequently: true })!
+  ctx.drawImage(video, guide.x, guide.y, guide.w, guide.h, 0, 0, QUALITY_W, h)
+  const { data } = ctx.getImageData(0, 0, QUALITY_W, h)
+  const grey = new Float32Array(QUALITY_W * h)
+  for (let i = 0, p = 0; p < grey.length; i += 4, p++) grey[p] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+  let energy = 0
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < QUALITY_W - 1; x++) {
+      const p = y * QUALITY_W + x
+      const lap = 4 * grey[p] - grey[p - 1] - grey[p + 1] - grey[p - QUALITY_W] - grey[p + QUALITY_W]
+      energy += lap * lap
+    }
+  }
+  let motion = 255
+  if (previousSample && previousSample.length === grey.length) {
+    let diff = 0
+    for (let p = 0; p < grey.length; p++) diff += Math.abs(grey[p] - previousSample[p])
+    motion = diff / grey.length
+  }
+  previousSample = grey
+  return { sharpness: energy / ((QUALITY_W - 2) * (h - 2)), motion }
+}
+
+/**
+ * Remembers recent frames' sharpness and says whether this one is worth reading: steady (little
+ * change since the last look) and close to the sharpest seen in the last couple of seconds. A card
+ * being moved into place, or a blurred frame, would otherwise cost a whole read.
+ */
+export class FrameGate {
+  private steadySharpness: { t: number; sharpness: number }[] = []
+  private steadyLooks = 0
+  private skipped = 0
+
+  worthReading(check: FrameCheck, now = performance.now()): boolean {
+    // Never wait forever: after a few skipped looks (about a second), read anyway.
+    if (this.skipped >= 8) {
+      this.skipped = 0
+      return true
+    }
+    if (check.motion >= 14) {
+      // Still moving: a read now would see a smear.
+      this.steadyLooks = 0
+      this.skipped++
+      return false
+    }
+    this.steadyLooks++
+    // Sharpness is only compared between steady frames: a card sliding over a busy background
+    // measures "sharp" from the background alone, which a still card could never match.
+    this.steadySharpness = this.steadySharpness.filter((r) => now - r.t < 1500)
+    this.steadySharpness.push({ t: now, sharpness: check.sharpness })
+    const best = Math.max(...this.steadySharpness.map((r) => r.sharpness))
+    if (this.steadyLooks >= 2 && check.sharpness >= best * 0.7) {
+      this.skipped = 0
+      return true
+    }
+    this.skipped++
+    return false
+  }
 }

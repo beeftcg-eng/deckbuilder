@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore, useVisibleGames } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
@@ -15,6 +15,8 @@ import {
   printingKey,
   rankByPicture,
   rankByText,
+  checkFrame,
+  FrameGate,
   readCard,
   scanIndexFor,
   type RankedCandidate,
@@ -51,6 +53,8 @@ interface Added {
 
 const AUTO_ADD_KEY = 'brewhouse.scanner.autoAdd'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** Resolves once the browser has drawn the latest state (so a status change is visible before heavy work). */
+const nextPaint = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)))
 
 function readAutoAdd(): boolean {
   try {
@@ -83,6 +87,9 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   const [cameraReady, setCameraReady] = useState(false)
   const [torch, setTorch] = useState<{ supported: boolean; on: boolean }>({ supported: false, on: false })
   const [phase, setPhase] = useState<Phase>('looking')
+  const [glare, setGlare] = useState(false)
+  /** The last read's time and engine, shown small in the footer: what to report when scanning feels slow. */
+  const [lastRead, setLastRead] = useState<{ ms: number; backend: string } | null>(null)
   const [result, setResult] = useState<Result | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [target, setTarget] = useState<Target>('collection')
@@ -214,6 +221,8 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
     addedNameRef.current = onAdded
     let readsSinceResult = 0
     let cycleStart = performance.now()
+    const gate = new FrameGate()
+    let unreadable = 0 // reads in a row that saw plenty of text but no card: usually glare on a foil
     async function loop() {
       while (!cancelled) {
         const video = videoRef.current
@@ -223,10 +232,19 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
           continue
         }
         const guide = guideInVideo(guideRect(stage.clientWidth, stage.clientHeight), { width: stage.clientWidth, height: stage.clientHeight }, video)
+        // Only spend a read on a steady, sharp frame: a card still moving into place reads as nothing.
+        if (!gate.worthReading(checkFrame(video, guide))) {
+          setPhase((p) => (p === 'looking' ? p : 'steady'))
+          await sleep(90)
+          continue
+        }
         const crop = cropFrame(video, guide)
         setPhase('reading')
+        // Let "Reading…" reach the screen before the reading work keeps the phone busy.
+        await nextPaint()
         readsSinceResult++
         const reading = await readCard(model!, index!, crop).catch(() => null)
+        if (reading) setLastRead({ ms: reading.ms, backend: reading.timings.backend })
         if (import.meta.env.DEV && reading) console.debug('[scan] read', JSON.stringify(reading.timings), reading.match.status)
         if (cancelled) return
         const best = reading?.match.candidates[0]
@@ -234,6 +252,8 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
         if (!reading || !best || reading.match.status === 'none' || !name) {
           previousName = null
           justAdded = null
+          unreadable = reading && reading.lineCount >= 4 ? unreadable + 1 : 0
+          setGlare(unreadable >= 2)
           setPhase('looking')
           await sleep(120)
           continue
@@ -253,6 +273,8 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
           continue
         }
         previousName = null
+        unreadable = 0
+        setGlare(false)
         // Show the text's answer straight away; the picture comparison re-ranks the printings a moment later.
         const textRanked = rankByText(reading)
         if (!textRanked.length) continue
@@ -433,10 +455,13 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
         {stageSize.width > 0 && (
           <div
             className={`scanner-guide ${phase === 'reading' || phase === 'checking' ? 'busy' : ''} ${result ? 'found' : ''}`}
-            style={{ left: guide.x, top: guide.y, width: guide.w, height: guide.h }}
-          />
+            style={{ left: guide.x, top: guide.y, width: guide.w, height: guide.h, '--guide-h': `${guide.h}px` } as CSSProperties}
+          >
+            {/* Moves on the compositor, so it keeps going even while reading keeps the phone busy. */}
+            {(phase === 'reading' || phase === 'checking') && !result && <div className="scanner-scanline" />}
+          </div>
         )}
-        <div className="scanner-status">
+        <div className={`scanner-status ${result || search != null ? 'hidden' : ''}`}>
           <span>{status}</span>
           {!model && !loadError && <span className="scanner-note">{t.scanner.loadingNote}</span>}
           {(loadError || cameraError) && (
@@ -449,7 +474,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
               {syncing ? t.sidebar.syncing(syncProgress?.loaded ?? 0, syncProgress?.total ?? '?') : t.sidebar.syncCardData}
             </button>
           )}
-          {ready && !result && <span className="scanner-note">{t.scanner.hint}</span>}
+          {ready && !result && <span className={`scanner-note ${glare ? 'scanner-glare' : ''}`}>{glare ? t.scanner.glareTip : t.scanner.hint}</span>}
         </div>
         {toast && <div className="scanner-toast">{toast}</div>}
 
@@ -484,6 +509,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
             <button className="link-btn" onClick={() => setSearch('')}>
               {t.scanner.wrongCard}
             </button>
+            {lastRead && <span className="scanner-diag">{t.scanner.diagnostics(lastRead.backend === 'webgpu', lastRead.ms / 1000)}</span>}
           </div>
         )}
       </div>

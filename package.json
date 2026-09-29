@@ -1,7 +1,7 @@
 {
   "name": "deckbuilder",
   "private": true,
-  "version": "0.30.1",
+  "version": "0.31.0",
   "desktopName": "Deckbuilder.desktop",
   "description": "A multi-game TCG deckbuilder with legality checking and export (Riftbound, One Piece, Pokemon, Magic: The Gathering)",
   "author": "beeftcg",

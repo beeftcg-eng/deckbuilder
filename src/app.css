@@ -1262,6 +1262,45 @@
   font-size: 13px;
 }
 
+.practice-tap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.practice-discard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.practice-discard-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.practice-discard-card {
+  flex: 0 0 auto;
+  width: 64px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg);
+  opacity: 0.75;
+  line-height: 0;
+  font-size: 10px;
+}
+
+.practice-discard-card img {
+  width: 100%;
+}
+
 .odds {
   display: flex;
   flex-direction: column;
@@ -2405,7 +2444,51 @@
   white-space: nowrap;
 }
 
+.scanner-status.hidden {
+  display: none;
+}
+
+.scanner-diag {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.scanner-glare {
+  color: var(--warning);
+  opacity: 1;
+}
+
+.scanner-scanline {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  animation: scanner-sweep 1.4s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes scanner-sweep {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(var(--guide-h, 400px) - 3px));
+  }
+}
+
+/* The sheet slides over the bottom of the camera view instead of shrinking it, so the guide never
+   jumps: the card stays lined up for the next scan. */
 .scanner-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
   background: var(--bg-elevated);
   color: var(--text);
   border-top: 1px solid var(--border-strong);
@@ -2567,7 +2650,7 @@
 }
 
 .scanner-search {
-  flex: 1;
+  top: 56px;
   max-height: none;
   border-radius: 0;
 }

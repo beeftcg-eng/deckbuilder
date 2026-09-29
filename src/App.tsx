@@ -43,6 +43,8 @@ export default function App() {
   const syncMeta = useAppStore((s) => s.syncMeta)
   // Keying the screens on it re-mounts them on a language change, so every string (and memoized legality message) is redone.
   const language = useAppStore((s) => s.language)
+  // Prices are formatted at render time; re-mounting on a currency (or rate) change redoes them all.
+  const currencyKey = useAppStore((s) => s.currencyKey)
   const showTour = useAppStore((s) => s.showTour)
   const showScanner = useAppStore((s) => s.showScanner)
 
@@ -117,7 +119,7 @@ export default function App() {
   }, [currentGameId, syncMeta[currentGameId]?.count])
 
   return (
-    <div className="app-shell" key={language}>
+    <div className="app-shell" key={`${language}|${currencyKey}`}>
       {error && (
         <div className="error-banner" role="alert">
           <span>{error}</span>

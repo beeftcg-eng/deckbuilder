@@ -251,6 +251,10 @@ export interface AppSettings {
   theme?: string
   /** UI language (see shared/i18n). Unset until picked: the first launch follows the system's language. */
   language?: 'en' | 'es'
+  /** Currency prices are shown in (shared/currency.ts). Unset: US dollars, or pesos on a Mexican-Spanish system. */
+  currency?: string
+  /** The last exchange rates fetched (units per US dollar), kept for offline use. */
+  currencyRates?: { updatedAt: string; rates: Record<string, number> }
   /** Set once the welcome tour was finished or skipped, so it only opens by itself on a first launch. */
   tourSeen?: boolean
   /** Local copy of the last trade-profile visibility pushed to the cloud (see shared/types.ts TradeProfile). */
