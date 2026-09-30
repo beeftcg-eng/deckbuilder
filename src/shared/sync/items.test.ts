@@ -44,4 +44,21 @@ describe('synced items', () => {
     expect(touchesItems({ theme: 'royal' })).toBe(false)
     expect(touchesItems({ valueHistory: {} })).toBe(true)
   })
+
+  describe('copy details', () => {
+    const details = { 'mtg:a': [{ finish: 'foil' as const, condition: 'NM' as const, quantity: 1 }] }
+
+    it('go up as one row per card', () => {
+      expect(itemOps({}, { collectionDetails: details })).toEqual([{ type: 'set_item', kind: 'copy_detail', key: 'mtg:a', data: details['mtg:a'] }])
+    })
+
+    it('come down from the server', () => {
+      expect(settingsFromItems([{ kind: 'copy_detail', key: 'mtg:a', data: details['mtg:a'] }]).collectionDetails).toEqual(details)
+    })
+
+    it('are kept when the server has none, as a server too old to store them sends', () => {
+      expect(settingsFromItems([], { collectionDetails: details }).collectionDetails).toBe(details)
+      expect(firstMerge({ collectionDetails: details }, []).settings.collectionDetails).toEqual(details)
+    })
+  })
 })

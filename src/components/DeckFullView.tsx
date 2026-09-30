@@ -5,23 +5,29 @@ import { rulesForFormat } from '../shared/games/rules'
 import { checkDeckLegality } from '../shared/legality'
 import { computeDeckStats } from '../shared/deckStats'
 import { formatPrice } from '../shared/collection'
-import { DECK_VIEW_MODES, buildDeckView, textBlocks, type DeckViewEntry } from '../shared/deckView'
+import { DECK_VIEW_MODES, buildDeckView, textBlocks, type DeckGroupBy, type DeckViewEntry } from '../shared/deckView'
+import { tagsOf } from '../shared/deckTags'
 import type { Card, Deck, Format } from '../shared/types'
 import { CardDetailModal } from './CardDetailModal'
 import { DeckLockButton } from './DeckLockButton'
-import { ExportModal } from './ExportModal'
-import { ShareDeckModal } from './ShareDeckModal'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
 import { DeckNotes } from './DeckNotes'
-import { CompareDecksModal } from './CompareDecksModal'
-import { ProxyPrintModal } from './ProxyPrintModal'
-import { BuyListModal } from './BuyListModal'
+import { RotationBadge } from './RotationBadge'
 import { FolderPicker } from './FolderPicker'
-import { SampleHandModal } from './SampleHandModal'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
-import { PairingsStatsModal } from './PairingsStatsModal'
 import { t, zoneLabel } from '../shared/i18n'
 import { formatLabel } from '../shared/formatText'
+import { lazyModal } from './lazyModal'
+
+const ExportModal = lazyModal(() => import('./ExportModal'), 'ExportModal')
+const ShareDeckModal = lazyModal(() => import('./ShareDeckModal'), 'ShareDeckModal')
+const CompareDecksModal = lazyModal(() => import('./CompareDecksModal'), 'CompareDecksModal')
+const DeckHistoryModal = lazyModal(() => import('./DeckHistoryModal'), 'DeckHistoryModal')
+const ProxyPrintModal = lazyModal(() => import('./ProxyPrintModal'), 'ProxyPrintModal')
+const BuyListModal = lazyModal(() => import('./BuyListModal'), 'BuyListModal')
+const SampleHandModal = lazyModal(() => import('./SampleHandModal'), 'SampleHandModal')
+const PairingsStatsModal = lazyModal(() => import('./PairingsStatsModal'), 'PairingsStatsModal')
+const CardTagsModal = lazyModal(() => import('./CardTagsModal'), 'CardTagsModal')
 
 interface Props {
   deck: Deck
@@ -57,12 +63,16 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
   const [showStats, setShowStats] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showCompare, setShowCompare] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [groupBy, setGroupBy] = useState<DeckGroupBy>('type')
+  const [tagging, setTagging] = useState<Card | null>(null)
+  const hasTags = Object.keys(deck.tags ?? {}).length > 0
   const [showPractice, setShowPractice] = useState(false)
   const [showProxies, setShowProxies] = useState(false)
   const [showBuyList, setShowBuyList] = useState(false)
 
   const zones = useMemo(() => rulesForFormat(adapter, deck.formatId), [adapter, deck.formatId])
-  const sections = useMemo(() => buildDeckView(deck, zones, cardsById), [deck, zones, cardsById])
+  const sections = useMemo(() => buildDeckView(deck, zones, cardsById, hasTags ? groupBy : 'type'), [deck, zones, cardsById, groupBy, hasTags])
   const stats = useMemo(() => computeDeckStats(deck, cardsById), [deck, cardsById])
   const legality = useMemo(() => (format ? checkDeckLegality(deck, adapter, format, cardsById) : null), [deck, adapter, format, cardsById])
   const text = useMemo(() => adapter.formatDecklistText(deck, cardsById), [adapter, deck, cardsById])
@@ -103,6 +113,11 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
   }
 
   const priced = stats.totalCards > stats.price.unpricedCopies
+
+  function groupTitle(category: string): string {
+    if (!hasTags || groupBy === 'type') return category
+    return category ? `🏷 ${category}` : t.tags.untagged
+  }
 
   /**
    * −/+ for one entry. + adds a copy of the printing shown; − takes one from the last printing merged into it, so
@@ -162,6 +177,26 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
     )
   }
 
+  /** The card's tags, and (on your own decks) the button that edits them. */
+  function renderTags(card: Card) {
+    const tags = tagsOf(deck, card)
+    if (readOnly && !tags.length) return null
+    return (
+      <span className="fv-row-tags" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        {tags.map((tag) => (
+          <span key={tag} className="fv-tag">
+            {tag}
+          </span>
+        ))}
+        {!readOnly && (
+          <button className="btn stepper-btn" title={t.tags.buttonTitle} aria-label={t.tags.buttonTitle} onClick={() => setTagging(card)}>
+            {t.tags.button}
+          </button>
+        )}
+      </span>
+    )
+  }
+
   function renderRow(zoneId: string, entry: DeckViewEntry) {
     const { card, quantity, printings } = entry
     return (
@@ -175,6 +210,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
         <span className="fv-row-detail text-dim">{card.subtypes.join(' ')}</span>
         <span className="fv-row-cost text-dim">{card.cost ?? ''}</span>
         <span className="fv-row-price text-dim">{card.price != null ? formatPrice(card.price * quantity) : ''}</span>
+        {renderTags(card)}
         {renderStepper(zoneId, entry)}
       </div>
     )
@@ -205,6 +241,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
               {legality.legal ? t.deckView.legal : t.deckView.issues(legality.issues.length)}
             </span>
           )}
+          {!readOnly && <RotationBadge deck={deck} format={format} cardsById={cardsById} />}
         </div>
 
         <div className="fv-modes" role="group" aria-label={t.deckView.view}>
@@ -214,6 +251,16 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
             </button>
           ))}
         </div>
+
+        {mode !== 'text' && hasTags && (
+          <div className="fv-modes" role="group" aria-label={t.tags.groupBy}>
+            {(['type', 'tag'] as const).map((g) => (
+              <button key={g} className={g === groupBy ? 'btn btn-primary' : 'btn'} aria-pressed={g === groupBy} onClick={() => setGroupBy(g)}>
+                {g === 'type' ? t.tags.byType : t.tags.byTag}
+              </button>
+            ))}
+          </div>
+        )}
 
         {mode === 'grid' && (
           <label className="fv-size" title={t.deckView.sizeTitle}>
@@ -247,6 +294,11 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
           <button className="btn" onClick={() => setShowCompare(true)} title={t.compare.buttonTitle}>
             {t.compare.button}
           </button>
+          {!readOnly && (
+            <button className="btn" onClick={() => setShowHistory(true)} title={t.history.buttonTitle}>
+              {t.history.button}
+            </button>
+          )}
           <button className="btn" onClick={() => setShowProxies(true)} title={t.proxies.buttonTitle}>
             {t.proxies.button}
           </button>
@@ -311,7 +363,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
                     <div key={group.category} className="fv-group">
                       {section.groups.length > 1 && (
                         <h3 className="fv-group-title">
-                          {group.category} <span className="text-dim">({group.count})</span>
+                          {groupTitle(group.category)} <span className="text-dim">({group.count})</span>
                         </h3>
                       )}
                       <div className="fv-grid" style={{ '--fv-card-w': `${cardWidth}px` } as CSSProperties}>
@@ -325,7 +377,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
                       <div key={group.category} className="fv-group">
                         {section.groups.length > 1 && (
                           <h3 className="fv-group-title">
-                            {group.category} <span className="text-dim">({group.count})</span>
+                            {groupTitle(group.category)} <span className="text-dim">({group.count})</span>
                           </h3>
                         )}
                         {group.entries.map((entry) => renderRow(section.zoneId, entry))}
@@ -345,6 +397,8 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
       {showBuyList && <BuyListModal deck={deck} cardsById={cardsById} editable={!readOnly && !deck.locked} onClose={() => setShowBuyList(false)} />}
       {showProxies && <ProxyPrintModal deck={deck} cardsById={cardsById} onClose={() => setShowProxies(false)} />}
       {showCompare && <CompareDecksModal deck={deck} cardsById={cardsById} onClose={() => setShowCompare(false)} />}
+      {tagging && <CardTagsModal deck={deck} card={tagging} onClose={() => setTagging(null)} />}
+      {showHistory && <DeckHistoryModal deck={deck} cardsById={cardsById} onClose={() => setShowHistory(false)} />}
       {showExport && format && <ExportModal deck={deck} format={format} cardsById={cardsById} onClose={() => setShowExport(false)} />}
     </div>
   )

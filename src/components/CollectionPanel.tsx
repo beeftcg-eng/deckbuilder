@@ -10,9 +10,13 @@ import { getLanguage, t } from '../shared/i18n'
 import { batchCopies, type CollectionBatch } from '../shared/collectionBatches'
 import { Rich } from './Rich'
 import { ValueChart } from './ValueChart'
-import { CollectionImportModal } from './CollectionImportModal'
 import { collectionCsv } from '../shared/collectionImport'
 import { PackOpeningsTab } from './PackOpeningsTab'
+import { copyBreakdown, ownedValue, type CopyDetail } from '../shared/copyDetails'
+import { lazyModal } from './lazyModal'
+
+const CollectionImportModal = lazyModal(() => import('./CollectionImportModal'), 'CollectionImportModal')
+const CopyDetailsModal = lazyModal(() => import('./CopyDetailsModal'), 'CopyDetailsModal')
 
 type Tab = 'cards' | 'sets' | 'packs'
 type Sort = 'name' | 'set' | 'copies' | 'value'
@@ -23,6 +27,25 @@ const COPY_CHOICES = [1, 2, 3, 4]
 interface OwnedEntry {
   card: Card
   copies: number
+  /** Copies that are foil or not Near Mint (copyDetails.ts). */
+  details?: CopyDetail[]
+  /** What the copies are worth, foils at the foil price. */
+  worth: number
+}
+
+/** "2 foil · 1 LP": the copies that aren't plain Near Mint, for a collection row. */
+function detailSummary(copies: number, details: CopyDetail[] | undefined): string {
+  if (!details?.length) return ''
+  const parts: string[] = []
+  const byFinish = new Map<string, number>()
+  const byCondition = new Map<string, number>()
+  for (const d of copyBreakdown(copies, details)) {
+    if (d.finish !== 'normal') byFinish.set(d.finish, (byFinish.get(d.finish) ?? 0) + d.quantity)
+    if (d.condition !== 'NM') byCondition.set(d.condition, (byCondition.get(d.condition) ?? 0) + d.quantity)
+  }
+  for (const [finish, n] of byFinish) parts.push(`${n} ${t.copyDetails.finishes[finish as CopyDetail['finish']].toLowerCase()}`)
+  for (const [condition, n] of byCondition) parts.push(`${n} ${condition}`)
+  return parts.join(' · ')
 }
 
 /** Your collection for the game being browsed: the cards you own, and set-by-set progress with bulk add. */
@@ -40,6 +63,7 @@ export function CollectionPanel() {
   const valuePoints = useAppStore((s) => s.settings.valueHistory?.[s.currentGameId])
   const recordCollectionValue = useAppStore((s) => s.recordCollectionValue)
   const allBatches = useAppStore((s) => s.settings.collectionBatches)
+  const allDetails = useAppStore((s) => s.settings.collectionDetails)
   const { recordCollectionBatch, undoCollectionBatch, removeFromCollection, clearCollection } = useAppStore.getState()
   const adapter = getAdapter(currentGameId)
 
@@ -51,6 +75,7 @@ export function CollectionPanel() {
   const [message, setMessage] = useState<string | null>(null)
   const [detail, setDetail] = useState<Card | null>(null)
   const [importing, setImporting] = useState(false)
+  const [editingDetails, setEditingDetails] = useState<Card | null>(null)
   // Select mode (My cards): the cards ticked for deleting together. Belongs to the game it was started in.
   const [selection, setSelection] = useState<{ gameId: GameId; ids: Set<string> } | null>(null)
   const selecting = selection?.gameId === currentGameId
@@ -65,14 +90,15 @@ export function CollectionPanel() {
     for (const [cardId, copies] of Object.entries(collection)) {
       if (gameIdOfCardId(cardId) !== currentGameId) continue
       const card = catalog?.byId.get(cardId)
-      if (card) entries.push({ card, copies })
+      const details = allDetails?.[cardId]
+      if (card) entries.push({ card, copies, details, worth: ownedValue(card, copies, details) })
       else unknown += 1 // owned, but the card isn't in the loaded data (not synced, or dropped from the source)
     }
     return { entries, unknown }
-  }, [collection, catalog, currentGameId])
+  }, [collection, catalog, currentGameId, allDetails])
 
   const totalCopies = owned.entries.reduce((sum, e) => sum + e.copies, 0)
-  const value = totalPrice(owned.entries.map((e) => ({ card: e.card, quantity: e.copies })))
+  const value = totalPrice(owned.entries.map((e) => ({ card: e.card, quantity: e.copies, details: e.details })))
 
   // Today's point on the value graph follows the cards you add and remove.
   useEffect(() => {
@@ -88,7 +114,7 @@ export function CollectionPanel() {
       name: (a, b) => a.card.name.localeCompare(b.card.name),
       set: (a, b) => a.card.setName.localeCompare(b.card.setName) || a.card.number.localeCompare(b.card.number, undefined, { numeric: true }),
       copies: (a, b) => b.copies - a.copies || a.card.name.localeCompare(b.card.name),
-      value: (a, b) => (b.card.price ?? 0) * b.copies - (a.card.price ?? 0) * a.copies || a.card.name.localeCompare(b.card.name),
+      value: (a, b) => b.worth - a.worth || a.card.name.localeCompare(b.card.name),
     }
     return [...matching].sort(compare[sort])
   }, [owned, needle, sort])
@@ -314,7 +340,7 @@ export function CollectionPanel() {
                 <div className="text-dim">{t.collection.unknown(owned.unknown)}</div>
               )}
               <div className="col-list">
-                {visibleOwned.slice(0, shown).map(({ card, copies }) => (
+                {visibleOwned.slice(0, shown).map(({ card, copies, details, worth }) => (
                   <div key={card.id} className="col-row">
                     {selected && (
                       <input type="checkbox" className="col-select" checked={selected.has(card.id)} onChange={() => toggleSelected(card.id)} aria-label={card.name} />
@@ -327,7 +353,10 @@ export function CollectionPanel() {
                       {card.setCode} · {card.number}
                       {card.rarity ? ` · ${card.rarity}` : ''}
                     </span>
-                    {card.price != null && <span className="text-dim col-price">{formatPrice(card.price * copies)}</span>}
+                    <button className={details?.length ? 'link-btn col-finish col-finish-set' : 'link-btn col-finish'} title={t.copyDetails.buttonTitle} onClick={() => setEditingDetails(card)}>
+                      {detailSummary(copies, details) || t.copyDetails.button}
+                    </button>
+                    {card.price != null && <span className="text-dim col-price">{formatPrice(worth)}</span>}
                     <label
                       className="col-for-trade"
                       title={tradeProfile?.public ? t.collection.forTradeTitle : t.collection.forTradeOffTitle}
@@ -402,6 +431,7 @@ export function CollectionPanel() {
       )}
 
       {detail && <CardDetailModal card={detail} onClose={() => setDetail(null)} />}
+      {editingDetails && <CopyDetailsModal card={editingDetails} onClose={() => setEditingDetails(null)} />}
       {importing && <CollectionImportModal gameId={currentGameId} onClose={() => setImporting(false)} onImported={(n) => flash(t.collectionImport.added(n))} />}
     </div>
   )

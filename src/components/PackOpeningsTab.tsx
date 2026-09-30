@@ -7,7 +7,9 @@ import { newOpening, openingValue, type PackOpening } from '../shared/packOpenin
 import { targetToUsd } from '../shared/priceAlerts'
 import type { Card, GameId } from '../shared/types'
 import { getLanguage, t } from '../shared/i18n'
-import { PackShareModal } from './PackShareModal'
+import { lazyModal } from './lazyModal'
+
+const PackShareModal = lazyModal(() => import('./PackShareModal'), 'PackShareModal')
 
 const SEARCH_LIMIT = 12
 

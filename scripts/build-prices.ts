@@ -33,6 +33,8 @@ interface Group {
 }
 interface PriceRow {
   productId: number
+  /** "Normal", "Foil", "Holofoil", "Reverse Holofoil", "1st Edition"... */
+  subTypeName?: string | null
   marketPrice: number | null
   midPrice: number | null
   lowPrice: number | null
@@ -67,15 +69,33 @@ async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise
   return out
 }
 
-/** The cheapest way to own each product (a card's Normal / Foil / 1st Edition rows), by product id. */
-async function groupPrices(category: number, groupId: number): Promise<Map<number, number>> {
+/** Regular prices and foil prices, each by key. */
+interface Prices {
+  prices: Record<string, number>
+  foilPrices: Record<string, number>
+}
+
+interface ProductPrices {
+  /** The cheapest way to own each product (a card's Normal / Foil / 1st Edition rows). */
+  any: Map<number, number>
+  /** The cheapest foil row (Foil, Holofoil, Reverse Holofoil...), for copies marked foil (copyDetails.ts). */
+  foil: Map<number, number>
+}
+
+function setLower(map: Map<number, number>, id: number, price: number) {
+  const had = map.get(id)
+  if (had == null || price < had) map.set(id, price)
+}
+
+/** Each product's prices, by product id. */
+async function groupPrices(category: number, groupId: number): Promise<ProductPrices> {
   const rows = (await getJson<{ results: PriceRow[] }>(`${BASE}/${category}/${groupId}/prices`)).results
-  const out = new Map<number, number>()
+  const out: ProductPrices = { any: new Map(), foil: new Map() }
   for (const r of rows) {
     const price = r.marketPrice ?? r.midPrice ?? r.lowPrice
     if (price == null || price <= 0) continue
-    const had = out.get(r.productId)
-    if (had == null || price < had) out.set(r.productId, price)
+    setLower(out.any, r.productId, price)
+    if (/foil/i.test(r.subTypeName ?? '')) setLower(out.foil, r.productId, price)
   }
   return out
 }
@@ -92,7 +112,7 @@ function keep(prices: Record<string, number>, key: string, price: number) {
   if (prices[key] == null || price < prices[key]) prices[key] = Math.round(price * 100) / 100
 }
 
-async function riftbound(): Promise<Record<string, number>> {
+async function riftbound(): Promise<Prices> {
   // Riftbound's card data carries each card's TCGplayer product id; set + printed number covers the
   // cards it doesn't have one for yet (a brand-new set).
   const prices = await byProductList(CATEGORY.riftbound, (group, p) => {
@@ -100,21 +120,26 @@ async function riftbound(): Promise<Record<string, number>> {
     return group.abbreviation && number ? [riftboundKey(group.abbreviation, number)] : []
   })
   for (const byProduct of await mapPool(await groupsOf(CATEGORY.riftbound), CONCURRENCY, (g) => groupPrices(CATEGORY.riftbound, g.groupId))) {
-    for (const [id, price] of byProduct) keep(prices, String(id), price)
+    for (const [id, price] of byProduct.any) keep(prices.prices, String(id), price)
+    for (const [id, price] of byProduct.foil) keep(prices.foilPrices, String(id), price)
   }
   return prices
 }
 
-async function byProductList(category: number, keysOf: (group: Group, product: Product) => string[]): Promise<Record<string, number>> {
-  const prices: Record<string, number> = {}
+async function byProductList(category: number, keysOf: (group: Group, product: Product) => string[]): Promise<Prices> {
+  const prices: Prices = { prices: {}, foilPrices: {} }
   const groups = await groupsOf(category)
   await mapPool(groups, CONCURRENCY, async (group) => {
     try {
       const [products, byProduct] = await Promise.all([getJson<{ results: Product[] }>(`${BASE}/${category}/${group.groupId}/products`), groupPrices(category, group.groupId)])
       for (const p of products.results) {
-        const price = byProduct.get(p.productId)
+        const price = byProduct.any.get(p.productId)
         if (price == null) continue
-        for (const key of keysOf(group, p)) keep(prices, key, price)
+        const foil = byProduct.foil.get(p.productId)
+        for (const key of keysOf(group, p)) {
+          keep(prices.prices, key, price)
+          if (foil != null) keep(prices.foilPrices, key, foil)
+        }
       }
     } catch (err) {
       console.warn(`skipped group ${group.name}: ${err instanceof Error ? err.message : err}`)
@@ -150,11 +175,14 @@ async function rates(): Promise<Record<string, number>> {
 }
 
 /** Prices from the app's own download of a game (the ids match the app's, uniquified the same way). */
-function byCardId(game: GameId): () => Promise<Record<string, number>> {
+function byCardId(game: GameId): () => Promise<Prices> {
   return async () => {
     const cards = uniquifyCardIds(await getAdapter(game).fetchAllCards(() => {}))
-    const prices: Record<string, number> = {}
-    for (const card of cards) if (card.price != null && card.price > 0) prices[idKey(card)] = Math.round(card.price * 100) / 100
+    const prices: Prices = { prices: {}, foilPrices: {} }
+    for (const card of cards) {
+      if (card.price != null && card.price > 0) prices.prices[idKey(card)] = Math.round(card.price * 100) / 100
+      if (card.foilPrice != null && card.foilPrice > 0) prices.foilPrices[idKey(card)] = Math.round(card.foilPrice * 100) / 100
+    }
     return prices
   }
 }
@@ -171,12 +199,13 @@ try {
 }
 for (const [game, build] of Object.entries({ riftbound, pokemon, yugioh, onepiece: byCardId('onepiece'), mtg: byCardId('mtg') })) {
   try {
-    const prices = await build()
+    const { prices, foilPrices } = await build()
     const count = Object.keys(prices).length
     if (!count) throw new Error('no prices')
-    const file: PriceFile = { updatedAt: new Date().toISOString(), prices }
+    const foilCount = Object.keys(foilPrices).length
+    const file: PriceFile = { updatedAt: new Date().toISOString(), prices, ...(foilCount ? { foilPrices } : {}) }
     await writeFile(join(out, `${game}.json`), JSON.stringify(file))
-    console.log(`${game}: ${count} prices`)
+    console.log(`${game}: ${count} prices, ${foilCount} foil prices`)
   } catch (err) {
     console.warn(`::warning::${game} prices skipped: ${err instanceof Error ? err.message : err}`)
   }

@@ -5,8 +5,10 @@ import { formatPrice } from '../shared/collection'
 import { rarityColorClass } from '../shared/rarityColor'
 import { artUrl, artworkIds, knownArtIds } from '../shared/artChoice'
 import { useState } from 'react'
-import { CardImageViewer } from './CardImageViewer'
 import { t } from '../shared/i18n'
+import { lazyModal } from './lazyModal'
+
+const CardImageViewer = lazyModal(() => import('./CardImageViewer'), 'CardImageViewer')
 
 export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose: () => void }) {
   // Read the card from the catalog, so picking an artwork below shows up here straight away.

@@ -34,6 +34,12 @@ export const pt: Messages = {
     welcome2: 'você também pode explorar cartas e adicioná-las à lista de desejos sem um.',
   },
 
+  crash: {
+    title: 'Algo deu errado aqui',
+    body: 'Esta parte do app encontrou um erro. Seus decks e sua coleção estão seguros. Tente de novo ou envie um relatório para que seja corrigido.',
+    retry: 'Tentar de novo',
+  },
+
   compare: {
     button: '⇄ Comparar',
     buttonTitle: 'Veja o que muda entre este deck e outro, ou uma lista colada',
@@ -49,6 +55,50 @@ export const pt: Messages = {
     copy: 'Copiar mudanças',
     same: 'As mesmas cartas: não há nada para mudar.',
     noCards: (game) => `Nenhuma carta de ${game} foi reconhecida nessa lista ainda.`,
+  },
+
+  tags: {
+    button: '🏷',
+    buttonTitle: 'Etiquete esta carta (ramp, remoção, compra…)',
+    title: (name: string) => `Etiquetas de ${name}`,
+    placeholder: 'ramp, remoção, compra…',
+    save: 'Salvar',
+    used: 'Neste deck:',
+    help: 'Separe as etiquetas com vírgulas. Todas as impressões da carta as compartilham, e a visualização do deck pode agrupar as cartas por etiqueta.',
+    groupBy: 'Agrupar',
+    byType: 'Por tipo',
+    byTag: 'Por etiqueta',
+    untagged: 'Sem etiqueta',
+  },
+
+  rotation: {
+    badge: (n: number) => `⟳ ${n} rotacionam`,
+    title: 'Estas cartas saem do formato na próxima rotação:',
+    titleOn: (date: string) => `Estas cartas saem do formato na rotação de ${date}:`,
+    editorTitle: 'Próxima rotação',
+    editorHelp: '— marque os sets legais que saem nessa data; decks com essas cartas recebem um aviso',
+    date: 'Data',
+  },
+
+  history: {
+    button: '🕘 Histórico',
+    buttonTitle: 'As listas anteriores deste deck: veja o que mudou ou volte para uma',
+    title: (name: string) => `Histórico de ${name}`,
+    intro: 'Uma versão é salva sozinha quando você começa a mudar o deck depois de um tempo, e sempre que você salva uma aqui.',
+    none: 'Ainda não há versões anteriores. Uma é salva sozinha na próxima vez que você mudar este deck depois de um tempo, ou salve a lista agora.',
+    auto: 'Salva sozinha',
+    namePlaceholder: 'Dê um nome a esta versão (ex.: depois do regional)',
+    saveNow: 'Salvar a lista atual',
+    savedSame: 'A lista atual já está salva.',
+    changesFrom: (when: string) => `De ${when} até agora:`,
+    restore: 'Voltar para esta lista',
+    restoreConfirm: (when: string) => `Substituir a lista do deck pela de ${when}? A lista atual é salva antes como versão, e Desfazer reverte isso.`,
+    restoreUndo: (when: string) => `Voltar para a lista de ${when}`,
+    rename: 'Renomear',
+    renamePrompt: 'Nome desta versão:',
+    delete: 'Excluir',
+    deleteConfirm: 'Excluir esta versão? O deck continua como está.',
+    locked: 'O deck está bloqueado, então não pode voltar a uma lista anterior até você desbloqueá-lo.',
   },
 
   deckNotes: {
@@ -345,6 +395,13 @@ export const pt: Messages = {
   },
 
   importDeck: {
+    fetchLink: '⇩ Buscar o deck deste link',
+    fetching: 'Buscando o deck…',
+    linkEmpty: 'Nenhuma carta encontrada nessa página.',
+    linkOtherGame: (game: string) => `Esse é um deck de ${game}: mude para ${game} para importá-lo.`,
+    linkBlocked: 'Esse site não deixa o app do celular ler os decks dele. Abra o deck lá, copie a lista (Exportar / Copiar) e cole aqui, ou importe o link no app para computador.',
+    linkFailed: (status: string) => `Não foi possível buscar o deck (${status}). O link está certo e o deck é público?`,
+    linkHint: 'Links do Archidekt e do Limitless também funcionam.',
     title: (game) => `Importar lista de deck de ${game}`,
     noData: (game) => `Ainda não há dados de cartas de ${game} — use “Baixar dados de cartas” na barra lateral e depois importe.`,
     placeholder:
@@ -797,6 +854,22 @@ export const pt: Messages = {
     setNotes: {
       yugioh: 'Algumas cartas recém-reveladas ou exclusivas do OCG ainda não têm dados de coleção e não aparecem em nenhuma.',
     },
+  },
+
+  copyDetails: {
+    button: '✦ Acabamento…',
+    buttonTitle: 'Marque cópias como foil, ou como fora de Near Mint',
+    title: (name: string) => `Acabamento e estado: ${name}`,
+    intro: (n: number) => `Você tem ${n} ${plural(n, 'cópia', 'cópias')}. As cópias que não aparecem abaixo são normais (não foil) e Near Mint.`,
+    plainRow: (n: number) => `Normal · Near Mint: ${n}`,
+    add: '+ Adicionar',
+    remove: 'Remover',
+    tooMany: (n: number) => `É mais do que ${plural(n, 'a cópia', `as ${n} cópias`)} que você tem.`,
+    save: 'Salvar',
+    foilPrice: (price: string) => `Preço foil: ${price}`,
+    noFoilPrice: 'Esta carta não tem preço foil separado, então as cópias foil contam pelo preço normal.',
+    finishes: { normal: 'Normal', foil: 'Foil', etched: 'Etched' },
+    conditions: { NM: 'Quase nova (NM)', LP: 'Pouco jogada (LP)', MP: 'Moderadamente jogada (MP)', HP: 'Muito jogada (HP)', DMG: 'Danificada (DMG)' },
   },
 
   collectionImport: {

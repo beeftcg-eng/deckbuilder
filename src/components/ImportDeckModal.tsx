@@ -9,6 +9,7 @@ import type { GameId } from '../shared/types'
 import { t } from '../shared/i18n'
 import { formatLabel } from '../shared/formatText'
 import { parseShareToken } from '../shared/deckShare'
+import { applySiteExtras, deckFromSite, deckUrlTarget, type DeckFromSite } from '../shared/deckUrl'
 import { Rich } from './Rich'
 
 const MAX_UNMATCHED_SHOWN = 8
@@ -25,6 +26,9 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
   const [formatDraft, setFormatDraft] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // A deck read from a link (Archidekt, Limitless): its exact printings and tags, applied on import.
+  const [fromSite, setFromSite] = useState<DeckFromSite | null>(null)
+  const [fetching, setFetching] = useState(false)
 
   const defaultFormatId = formats[0]?.id ?? ''
   // When a list gives only a card's name, use the printing you own, then one that's legal in the chosen format,
@@ -49,6 +53,26 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
   // A pasted Brewhouse share link opens that deck (from any game) instead of being parsed as a list.
   const shareToken = parseShareToken(text)
 
+  // A pasted link to a deck site (deckUrl.ts) is fetched instead of parsed.
+  const siteTarget = shareToken ? null : deckUrlTarget(text)
+
+  async function fetchFromSite() {
+    if (!siteTarget) return
+    setFetching(true)
+    setError(null)
+    try {
+      const site = deckFromSite(siteTarget.site, await window.api.fetchDeckPage(text.trim()))
+      if (!site.text.trim()) throw new Error(t.importDeck.linkEmpty)
+      setFromSite(site)
+      setText(site.text)
+      if (site.name && nameDraft == null) setNameDraft(site.name)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setFetching(false)
+    }
+  }
+
   function openShareLink() {
     if (!shareToken) return
     void useAppStore.getState().openSharedLink(shareToken)
@@ -59,7 +83,8 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
     setImporting(true)
     setError(null)
     try {
-      await importDeck(gameId, parsed, name.trim() || t.importDeck.defaultName, formatId)
+      const { parsed: exact, tags } = fromSite ? applySiteExtras(parsed, fromSite, cardsById) : { parsed, tags: {} }
+      await importDeck(gameId, exact, name.trim() || t.importDeck.defaultName, formatId, tags)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -84,12 +109,25 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
             <textarea
               className="export-textarea"
               autoFocus
-              placeholder={`${t.importDeck.placeholder}\n${t.share.importHint}`}
+              placeholder={`${t.importDeck.placeholder}\n${t.share.importHint}\n${t.importDeck.linkHint}`}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value)
+                setFromSite(null)
+              }}
             />
 
-            {shareToken ? (
+            {siteTarget ? (
+              <div className="import-summary">
+                {siteTarget.gameId === gameId ? (
+                  <button className="btn btn-primary" disabled={fetching} onClick={() => void fetchFromSite()}>
+                    {fetching ? t.importDeck.fetching : t.importDeck.fetchLink}
+                  </button>
+                ) : (
+                  <span className="sync-error">{t.importDeck.linkOtherGame(getAdapter(siteTarget.gameId).shortName)}</span>
+                )}
+              </div>
+            ) : shareToken ? (
               <div className="import-summary">
                 <button className="btn btn-primary" onClick={openShareLink}>
                   {t.share.openLink}

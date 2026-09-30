@@ -127,6 +127,21 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
     })
   }
 
+  function toggleLeaving(setId: string) {
+    edit((f) => {
+      const current = f.nextRotation?.leavingSetIds ?? []
+      const leavingSetIds = current.includes(setId) ? current.filter((s) => s !== setId) : [...current, setId]
+      return { ...f, nextRotation: { ...f.nextRotation, leavingSetIds } }
+    })
+  }
+
+  function setRotationDate(date: string) {
+    edit((f) => {
+      const { date: _old, ...rest } = f.nextRotation ?? { leavingSetIds: [] }
+      return { ...f, nextRotation: date ? { ...rest, date } : rest }
+    })
+  }
+
   async function handleSave() {
     setSaving(true)
     setError(null)
@@ -233,6 +248,30 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
                     </span>
                   </label>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {active.legalSetIds && active.legalSetIds.length > 0 && (
+            <section className="banlist-section">
+              <h3>
+                {t.rotation.editorTitle} <span className="text-dim">{t.rotation.editorHelp}</span>
+              </h3>
+              <label className="rotation-date">
+                <span className="text-dim">{t.rotation.date}</span>
+                <input type="date" value={active.nextRotation?.date ?? ''} onChange={(e) => setRotationDate(e.target.value)} />
+              </label>
+              <div className="set-checklist">
+                {sets
+                  .filter(([id]) => active.legalSetIds!.includes(id))
+                  .map(([id, name]) => (
+                    <label key={id}>
+                      <input type="checkbox" checked={active.nextRotation?.leavingSetIds.includes(id) ?? false} onChange={() => toggleLeaving(id)} />
+                      <span>
+                        {name} <span className="text-dim">{id}</span>
+                      </span>
+                    </label>
+                  ))}
               </div>
             </section>
           )}

@@ -43,8 +43,8 @@ export async function fetchPriceUpdate(gameId: GameId, since?: string | null): P
 
 /** The cards with today's prices, and how many changed. A card the file doesn't list keeps its price. */
 export function applyPriceUpdate(cards: Card[], file: PriceFile): { cards: Card[]; changed: number } {
-  const updated = applyPriceFile(cards, file.prices, priceKeysFor)
+  const updated = applyPriceFile(cards, file, priceKeysFor)
   let changed = 0
-  for (let i = 0; i < cards.length; i++) if (updated[i].price !== cards[i].price) changed++
+  for (let i = 0; i < cards.length; i++) if (updated[i].price !== cards[i].price || updated[i].foilPrice !== cards[i].foilPrice) changed++
   return { cards: updated, changed }
 }

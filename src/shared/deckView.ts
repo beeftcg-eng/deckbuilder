@@ -1,5 +1,6 @@
 import type { Card, Deck, DeckRules, DeckViewMode } from './types'
 import { poolKey } from './collection'
+import { tagsOf } from './deckTags'
 
 export const DECK_VIEW_MODES: readonly DeckViewMode[] = ['grid', 'list', 'text']
 
@@ -18,8 +19,12 @@ export interface DeckViewEntry {
   copies: { card: Card; quantity: number }[]
 }
 
-/** Cards of one type within a zone, e.g. the Creatures in a Main Deck. */
+/** How a zone's cards are grouped: by card type, or by your own tags (deckTags.ts). */
+export type DeckGroupBy = 'type' | 'tag'
+
+/** Cards of one type within a zone, e.g. the Creatures in a Main Deck; or of one tag. */
 export interface DeckViewGroup {
+  /** The card type, or the tag ('' for cards without one when grouping by tag). */
   category: string
   /** Copies, not distinct cards. */
   count: number
@@ -56,7 +61,7 @@ const sum = (entries: { quantity: number }[]) => entries.reduce((total, e) => to
  * Piece) - are one entry with their copies added up, not a row per set or rarity. Cards missing
  * from the loaded catalog (its game hasn't been synced) are left out, as in the exported image.
  */
-export function buildDeckView(deck: Deck, rules: DeckRules, cardsById: Map<string, Card>): DeckViewSection[] {
+export function buildDeckView(deck: Deck, rules: DeckRules, cardsById: Map<string, Card>, groupBy: DeckGroupBy = 'type'): DeckViewSection[] {
   const sections: DeckViewSection[] = []
 
   for (const zone of rules.zones) {
@@ -69,14 +74,19 @@ export function buildDeckView(deck: Deck, rules: DeckRules, cardsById: Map<strin
     const entries = mergePrintings(deck.zones[zone.id] ?? [], cardsById)
     const byCategory = new Map<string, DeckViewEntry[]>() // Map keeps first-appearance order
     for (const entry of entries) {
-      const list = byCategory.get(entry.card.category) ?? []
-      list.push(entry)
-      byCategory.set(entry.card.category, list)
+      // By tag, a card with two tags shows under both; untagged cards come last.
+      const keys = groupBy === 'tag' ? tagsOf(deck, entry.card) : [entry.card.category]
+      for (const key of keys.length ? keys : ['']) {
+        const list = byCategory.get(key) ?? []
+        list.push(entry)
+        byCategory.set(key, list)
+      }
     }
     if (byCategory.size === 0) continue
 
     const groups: DeckViewGroup[] = [...byCategory.entries()].map(([category, list]) => ({ category, count: sum(list), entries: list }))
-    sections.push({ zoneId: zone.id, label: zone.label, count: groups.reduce((total, g) => total + g.count, 0), groups, chips: [] })
+    if (groupBy === 'tag') groups.sort((a, b) => (a.category === '' ? 1 : 0) - (b.category === '' ? 1 : 0) || b.count - a.count || a.category.localeCompare(b.category))
+    sections.push({ zoneId: zone.id, label: zone.label, count: sum(entries), groups, chips: [] })
   }
 
   return sections

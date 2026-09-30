@@ -1,6 +1,7 @@
 import type { ValueHistory } from './valueHistory'
 import type { PriceAlerts } from './priceAlerts'
 import type { PackOpening } from './packOpenings'
+import type { CollectionDetails } from './copyDetails'
 import type { CollectionBatch } from './collectionBatches'
 
 export type GameId = 'pokemon' | 'onepiece' | 'riftbound' | 'mtg' | 'yugioh'
@@ -52,6 +53,8 @@ export interface Card {
    * before prices were added don't have the field until the next sync.
    */
   price?: number | null
+  /** Market price of a foil copy in USD, where the source tells foils apart (Scryfall's usd_foil, TCGplayer's Foil / Holofoil rows); see copyDetails.ts. */
+  foilPrice?: number | null
   /** Riftbound: TCGplayer's product id, which daily price updates are matched by (see priceRefresh.ts). */
   tcgplayerId?: string
   /**
@@ -151,12 +154,28 @@ export interface Deck {
   freeTextZones: Record<string, DeckFreeTextEntry[]>
   createdAt: string
   updatedAt: string
+  /** Earlier lists of this deck, oldest first (deckHistory.ts). Synced with the deck, left out of share links. */
+  versions?: DeckVersion[]
+  /** Your own labels on cards in this deck ("ramp", "removal"), by card name key (deckTags.ts). Synced, and shown on share links. */
+  tags?: Record<string, string[]>
   /**
    * A readable digest of the deck (leader/legend name, colors, card count, format label), refreshed
    * on every save while the game's cards are loaded - see deckSummary.ts. Card ids alone mean
    * nothing outside this app, so this is what Pairings shows for a deck it imported from here.
    */
   summary?: DeckSummary
+}
+
+/** One earlier list of a deck (deckHistory.ts). */
+export interface DeckVersion {
+  id: string
+  /** When it was saved (ISO). */
+  at: string
+  /** A name given by hand ("after regionals"); unset for ones saved by themselves. */
+  name?: string
+  formatId: string
+  zones: Record<string, DeckCardEntry[]>
+  freeTextZones: Record<string, DeckFreeTextEntry[]>
 }
 
 /** A deck someone shared by link, as read with deckShare.ts's fetchSharedDeck. */
@@ -205,6 +224,8 @@ export interface Format {
   restrictedCardIds: string[]
   /** Pairs of card ids/names that cannot both appear in the same deck. */
   bannedPairs: [string, string][]
+  /** The next rotation, as far as it's known (rotation.ts): the date, and the legal sets that leave then. Kept by hand in the ban list editor. */
+  nextRotation?: { date?: string; leavingSetIds: string[] }
   /**
    * When this game's ban/rotation data was last reviewed or edited (ISO). Set
    * when saving from the in-app editor; for files that predate it, the main
@@ -294,6 +315,8 @@ export interface AppSettings {
   packOpenings?: PackOpening[]
   /** Recent many-card collection changes, newest first, kept so each can be undone (collectionBatches.ts). This device only. */
   collectionBatches?: CollectionBatch[]
+  /** Finish and condition of owned copies that aren't plain Near Mint, by card id (copyDetails.ts). */
+  collectionDetails?: CollectionDetails
   /** Set after the first pull that included synced items (sync/items.ts firstMerge), so later pulls replace instead of merge. */
   itemsSynced?: boolean
   /** Trade matches already announced on this device (tradeAlerts.ts). */

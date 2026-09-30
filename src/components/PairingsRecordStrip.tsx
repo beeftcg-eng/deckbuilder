@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { summarizeRecord, type Matchup } from '../shared/pairingsRecord'
 import type { Deck } from '../shared/types'
-import { PairingsAccountModal } from './PairingsAccountModal'
 import { t } from '../shared/i18n'
+import { lazyModal } from './lazyModal'
+
+const PairingsAccountModal = lazyModal(() => import('./PairingsAccountModal'), 'PairingsAccountModal')
 
 /** This deck's tournament record from Pairings, under the deck view's header (see shared/pairingsRecord.ts). */
 export function PairingsRecordStrip({ deck }: { deck: Deck }) {

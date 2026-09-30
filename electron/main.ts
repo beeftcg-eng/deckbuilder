@@ -6,6 +6,7 @@ import { registerDecksIpc } from './ipc/decks'
 import { registerBindersIpc } from './ipc/binders'
 import { registerFormatsIpc } from './ipc/formats'
 import { registerExportIpc } from './ipc/exportPaste'
+import { registerDeckUrlIpc } from './ipc/deckUrl'
 import { registerImagesIpc } from './ipc/images'
 import { registerImageProtocol, registerImageSchemePrivileges } from './ipc/imageProtocol'
 import { ImageFetcher } from './lib/imageCache'
@@ -72,6 +73,7 @@ registerDecksIpc()
 registerBindersIpc()
 registerFormatsIpc()
 registerExportIpc()
+registerDeckUrlIpc()
 registerImageSchemePrivileges()
 const imageFetcher = new ImageFetcher({ cacheDir: join(userDataDir(), 'image-cache') })
 registerImagesIpc(imageFetcher)

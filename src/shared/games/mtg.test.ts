@@ -105,7 +105,8 @@ describe('normalizeCard', () => {
     expect(normalizeCard(RAW_UNPLAYABLE)).toBeNull()
     const upcoming = normalizeCard(RAW_FUTURE)
     expect(upcoming).not.toBeNull()
-    expect(upcoming?.legality).toEqual({})
+    // Not legal anywhere yet, only in the upcoming Standard (kept for rotation.ts).
+    expect(upcoming?.legality).toEqual({ future: 'legal' })
   })
 })
 

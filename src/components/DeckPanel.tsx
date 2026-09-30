@@ -1,4 +1,3 @@
-import { MoveCardsModal } from './MoveCardsModal'
 import { useMemo, useState } from 'react'
 import { useAppStore, useCardsById, useOwnedIndex, wishlistIndexOf } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
@@ -7,13 +6,8 @@ import { checkDeckLegality } from '../shared/legality'
 import { computeDeckStats } from '../shared/deckStats'
 import { missingForDeck, neededByPool, poolKey, totalPrice } from '../shared/collection'
 import { LegalityPanel } from './LegalityPanel'
-import { ExportModal } from './ExportModal'
 import { DeckStats } from './DeckStats'
-import { SampleHandModal } from './SampleHandModal'
-import { ProxyPrintModal } from './ProxyPrintModal'
-import { BuyListModal } from './BuyListModal'
 import { FolderPicker } from './FolderPicker'
-import { BanListEditor } from './BanListEditor'
 import { DeckLockButton } from './DeckLockButton'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
 import { DeckIcon } from './DeckIcon'
@@ -23,6 +17,14 @@ import { DECK_CARD_SORTS, sortDeckCards, type DeckCardSort } from '../shared/dec
 import type { Card, Deck, DeckZoneRule, Format } from '../shared/types'
 import { t, zoneLabel } from '../shared/i18n'
 import { formatDescription, formatLabel } from '../shared/formatText'
+import { lazyModal } from './lazyModal'
+
+const ExportModal = lazyModal(() => import('./ExportModal'), 'ExportModal')
+const ProxyPrintModal = lazyModal(() => import('./ProxyPrintModal'), 'ProxyPrintModal')
+const BuyListModal = lazyModal(() => import('./BuyListModal'), 'BuyListModal')
+const SampleHandModal = lazyModal(() => import('./SampleHandModal'), 'SampleHandModal')
+const BanListEditor = lazyModal(() => import('./BanListEditor'), 'BanListEditor')
+const MoveCardsModal = lazyModal(() => import('./MoveCardsModal'), 'MoveCardsModal')
 
 /** What a zone's header says about its size, e.g. "/40", ", at least 60", ", up to 15". */
 function zoneCountHint(zone: DeckZoneRule): string {

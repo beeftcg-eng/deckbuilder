@@ -1,6 +1,7 @@
 import { formatMoney } from './currency'
 import type { Card, Deck, GameId } from './types'
 import { GAME_ADAPTERS, getAdapter } from './games/registry'
+import { ownedValue, type CopyDetail } from './copyDetails'
 
 export function normalizeName(value: string): string {
   return value
@@ -101,12 +102,13 @@ export interface PriceTotal {
   unpricedCopies: number
 }
 
-export function totalPrice(items: { card: Card; quantity: number }[]): PriceTotal {
+/** What the copies are worth. With `details` (owned copies' finishes, copyDetails.ts), foil copies count at the foil price. */
+export function totalPrice(items: { card: Card; quantity: number; details?: readonly CopyDetail[] }[]): PriceTotal {
   let total = 0
   let unpricedCopies = 0
-  for (const { card, quantity } of items) {
-    if (card.price != null) total += card.price * quantity
-    else unpricedCopies += quantity
+  for (const { card, quantity, details } of items) {
+    if (card.price == null) unpricedCopies += quantity
+    else total += details?.length ? ownedValue(card, quantity, details) : card.price * quantity
   }
   return { total, unpricedCopies }
 }

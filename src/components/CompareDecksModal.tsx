@@ -7,6 +7,7 @@ import { parseDecklistText } from '../shared/importDeck'
 import { compareDecks, diffText } from '../shared/deckCompare'
 import type { Card, Deck } from '../shared/types'
 import { t, zoneLabel } from '../shared/i18n'
+import { DeckDiffList } from './DeckDiffList'
 
 type Source = 'deck' | 'paste'
 
@@ -98,39 +99,7 @@ export function CompareDecksModal({ deck, cardsById, onClose }: { deck: Deck; ca
                 )}
               </span>
             </div>
-            <div className="compare-body">
-              {diff.added === 0 && diff.removed === 0 ? (
-                <p className="text-dim">{t.compare.same}</p>
-              ) : (
-                diff.zones
-                  .filter((z) => z.changes.length)
-                  .map((zone) => (
-                    <section key={zone.zoneId} className="compare-zone">
-                      <h3>
-                        {zoneLabel(zone.label)}{' '}
-                        <span className="text-dim">
-                          {zone.fromCount} → {zone.toCount}
-                        </span>
-                      </h3>
-                      <ul>
-                        {zone.changes.map((c) => (
-                          <li key={c.name} className={c.to > c.from ? 'compare-add' : 'compare-remove'}>
-                            <b>
-                              {c.to > c.from ? '+' : '−'}
-                              {Math.abs(c.to - c.from)}
-                            </b>
-                            {c.card?.imageUrlSmall ? <img src={c.card.imageUrlSmall} alt="" loading="lazy" /> : null}
-                            <span className="compare-name">{c.name}</span>
-                            <span className="text-dim">
-                              {c.from} → {c.to}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  ))
-              )}
-            </div>
+            <DeckDiffList diff={diff} />
           </>
         )}
         {!diff && source === 'paste' && text.trim() && <p className="text-dim">{t.compare.noCards(adapter.shortName)}</p>}

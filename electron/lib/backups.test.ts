@@ -11,6 +11,8 @@ vi.mock('./paths', () => ({
   bindersFile: () => `${state.dir}/binders.json`,
   wishlistFile: () => `${state.dir}/wishlist.json`,
   collectionFile: () => `${state.dir}/collection.json`,
+  settingsFile: () => `${state.dir}/settings.json`,
+  itemsFile: () => `${state.dir}/items.json`,
 }))
 
 import { snapshot } from './backups'

@@ -1,4 +1,5 @@
-import type { Binder, Collection, Deck, WishlistEntry } from '../../src/shared/types'
+import type { AppSettings, Binder, Collection, Deck, WishlistEntry } from '../../src/shared/types'
+import { splitSettings } from '../../src/shared/settingsItems'
 import { GAME_LIST } from '../../src/shared/games/registry'
 import { t } from '../../src/shared/i18n'
 
@@ -41,6 +42,8 @@ export type ParsedBackup =
       binders: Binder[] | null
       wishlist: WishlistEntry[] | null
       collection: Collection | null
+      /** Pack openings, alerts, value graph, batches and copy details, unchecked (settings.ts sanitizes them on restore). Null in older backups. */
+      items: AppSettings | null
       /** Deck/binder/wishlist entries that didn't look valid and were left out. */
       skipped: number
     }
@@ -74,5 +77,9 @@ export function parseBackupBundle(bundle: unknown): ParsedBackup {
     }
   }
 
-  return { ok: true, decks, binders, wishlist, collection, skipped }
+  // This app's backups keep them under `items`; the phone app's under `settings`, next to its preferences.
+  const itemsSource = isRecord(bundle.items) ? bundle.items : isRecord(bundle.settings) ? bundle.settings : null
+  const items = itemsSource ? splitSettings(itemsSource as AppSettings).items : null
+
+  return { ok: true, decks, binders, wishlist, collection, items: items && Object.keys(items).length ? items : null, skipped }
 }

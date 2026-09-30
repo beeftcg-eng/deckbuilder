@@ -39,6 +39,12 @@ export function settingsFile(): string {
   return join(userDataDir(), 'settings.json')
 }
 
+/** Pack openings, price alerts, the value graph, collection batches and copy details: the growing part of the
+ * settings, kept out of settings.json so saving a preference doesn't rewrite them (shared/settingsItems.ts). */
+export function itemsFile(): string {
+  return join(userDataDir(), 'items.json')
+}
+
 export function backupsDir(): string {
   return join(userDataDir(), 'backups')
 }

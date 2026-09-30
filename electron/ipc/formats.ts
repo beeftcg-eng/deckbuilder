@@ -49,6 +49,14 @@ function sanitizeFormat(raw: Format, reviewedAt: string): Format {
     bannedCardIds: isStringArray(raw.bannedCardIds) ? raw.bannedCardIds : [],
     restrictedCardIds: isStringArray(raw.restrictedCardIds) ? raw.restrictedCardIds : [],
     bannedPairs: pairs,
+    ...(raw.nextRotation && isStringArray(raw.nextRotation.leavingSetIds)
+      ? {
+          nextRotation: {
+            ...(typeof raw.nextRotation.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.nextRotation.date) ? { date: raw.nextRotation.date } : {}),
+            leavingSetIds: raw.nextRotation.leavingSetIds,
+          },
+        }
+      : {}),
     reviewedAt,
   }
 }

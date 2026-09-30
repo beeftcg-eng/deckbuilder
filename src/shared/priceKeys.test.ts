@@ -36,8 +36,16 @@ describe('price keys', () => {
   it('applies the first price found and leaves the rest alone', () => {
     const a = makeCard('pokemon', { name: 'A', price: 1 })
     const b = makeCard('pokemon', { name: 'B', price: 2 })
-    const out = applyPriceFile([a, b], { x: 9, y: 0 }, (c) => (c.name === 'A' ? ['missing', 'x'] : ['y']))
+    const out = applyPriceFile([a, b], { prices: { x: 9, y: 0 } }, (c) => (c.name === 'A' ? ['missing', 'x'] : ['y']))
     expect(out.map((c) => c.price)).toEqual([9, 2])
     expect(applyPriceFile([a], null, () => ['x'])[0]).toBe(a)
+  })
+
+  it('applies foil prices beside the regular ones', () => {
+    const a = makeCard('pokemon', { name: 'A', price: 1, foilPrice: 3 })
+    const [priced] = applyPriceFile([a], { prices: { x: 2 }, foilPrices: { x: 6 } }, () => ['x'])
+    expect([priced.price, priced.foilPrice]).toEqual([2, 6])
+    // A file from before foil prices keeps the card's own.
+    expect(applyPriceFile([a], { prices: { x: 2 } }, () => ['x'])[0].foilPrice).toBe(3)
   })
 })

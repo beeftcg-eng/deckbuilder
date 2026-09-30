@@ -99,12 +99,19 @@ function legalityOf(raw: ScryfallCard): Record<string, CardLegalityStatus> {
     const status = raw.legalities?.[format]
     if (status === 'legal' || status === 'restricted' || status === 'banned') legality[format] = status
   }
+  // The upcoming Standard, once a rotation is announced: rotation.ts warns about cards that leave.
+  if (raw.legalities?.future === 'legal') legality.future = 'legal'
   return legality
 }
 
 function priceOf(raw: ScryfallCard): number | null {
   // Foil-only and etched-only printings have no plain price; theirs is the cheapest way to own the card.
   const value = Number(raw.prices?.usd ?? raw.prices?.usd_foil ?? raw.prices?.usd_etched)
+  return Number.isFinite(value) && value > 0 ? value : null
+}
+
+function foilPriceOf(raw: ScryfallCard): number | null {
+  const value = Number(raw.prices?.usd_foil ?? raw.prices?.usd_etched)
   return Number.isFinite(value) && value > 0 ? value : null
 }
 
@@ -160,6 +167,7 @@ export function normalizeCard(raw: ScryfallCard): Card | null {
     text: faces.map((face) => describeFace(face, faces.length > 1)).join('\n\n') || null,
     legality,
     price: priceOf(raw),
+    foilPrice: foilPriceOf(raw),
   }
 }
 

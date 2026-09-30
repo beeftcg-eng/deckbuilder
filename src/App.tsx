@@ -19,6 +19,7 @@ import { WelcomeTour } from './components/WelcomeTour'
 import { MobileNav, type MobileView } from './components/MobileNav'
 import { SharedDeckView } from './components/SharedDeckView'
 import { ShortcutsModal } from './components/ShortcutsModal'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { hoveredCard, isTyping } from './lib/shortcuts'
 
 // The card scanner and its OCR models load only when it's first opened.
@@ -50,6 +51,9 @@ export default function App() {
   const showTour = useAppStore((s) => s.showTour)
   const showScanner = useAppStore((s) => s.showScanner)
   const showShortcuts = useAppStore((s) => s.showShortcuts)
+
+  // Switching screens or decks gives a crashed panel a fresh try.
+  const panelKey = `${currentGameId}|${currentDeckId}|${deckViewing}|${showMyDecks}|${showCollection}|${showWishlist}|${showTrade}|${showBinders}`
 
   const viewingDeck = deckViewing && hasCurrentDeck && !showMyDecks && !showCollection && !showWishlist && !showTrade && !showBinders
   // On mobile (app.css), a side panel takes the whole screen instead of squeezing next to the
@@ -168,12 +172,16 @@ export default function App() {
       )}
       <UpdateBanner />
       {showTour && <WelcomeTour />}
-      <SharedDeckView />
+      <ErrorBoundary area="shared deck">
+        <SharedDeckView />
+      </ErrorBoundary>
       {showShortcuts && <ShortcutsModal onClose={() => useAppStore.getState().setShowShortcuts(false)} />}
       {ScannerModal && showScanner && (
-        <Suspense fallback={null}>
-          <ScannerModal onClose={() => useAppStore.getState().setShowScanner(false)} />
-        </Suspense>
+        <ErrorBoundary area="scanner">
+          <Suspense fallback={null}>
+            <ScannerModal onClose={() => useAppStore.getState().setShowScanner(false)} />
+          </Suspense>
+        </ErrorBoundary>
       )}
       <MobileNav
         view={mobileView}
@@ -183,40 +191,46 @@ export default function App() {
       />
       {mobileSidebarOpen && <div className="mobile-sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)} />}
       <div className={`sidebar-wrap ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
-        <Sidebar />
+        <ErrorBoundary area="sidebar">
+          <Sidebar />
+        </ErrorBoundary>
       </div>
       <main className={`app-main ${viewingDeck ? 'app-main-viewing' : ''} ${hasSidePanel ? 'app-main-has-panel' : `mobile-view-${mobileView}`}`}>
-        <CardBrowser />
-        {showMyDecks ? (
-          <MyDecksPanel />
-        ) : showCollection ? (
-          <CollectionPanel />
-        ) : showWishlist ? (
-          <WishlistPanel />
-        ) : showTrade ? (
-          <TradePanel />
-        ) : showBinders ? (
-          <BinderPanel />
-        ) : hasCurrentDeck ? (
-          deckViewing ? <DeckViewPage /> : <DeckPanel />
-        ) : (
-          <div className="welcome-screen">
-            <p className="text-dim desktop-only">
-              {t.app.welcome1}
-              <br />
-              {t.app.welcome2}
-            </p>
-            <div className="mobile-only mobile-welcome">
-              <p className="text-dim">{t.mobile.welcome}</p>
-              <button className="btn btn-primary" onClick={() => useAppStore.getState().createDeck(currentGameId)}>
-                {t.mobile.newDeck}
-              </button>
-              <button className="btn" onClick={() => useAppStore.getState().setShowMyDecks(true)}>
-                {t.mobile.myDecks}
-              </button>
+        <ErrorBoundary area="card browser" resetKey={currentGameId}>
+          <CardBrowser />
+        </ErrorBoundary>
+        <ErrorBoundary area="panel" resetKey={panelKey}>
+          {showMyDecks ? (
+            <MyDecksPanel />
+          ) : showCollection ? (
+            <CollectionPanel />
+          ) : showWishlist ? (
+            <WishlistPanel />
+          ) : showTrade ? (
+            <TradePanel />
+          ) : showBinders ? (
+            <BinderPanel />
+          ) : hasCurrentDeck ? (
+            deckViewing ? <DeckViewPage /> : <DeckPanel />
+          ) : (
+            <div className="welcome-screen">
+              <p className="text-dim desktop-only">
+                {t.app.welcome1}
+                <br />
+                {t.app.welcome2}
+              </p>
+              <div className="mobile-only mobile-welcome">
+                <p className="text-dim">{t.mobile.welcome}</p>
+                <button className="btn btn-primary" onClick={() => useAppStore.getState().createDeck(currentGameId)}>
+                  {t.mobile.newDeck}
+                </button>
+                <button className="btn" onClick={() => useAppStore.getState().setShowMyDecks(true)}>
+                  {t.mobile.myDecks}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </ErrorBoundary>
       </main>
     </div>
   )

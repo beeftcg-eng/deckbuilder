@@ -4,7 +4,9 @@ import { useAppStore } from '../state/useAppStore'
 import { PAIRINGS_APP_URL, deckStatsFor, deckVersionsOf, type OpponentLine, type StatLine } from '../shared/pairingsRecord'
 import type { Deck, PairingsVersion } from '../shared/types'
 import { getLanguage, t } from '../shared/i18n'
-import { PairingsAccountModal } from './PairingsAccountModal'
+import { lazyModal } from './lazyModal'
+
+const PairingsAccountModal = lazyModal(() => import('./PairingsAccountModal'), 'PairingsAccountModal')
 
 /** Past ten opponents, the rest fold away (as in Pairings). */
 const OPPONENTS_SHOWN = 10

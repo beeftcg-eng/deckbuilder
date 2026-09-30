@@ -14,7 +14,16 @@ describe('parseBackupBundle', () => {
 
   it('accepts a full v3 bundle', () => {
     const parsed = parseBackupBundle({ version: 3, decks: [deck], binders: [binder], wishlist: [wish], collection: { 'pokemon:x': 3 } })
-    expect(parsed).toEqual({ ok: true, decks: [deck], binders: [binder], wishlist: [wish], collection: { 'pokemon:x': 3 }, skipped: 0 })
+    expect(parsed).toEqual({ ok: true, decks: [deck], binders: [binder], wishlist: [wish], collection: { 'pokemon:x': 3 }, items: null, skipped: 0 })
+  })
+
+  it('reads the records kept with the settings, from a desktop backup or the phone app\'s', () => {
+    const opening = { id: 'o1', gameId: 'riftbound', name: 'Box', date: '2026-09-29', costUsd: 90, pulls: [], addToCollection: false }
+    const desktop = parseBackupBundle({ decks: [], items: { packOpenings: [opening] } })
+    expect(desktop.ok && desktop.items).toEqual({ packOpenings: [opening] })
+    // The phone app's backups put preferences and records together under `settings`: only the records are restored.
+    const phone = parseBackupBundle({ decks: [], settings: { theme: 'forest', priceAlerts: { 'mtg:a': { target: 2 } } } })
+    expect(phone.ok && phone.items).toEqual({ priceAlerts: { 'mtg:a': { target: 2 } } })
   })
 
   it('leaves sections the file does not have as null so restore keeps what is on disk', () => {

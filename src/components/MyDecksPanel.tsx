@@ -5,6 +5,7 @@ import { formatPrice, missingForDeck, totalPrice } from '../shared/collection'
 import { getAdapter } from '../shared/games/registry'
 import { rulesForFormat } from '../shared/games/rules'
 import { checkDeckLegality } from '../shared/legality'
+import { RotationBadge } from './RotationBadge'
 import { summarizeRecord } from '../shared/pairingsRecord'
 import { resolveDeckIcon } from '../shared/deckIcon'
 import { sortDecks } from '../shared/deckOrder'
@@ -122,6 +123,7 @@ function DeckCard({ deck, cardsById, value }: { deck: Deck; cardsById: Map<strin
               {t.myDecks.unchecked}
             </span>
           )}
+          <RotationBadge deck={deck} format={format} cardsById={cardsById} />
           <PairingsBadge deckId={deck.id} />
           <span className="text-dim">{updatedLabel(deck.updatedAt)}</span>
         </div>

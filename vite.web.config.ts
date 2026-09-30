@@ -30,6 +30,17 @@ export default defineConfig({
         // The card catalog (cards:sync) and Supabase calls go through plain fetch() from app code,
         // not through the service worker's precache - only the app shell itself is precached here.
         globPatterns: ['**/*.{js,css,html,svg,png}'],
+        // The scanner's engine and models (.wasm, .onnx; ~20-40 MB, only one of the two engines is ever
+        // fetched, see src/lib/scan/paddle.ts) stay out of the precache so installing the app stays small,
+        // but once fetched they're kept, so scanning works offline and a new version doesn't download
+        // them again unless they changed (their names carry a content hash).
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/[^/]+\.(?:wasm|onnx)$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'scanner-engine', expiration: { maxEntries: 8 }, rangeRequests: true },
+          },
+        ],
         navigateFallbackDenylist: [/^\/deckbuilder\/manifest\.json$/],
       },
     }),

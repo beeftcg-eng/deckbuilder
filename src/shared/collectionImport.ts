@@ -1,6 +1,7 @@
 import type { Card, GameId } from './types'
 import { normalizeName } from './collection'
 import { choosePrinting, type PrintingPrefs } from './printings'
+import { copyBreakdown, normalizeDetails, parseCondition, parseFinish, type CopyDetail } from './copyDetails'
 
 /**
  * Collection import from other apps' CSV exports (TCGplayer, Moxfield, Dragon Shield, ManaBox, and
@@ -14,6 +15,8 @@ export type CsvSource = 'TCGplayer' | 'Moxfield' | 'Dragon Shield' | 'ManaBox'
 export interface CollectionImportItem {
   card: Card
   quantity: number
+  /** The copies the file says are foil or not Near Mint (copyDetails.ts); the rest are plain Near Mint. */
+  details: CopyDetail[]
 }
 
 export interface CollectionImport {
@@ -80,7 +83,7 @@ export function parseCsv(text: string): string[][] {
 
 // ---------- columns ----------
 
-type Column = 'quantity' | 'name' | 'setCode' | 'setName' | 'set' | 'number' | 'scryfall' | 'tcgplayer' | 'game' | 'rarity'
+type Column = 'quantity' | 'name' | 'setCode' | 'setName' | 'set' | 'number' | 'scryfall' | 'tcgplayer' | 'game' | 'rarity' | 'finish' | 'condition'
 
 /** Header spellings per column, most specific first (TCGplayer's "Simple Name" beats its "Name", which carries printing tags). */
 const COLUMN_NAMES: Record<Column, string[]> = {
@@ -94,6 +97,9 @@ const COLUMN_NAMES: Record<Column, string[]> = {
   tcgplayer: ['productid', 'tcgplayerid', 'tcgplayerproductid'],
   game: ['productline', 'game', 'tcg'],
   rarity: ['rarity'],
+  // ManaBox and Moxfield: "Foil" (normal / foil / etched); TCGplayer and Dragon Shield: "Printing" (Normal, Foil, Holofoil, Reverse Holofoil).
+  finish: ['finish', 'foil', 'printing', 'isfoil'],
+  condition: ['condition', 'cardcondition'],
 }
 
 function headerKey(cell: string): string {
@@ -105,7 +111,7 @@ function findColumns(header: string[]): Partial<Record<Column, number>> {
   const found: Partial<Record<Column, number>> = {}
   const taken = new Set<number>()
   // Name before number, so a lone "Card" column is the name rather than a card number.
-  for (const column of ['quantity', 'name', 'setCode', 'setName', 'set', 'number', 'scryfall', 'tcgplayer', 'game', 'rarity'] as Column[]) {
+  for (const column of ['quantity', 'name', 'setCode', 'setName', 'set', 'number', 'scryfall', 'tcgplayer', 'game', 'rarity', 'finish', 'condition'] as Column[]) {
     for (const alias of COLUMN_NAMES[column]) {
       const index = keys.findIndex((k, i) => k === alias && !taken.has(i))
       if (index >= 0) {
@@ -325,9 +331,15 @@ export function importCollectionCsv(text: string, gameId: GameId, cards: readonl
       result.unmatched.push(describe(row, quantity))
       continue
     }
+    // TCGplayer writes the finish into the condition ("Lightly Played Holofoil").
+    const condition = cell(r, 'condition')
+    const finish = parseFinish(cell(r, 'finish')) ?? (/foil|etched/i.test(condition) ? parseFinish(condition) : null) ?? 'normal'
+    const detail: CopyDetail = { finish, condition: parseCondition(condition) ?? 'NM', quantity }
     const existing = byCard.get(match.card.id)
-    if (existing) existing.quantity += quantity
-    else byCard.set(match.card.id, { card: match.card, quantity })
+    if (existing) {
+      existing.quantity += quantity
+      existing.details = normalizeDetails([...existing.details, detail])
+    } else byCard.set(match.card.id, { card: match.card, quantity, details: normalizeDetails([detail]) })
     result.copies += quantity
     if (match.byName) result.byNameCopies += quantity
   }
@@ -342,26 +354,34 @@ function csvField(value: string | number): string {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
+const FINISH_TEXT = { normal: 'normal', foil: 'foil', etched: 'etched' } as const
+const CONDITION_TEXT = { NM: 'Near Mint', LP: 'Lightly Played', MP: 'Moderately Played', HP: 'Heavily Played', DMG: 'Damaged' } as const
+
 /**
  * A collection as CSV, in columns this importer and the usual apps read back: Quantity, Name, Set
- * Code, Set Name, Collector Number, Rarity, plus the game, the price and your for-trade mark, and
- * Magic's Scryfall id so a re-import lands on the exact printing.
+ * Code, Set Name, Collector Number, Rarity, Finish, Condition, plus the game, the price and your
+ * for-trade mark, and Magic's Scryfall id so a re-import lands on the exact printing. A printing
+ * with copies of different finishes or conditions gets a row for each.
  */
-export function collectionCsv(entries: readonly { card: Card; copies: number; forTrade: boolean }[], gameName: string): string {
-  const header = ['Quantity', 'Name', 'Set Code', 'Set Name', 'Collector Number', 'Rarity', 'Game', 'Price (USD)', 'For Trade', 'Scryfall ID']
+export function collectionCsv(entries: readonly { card: Card; copies: number; forTrade: boolean; details?: readonly CopyDetail[] }[], gameName: string): string {
+  const header = ['Quantity', 'Name', 'Set Code', 'Set Name', 'Collector Number', 'Rarity', 'Finish', 'Condition', 'Game', 'Price (USD)', 'For Trade', 'Scryfall ID']
   const rows = [...entries]
     .sort((a, b) => a.card.setName.localeCompare(b.card.setName) || a.card.number.localeCompare(b.card.number, undefined, { numeric: true }))
-    .map(({ card, copies, forTrade }) => [
-      copies,
-      card.name,
-      card.setCode,
-      card.setName,
-      card.number,
-      card.rarity ?? '',
-      gameName,
-      card.price != null ? card.price.toFixed(2) : '',
-      forTrade ? 'yes' : '',
-      card.gameId === 'mtg' ? card.id.slice(card.id.indexOf(':') + 1) : '',
-    ])
+    .flatMap(({ card, copies, forTrade, details }) =>
+      copyBreakdown(copies, details).map((part) => [
+        part.quantity,
+        card.name,
+        card.setCode,
+        card.setName,
+        card.number,
+        card.rarity ?? '',
+        FINISH_TEXT[part.finish],
+        CONDITION_TEXT[part.condition],
+        gameName,
+        card.price != null ? card.price.toFixed(2) : '',
+        forTrade ? 'yes' : '',
+        card.gameId === 'mtg' ? card.id.slice(card.id.indexOf(':') + 1) : '',
+      ]),
+    )
   return [header, ...rows].map((r) => r.map(csvField).join(',')).join('\r\n') + '\r\n'
 }

@@ -1,4 +1,3 @@
-import { MoveCardsModal } from './MoveCardsModal'
 import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
@@ -6,6 +5,9 @@ import { formatPrice, gameIdOfCardId, totalPrice } from '../shared/collection'
 import type { Card, GameId } from '../shared/types'
 import { t } from '../shared/i18n'
 import { Rich } from './Rich'
+import { lazyModal } from './lazyModal'
+
+const MoveCardsModal = lazyModal(() => import('./MoveCardsModal'), 'MoveCardsModal')
 
 /** The binder picker grid, shown when no binder is currently open. */
 function BinderList() {

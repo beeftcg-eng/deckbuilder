@@ -1,10 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppStore, useCardsById, useOrderedGames, useVisibleGames } from '../state/useAppStore'
-import { ImportDeckModal } from './ImportDeckModal'
-import { PatchNotesModal } from './PatchNotesModal'
-import { BugReportModal } from './BugReportModal'
-import { PawmodoroAccountModal } from './PawmodoroAccountModal'
-import { PairingsAccountModal } from './PairingsAccountModal'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
 import { THEMES, getTheme, themeLabel } from '../shared/themes'
 import { resolveDeckIcon } from '../shared/deckIcon'
@@ -16,6 +11,13 @@ import type { Language } from '../shared/i18n'
 import { DeckIcon } from './DeckIcon'
 import { LANGUAGES, t } from '../shared/i18n'
 import { CURRENCIES, displayCurrency } from '../shared/currency'
+import { lazyModal } from './lazyModal'
+
+const BugReportModal = lazyModal(() => import('./BugReportModal'), 'BugReportModal')
+const PatchNotesModal = lazyModal(() => import('./PatchNotesModal'), 'PatchNotesModal')
+const ImportDeckModal = lazyModal(() => import('./ImportDeckModal'), 'ImportDeckModal')
+const PairingsAccountModal = lazyModal(() => import('./PairingsAccountModal'), 'PairingsAccountModal')
+const PawmodoroAccountModal = lazyModal(() => import('./PawmodoroAccountModal'), 'PawmodoroAccountModal')
 
 function formatRelativeTime(iso: string | null): string {
   if (!iso) return t.sidebar.neverSynced

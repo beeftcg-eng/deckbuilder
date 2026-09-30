@@ -3,10 +3,12 @@ import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { formatPrice, totalPrice } from '../shared/collection'
 import type { ResolvedWishlistEntry } from '../shared/export'
-import { WishlistExportModal } from './WishlistExportModal'
 import type { GameId, WishlistEntry } from '../shared/types'
 import { t } from '../shared/i18n'
 import { PriceAlertButton, PriceAlertEditor } from './PriceAlertEditor'
+import { lazyModal } from './lazyModal'
+
+const WishlistExportModal = lazyModal(() => import('./WishlistExportModal'), 'WishlistExportModal')
 
 export function WishlistPanel() {
   const wishlist = useAppStore((s) => s.wishlist)

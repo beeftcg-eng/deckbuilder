@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { isNotSyncedError, shareUrl } from '../shared/deckShare'
 import type { Deck } from '../shared/types'
-import { PawmodoroAccountModal } from './PawmodoroAccountModal'
 import { t } from '../shared/i18n'
+import { lazyModal } from './lazyModal'
+
+const PawmodoroAccountModal = lazyModal(() => import('./PawmodoroAccountModal'), 'PawmodoroAccountModal')
 
 /** Makes, shows and revokes a deck's share link (see deckShare.ts). */
 export function ShareDeckModal({ deck, onClose }: { deck: Deck; onClose: () => void }) {

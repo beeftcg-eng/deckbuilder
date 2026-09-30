@@ -116,11 +116,31 @@ describe('collectionCsv', () => {
       { card: solRing, copies: 4, forTrade: false },
     ]
     const csv = collectionCsv(entries, 'Magic: The Gathering')
-    expect(csv.split('\r\n')[0]).toBe('Quantity,Name,Set Code,Set Name,Collector Number,Rarity,Game,Price (USD),For Trade,Scryfall ID')
-    expect(csv).toContain('1,Fable of the Mirror-Breaker // Reflection of Kiki-Jiki,NEO,Kamigawa: Neon Dynasty,141,Rare')
+    expect(csv.split('\r\n')[0]).toBe('Quantity,Name,Set Code,Set Name,Collector Number,Rarity,Finish,Condition,Game,Price (USD),For Trade,Scryfall ID')
+    expect(csv).toContain('1,Fable of the Mirror-Breaker // Reflection of Kiki-Jiki,NEO,Kamigawa: Neon Dynasty,141,Rare,normal,Near Mint')
     const back = importCollectionCsv(csv, 'mtg', mtg)
     expect(back.items.map((i) => [i.card.id, i.quantity]).sort()).toEqual(entries.map((e) => [e.card.id, e.copies]).sort())
     expect(back.unmatched).toEqual([])
     expect(back.byNameCopies).toBe(0)
+  })
+
+  it('writes a row per finish and condition, and reads them back', () => {
+    const entries = [{ card: boltSld, copies: 3, forTrade: false, details: [{ finish: 'foil' as const, condition: 'LP' as const, quantity: 1 }] }]
+    const csv = collectionCsv(entries, 'Magic: The Gathering')
+    expect(csv).toContain('2,Lightning Bolt,SLD,Secret Lair Drop,901,Rare,normal,Near Mint')
+    expect(csv).toContain('1,Lightning Bolt,SLD,Secret Lair Drop,901,Rare,foil,Lightly Played')
+    const back = importCollectionCsv(csv, 'mtg', mtg)
+    expect(back.items).toHaveLength(1)
+    expect(back.items[0].quantity).toBe(3)
+    expect(back.items[0].details).toEqual([{ finish: 'foil', condition: 'LP', quantity: 1 }])
+  })
+})
+
+describe('finish and condition columns', () => {
+  it("reads ManaBox's Foil column and TCGplayer's finish inside the condition", () => {
+    const manabox = importCollectionCsv('Name,Set code,Collector number,Foil,Quantity,Condition\nSol Ring,ECC,57,foil,2,near_mint\nSol Ring,ECC,57,normal,1,played\n', 'mtg', mtg)
+    expect(manabox.items[0].details).toEqual([{ finish: 'foil', condition: 'NM', quantity: 2 }, { finish: 'normal', condition: 'MP', quantity: 1 }])
+    const tcg = importCollectionCsv('Quantity,Name,Set,Card Number,Condition\n1,Umbreon VMAX,Evolving Skies,215,Lightly Played Holofoil\n', 'pokemon', [umbreon95, umbreon215])
+    expect(tcg.items[0].details).toEqual([{ finish: 'foil', condition: 'LP', quantity: 1 }])
   })
 })

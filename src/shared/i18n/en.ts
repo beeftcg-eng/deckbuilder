@@ -34,6 +34,13 @@ export const en = {
     welcome2: 'you can still browse and wishlist cards without one.',
   },
 
+  /** A part of the screen that crashed (ErrorBoundary.tsx). */
+  crash: {
+    title: 'Something went wrong here',
+    body: 'This part of the app hit an error. Your decks and collection are safe. Try again, or send a bug report so it gets fixed.',
+    retry: 'Try again',
+  },
+
   /** Comparing two decks (CompareDecksModal.tsx). */
   compare: {
     button: '⇄ Compare',
@@ -50,6 +57,53 @@ export const en = {
     copy: 'Copy changes',
     same: 'Same cards: nothing to change.',
     noCards: (game: string) => `No ${game} cards recognised in that list yet.`,
+  },
+
+  /** Your tags on a deck's cards (CardTagsModal.tsx, shared/deckTags.ts). */
+  tags: {
+    button: '🏷',
+    buttonTitle: 'Tag this card (ramp, removal, draw…)',
+    title: (name: string) => `Tags for ${name}`,
+    placeholder: 'ramp, removal, draw…',
+    save: 'Save',
+    used: 'In this deck:',
+    help: 'Separate tags with commas. Every printing of the card shares them, and the deck view can group cards by tag.',
+    groupBy: 'Group',
+    byType: 'By type',
+    byTag: 'By tag',
+    untagged: 'Untagged',
+  },
+
+  /** Cards leaving a format at its next rotation (RotationBadge.tsx, shared/rotation.ts). */
+  rotation: {
+    badge: (n: number) => `⟳ ${n} rotating`,
+    title: 'These cards leave the format at the next rotation:',
+    titleOn: (date: string) => `These cards leave the format at the rotation on ${date}:`,
+    editorTitle: 'Next rotation',
+    editorHelp: '— tick the legal sets that leave then; decks with their cards get a warning',
+    date: 'Date',
+  },
+
+  /** A deck's earlier lists (DeckHistoryModal.tsx, shared/deckHistory.ts). */
+  history: {
+    button: '🕘 History',
+    buttonTitle: "This deck's earlier lists: see what changed, or go back to one",
+    title: (name: string) => `History of ${name}`,
+    intro: 'A version is saved by itself when you start changing the deck after a break, and whenever you save one here.',
+    none: 'No earlier versions yet. One is saved by itself the next time you change this deck after a break, or save the list now.',
+    auto: 'Saved by itself',
+    namePlaceholder: 'Name this version (e.g. after regionals)',
+    saveNow: 'Save current list',
+    savedSame: 'The current list is already saved.',
+    changesFrom: (when: string) => `From ${when} to now:`,
+    restore: 'Go back to this list',
+    restoreConfirm: (when: string) => `Replace the deck's list with the one from ${when}? The current list is saved as a version first, and Undo reverses it.`,
+    restoreUndo: (when: string) => `Go back to the list from ${when}`,
+    rename: 'Rename',
+    renamePrompt: 'Name for this version:',
+    delete: 'Delete',
+    deleteConfirm: 'Delete this version? The deck itself stays as it is.',
+    locked: 'The deck is locked, so it can’t go back to an earlier list until you unlock it.',
   },
 
   /** A deck's own notes (DeckNotes.tsx). */
@@ -350,6 +404,13 @@ export const en = {
   },
 
   importDeck: {
+    fetchLink: '⇩ Get the deck from this link',
+    fetching: 'Getting the deck…',
+    linkEmpty: 'No cards found on that page.',
+    linkOtherGame: (game: string) => `That's a ${game} deck: switch to ${game} to import it.`,
+    linkBlocked: "That site doesn't let the phone app read its decks. Open the deck there, copy its list (Export / Copy to clipboard) and paste it here, or import the link in the desktop app.",
+    linkFailed: (status: string) => `Couldn't get the deck (${status}). Is the link right, and the deck public?`,
+    linkHint: 'Links from Archidekt and Limitless work too.',
     title: (game: string) => `Import ${game} decklist`,
     noData: (game: string) => `No ${game} card data yet — use “Sync card data” in the sidebar first, then import.`,
     placeholder:
@@ -755,6 +816,23 @@ export const en = {
     setNotes: {
       yugioh: "A handful of newly-spoiled or OCG-only cards have no set data yet and won't appear under any set.",
     } as Record<string, string>,
+  },
+
+  /** Finish and condition of owned copies (CopyDetailsModal.tsx, shared/copyDetails.ts). */
+  copyDetails: {
+    button: '✦ Finish…',
+    buttonTitle: 'Mark copies as foil, or as not Near Mint',
+    title: (name: string) => `Finish & condition: ${name}`,
+    intro: (n: number) => `You own ${n} ${plural(n, 'copy', 'copies')}. Copies not listed below are regular (non-foil) Near Mint.`,
+    plainRow: (n: number) => `Regular · Near Mint: ${n}`,
+    add: '+ Add',
+    remove: 'Remove',
+    tooMany: (n: number) => `That's more than the ${n} ${plural(n, 'copy', 'copies')} you own.`,
+    save: 'Save',
+    foilPrice: (price: string) => `Foil price: ${price}`,
+    noFoilPrice: 'No separate foil price for this card, so foil copies count at the regular price.',
+    finishes: { normal: 'Regular', foil: 'Foil', etched: 'Etched' },
+    conditions: { NM: 'Near Mint (NM)', LP: 'Lightly Played (LP)', MP: 'Moderately Played (MP)', HP: 'Heavily Played (HP)', DMG: 'Damaged (DMG)' },
   },
 
   collectionImport: {

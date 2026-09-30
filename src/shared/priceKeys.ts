@@ -12,6 +12,8 @@ export interface PriceFile {
   updatedAt: string
   /** key -> USD market price */
   prices: Record<string, number>
+  /** key -> USD market price of a foil copy (TCGplayer's Foil / Holofoil rows, Scryfall's usd_foil). Missing from files built before foils were priced. */
+  foilPrices?: Record<string, number>
 }
 
 /** "001/165" -> "1", "SWSH048" -> "swsh48", "TG12" -> "tg12", "A01" -> "a1". */

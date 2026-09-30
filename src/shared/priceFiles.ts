@@ -7,23 +7,37 @@ import type { Card, GameId } from './types'
 import { fetchJson } from './games/fetchUtil'
 import { PRICE_FILES_URL, type PriceFile } from './priceKeys'
 
-export async function loadPriceFile(game: GameId): Promise<Record<string, number> | null> {
+export type PriceMaps = Pick<PriceFile, 'prices' | 'foilPrices'>
+
+export async function loadPriceFile(game: GameId): Promise<PriceMaps | null> {
   try {
     const file = await fetchJson<PriceFile>(`${PRICE_FILES_URL}/${game}.json`, 3)
-    return file && typeof file.prices === 'object' ? file.prices : null
+    return file && typeof file.prices === 'object' ? { prices: file.prices, foilPrices: typeof file.foilPrices === 'object' ? file.foilPrices : undefined } : null
   } catch {
     return null
   }
 }
 
-/** Each card gets the first of its keys' prices found; a card with none keeps its own price. */
-export function applyPriceFile(cards: Card[], prices: Record<string, number> | null, keysOf: (card: Card) => string[]): Card[] {
-  if (!prices) return cards
+function firstPrice(map: Record<string, number> | undefined, keys: string[]): number | null {
+  if (!map) return null
+  for (const key of keys) {
+    const price = map[key]
+    if (typeof price === 'number' && price > 0) return price
+  }
+  return null
+}
+
+/**
+ * Each card gets the first of its keys' prices found, and its foil price the same way; a card the file
+ * doesn't list keeps its own. A file without foil prices leaves foil prices alone.
+ */
+export function applyPriceFile(cards: Card[], file: PriceMaps | null, keysOf: (card: Card) => string[]): Card[] {
+  if (!file) return cards
   return cards.map((card) => {
-    for (const key of keysOf(card)) {
-      const price = prices[key]
-      if (typeof price === 'number' && price > 0) return { ...card, price }
-    }
-    return card
+    const keys = keysOf(card)
+    const price = firstPrice(file.prices, keys)
+    const foilPrice = firstPrice(file.foilPrices, keys)
+    if (price == null && foilPrice == null) return card
+    return { ...card, ...(price != null ? { price } : {}), ...(foilPrice != null ? { foilPrice } : {}) }
   })
 }

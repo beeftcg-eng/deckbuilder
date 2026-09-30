@@ -6,6 +6,7 @@
  */
 import type { Deck, DeckCardEntry, DeckFreeTextEntry, GameId, SharedDeck } from './types'
 import { GAME_LIST } from './games/registry'
+import { sanitizeTags } from './deckTags'
 
 export const SHARE_BASE_URL = 'https://beeftcg-eng.github.io/deckbuilder/'
 
@@ -65,6 +66,7 @@ export function normalizeSharedDeck(row: unknown): SharedDeck | null {
     name: typeof data.name === 'string' && data.name.trim() ? data.name.slice(0, 200) : 'Shared deck',
     formatId: typeof data.formatId === 'string' ? data.formatId : '',
     ...(typeof data.iconCardId === 'string' ? { iconCardId: data.iconCardId } : {}),
+    ...(sanitizeTags(data.tags) ? { tags: sanitizeTags(data.tags) } : {}),
     zones: recordOf(data.zones, cardEntries),
     freeTextZones: recordOf(data.freeTextZones, freeTextEntries),
     createdAt: typeof data.createdAt === 'string' ? data.createdAt : updatedAt,

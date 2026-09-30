@@ -40,6 +40,7 @@ import { fetchJson, USER_AGENT } from '../shared/games/fetchUtil'
 import { callRpc, passwordLogin, refreshAccessToken, signUp as clientSignUp, type SyncConfig } from '../shared/sync/client'
 import { SyncEngine } from '../shared/sync/engine'
 import { firstMerge, itemOps, settingsFromItems, touchesItems } from '../shared/sync/items'
+import { hasItemFields, joinSettings, splitSettings, touchesItemFields } from '../shared/settingsItems'
 import type { PulledState, SyncOp } from '../shared/sync/ops'
 import { DEFAULT_PAWMODORO_ANON_KEY, DEFAULT_PAWMODORO_URL } from '../shared/pawmodoroDefaults'
 import { PAIRINGS_ANON_KEY, PAIRINGS_URL } from '../shared/pairingsDefaults'
@@ -50,6 +51,7 @@ import { WebSyncStore } from './webSyncStore'
 import { t } from '../shared/i18n'
 import { fetchSharedDeck } from '../shared/deckShare'
 import { applyPriceUpdate, fetchPriceUpdate } from '../shared/priceRefresh'
+import { deckUrlTarget } from '../shared/deckUrl'
 
 const RELEASES_REPO = 'beeftcg-eng/deckbuilder-releases'
 
@@ -184,9 +186,10 @@ async function applyPulledState(state: PulledState): Promise<void> {
 
   // Older servers don't send items; then local pack openings, alerts and values are left as they are.
   if (Array.isArray(state.items)) {
-    const current = (await idbGet<AppSettings>('settings', 'app')) ?? {}
-    const { settings, upload } = current.itemsSynced ? { settings: settingsFromItems(state.items), upload: [] } : firstMerge(current, state.items)
-    await idbSet('settings', 'app', { ...current, ...settings, itemsSynced: true })
+    const { prefs, settings: current } = await readSettings()
+    const { settings, upload } = current.itemsSynced ? { settings: settingsFromItems(state.items, current), upload: [] } : firstMerge(current, state.items)
+    const patch = { ...settings, itemsSynced: true }
+    await writeSettings(prefs, { ...current, ...patch }, patch)
     if (upload.length > 0) void syncEngine?.enqueueMany(upload)
   }
 
@@ -397,12 +400,25 @@ const formats = {
 
 // ---------- settings ----------
 
+/** Preferences ('app') and records ('items', settingsItems.ts) read as one AppSettings. */
+async function readSettings(): Promise<{ prefs: AppSettings; settings: AppSettings }> {
+  const [prefs, items] = await Promise.all([idbGet<AppSettings>('settings', 'app'), idbGet<AppSettings>('settings', 'items')])
+  return { prefs: prefs ?? {}, settings: joinSettings(prefs ?? {}, items ?? {}) }
+}
+
+/** Writes `next` back split in two; the records only when they changed or still sit in the preferences. */
+async function writeSettings(prefs: AppSettings, next: AppSettings, patch: AppSettings): Promise<void> {
+  const split = splitSettings(next)
+  if (touchesItemFields(patch) || hasItemFields(prefs)) await idbSet('settings', 'items', split.items)
+  await idbSet('settings', 'app', split.prefs)
+}
+
 const settingsApi = {
-  get: async (): Promise<AppSettings> => (await idbGet<AppSettings>('settings', 'app')) ?? {},
+  get: async (): Promise<AppSettings> => (await readSettings()).settings,
   set: (patch: AppSettings): Promise<AppSettings> => withWriteLock(async () => {
-    const current = (await idbGet<AppSettings>('settings', 'app')) ?? {}
+    const { prefs, settings: current } = await readSettings()
     const next = { ...current, ...patch }
-    await idbSet('settings', 'app', next)
+    await writeSettings(prefs, next, patch)
     // Pack openings, price alerts and value points sync item by item (shared/sync/items.ts).
     if (touchesItems(patch)) {
       ensureSyncEngine()
@@ -565,9 +581,9 @@ async function snapshotBlob(): Promise<Blob> {
     idbGet<Collection>('settings', 'collection'),
     idbGet<string[]>('settings', 'forTrade'),
     idbGet<WishlistEntry[]>('settings', 'wishlist'),
-    idbGet<AppSettings>('settings', 'app'),
+    readSettings(),
   ])
-  const payload = { decks: d, binders: b, collection: c ?? {}, forTrade: ft ?? [], wishlist: w ?? [], settings: s ?? {} }
+  const payload = { decks: d, binders: b, collection: c ?? {}, forTrade: ft ?? [], wishlist: w ?? [], settings: s.settings }
   return new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
 }
 
@@ -596,7 +612,11 @@ const backup = {
           if (data.collection) await idbSet('settings', 'collection', data.collection)
           if (data.forTrade) await idbSet('settings', 'forTrade', data.forTrade)
           if (data.wishlist) await idbSet('settings', 'wishlist', data.wishlist)
-          if (data.settings) await idbSet('settings', 'app', data.settings)
+          if (data.settings) {
+            const split = splitSettings(data.settings)
+            await idbSet('settings', 'items', split.items)
+            await idbSet('settings', 'app', split.prefs)
+          }
           resolve({ imported: true })
         } catch (err) {
           resolve({ imported: false, error: err instanceof Error ? err.message : String(err) })
@@ -643,6 +663,20 @@ const exportPaste = async (content: string): Promise<string> => {
   })
   if (!res.ok) throw new Error(`dpaste.com error (${res.status})`)
   return (await res.text()).trim()
+}
+
+/** Deck sites don't let web pages read them (no CORS), so this usually fails; the import box then says to paste the list. */
+const fetchDeckPage = async (url: string): Promise<string> => {
+  const target = deckUrlTarget(url)
+  if (!target) throw new Error(t.importDeck.linkBlocked)
+  let res: Response
+  try {
+    res = await fetch(target.fetchUrl)
+  } catch {
+    throw new Error(t.importDeck.linkBlocked)
+  }
+  if (!res.ok) throw new Error(t.importDeck.linkFailed(String(res.status)))
+  return res.text()
 }
 
 const exportSaveFile = async (content: string, suggestedName: string): Promise<boolean> =>
@@ -817,6 +851,7 @@ export const webApi = {
   backup,
   updater,
   exportPaste,
+  fetchDeckPage,
   exportSaveFile,
   exportSaveImage,
   exportSavePdf,

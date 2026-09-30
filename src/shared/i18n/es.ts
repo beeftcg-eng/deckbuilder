@@ -34,6 +34,12 @@ export const es: Messages = {
     welcome2: 'también puedes explorar cartas y añadirlas a tu lista de deseos sin uno.',
   },
 
+  crash: {
+    title: 'Algo salió mal aquí',
+    body: 'Esta parte de la app tuvo un error. Tus mazos y tu colección están a salvo. Inténtalo de nuevo o envía un reporte para que se arregle.',
+    retry: 'Reintentar',
+  },
+
   compare: {
     button: '⇄ Comparar',
     buttonTitle: 'Mira qué cambia entre este mazo y otro, o una lista pegada',
@@ -49,6 +55,50 @@ export const es: Messages = {
     copy: 'Copiar cambios',
     same: 'Las mismas cartas: no hay nada que cambiar.',
     noCards: (game) => `Todavía no se reconoce ninguna carta de ${game} en esa lista.`,
+  },
+
+  tags: {
+    button: '🏷',
+    buttonTitle: 'Etiqueta esta carta (ramp, removal, robo…)',
+    title: (name: string) => `Etiquetas de ${name}`,
+    placeholder: 'ramp, removal, robo…',
+    save: 'Guardar',
+    used: 'En este mazo:',
+    help: 'Separa las etiquetas con comas. Todas las impresiones de la carta las comparten, y la vista del mazo puede agrupar las cartas por etiqueta.',
+    groupBy: 'Agrupar',
+    byType: 'Por tipo',
+    byTag: 'Por etiqueta',
+    untagged: 'Sin etiqueta',
+  },
+
+  rotation: {
+    badge: (n: number) => `⟳ ${n} rotan`,
+    title: 'Estas cartas salen del formato en la próxima rotación:',
+    titleOn: (date: string) => `Estas cartas salen del formato en la rotación del ${date}:`,
+    editorTitle: 'Próxima rotación',
+    editorHelp: '— marca los sets legales que salen entonces; los mazos con sus cartas reciben un aviso',
+    date: 'Fecha',
+  },
+
+  history: {
+    button: '🕘 Historial',
+    buttonTitle: 'Las listas anteriores de este mazo: mira qué cambió o vuelve a una',
+    title: (name: string) => `Historial de ${name}`,
+    intro: 'Se guarda una versión sola cuando empiezas a cambiar el mazo después de un rato, y cada vez que guardas una aquí.',
+    none: 'Todavía no hay versiones anteriores. Se guarda una sola la próxima vez que cambies este mazo después de un rato, o guarda la lista ahora.',
+    auto: 'Guardada sola',
+    namePlaceholder: 'Ponle nombre a esta versión (p. ej. después del regional)',
+    saveNow: 'Guardar la lista actual',
+    savedSame: 'La lista actual ya está guardada.',
+    changesFrom: (when: string) => `De ${when} a ahora:`,
+    restore: 'Volver a esta lista',
+    restoreConfirm: (when: string) => `¿Reemplazar la lista del mazo por la de ${when}? La lista actual se guarda antes como versión, y Deshacer lo revierte.`,
+    restoreUndo: (when: string) => `Volver a la lista de ${when}`,
+    rename: 'Renombrar',
+    renamePrompt: 'Nombre de esta versión:',
+    delete: 'Eliminar',
+    deleteConfirm: '¿Eliminar esta versión? El mazo se queda como está.',
+    locked: 'El mazo está bloqueado, así que no puede volver a una lista anterior hasta que lo desbloquees.',
   },
 
   deckNotes: {
@@ -345,6 +395,13 @@ export const es: Messages = {
   },
 
   importDeck: {
+    fetchLink: '⇩ Traer el mazo de este enlace',
+    fetching: 'Trayendo el mazo…',
+    linkEmpty: 'No se encontraron cartas en esa página.',
+    linkOtherGame: (game: string) => `Es un mazo de ${game}: cambia a ${game} para importarlo.`,
+    linkBlocked: 'Ese sitio no deja que la app del teléfono lea sus mazos. Abre el mazo allí, copia su lista (Exportar / Copiar) y pégala aquí, o importa el enlace en la app de escritorio.',
+    linkFailed: (status: string) => `No se pudo traer el mazo (${status}). ¿El enlace es correcto y el mazo es público?`,
+    linkHint: 'También sirven enlaces de Archidekt y Limitless.',
     title: (game) => `Importar lista de mazo de ${game}`,
     noData: (game) => `Todavía no hay datos de cartas de ${game} — usa “Descargar datos de cartas” en la barra lateral y luego importa.`,
     placeholder:
@@ -797,6 +854,22 @@ export const es: Messages = {
     setNotes: {
       yugioh: 'Unas pocas cartas recién reveladas o exclusivas del OCG todavía no tienen datos de expansión y no aparecen en ninguna.',
     },
+  },
+
+  copyDetails: {
+    button: '✦ Acabado…',
+    buttonTitle: 'Marca copias como foil, o como no Near Mint',
+    title: (name: string) => `Acabado y estado: ${name}`,
+    intro: (n: number) => `Tienes ${n} ${plural(n, 'copia', 'copias')}. Las copias que no aparecen abajo son normales (no foil) y Near Mint.`,
+    plainRow: (n: number) => `Normal · Near Mint: ${n}`,
+    add: '+ Añadir',
+    remove: 'Quitar',
+    tooMany: (n: number) => `Son más que ${plural(n, 'la copia', `las ${n} copias`)} que tienes.`,
+    save: 'Guardar',
+    foilPrice: (price: string) => `Precio foil: ${price}`,
+    noFoilPrice: 'Esta carta no tiene precio foil aparte, así que las copias foil cuentan al precio normal.',
+    finishes: { normal: 'Normal', foil: 'Foil', etched: 'Etched' },
+    conditions: { NM: 'Casi nueva (NM)', LP: 'Poco jugada (LP)', MP: 'Moderadamente jugada (MP)', HP: 'Muy jugada (HP)', DMG: 'Dañada (DMG)' },
   },
 
   collectionImport: {

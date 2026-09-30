@@ -47,6 +47,8 @@ export function CollectionImportModal({ gameId, onClose, onImported }: { gameId:
       const items = result.items.map(({ card, quantity }) => ({ cardId: card.id, quantity }))
       const added = await addToCollection(items)
       useAppStore.getState().recordCollectionBatch(gameId, 'import', items)
+      // Foil and played copies the file names (copyDetails.ts); the rest stay plain Near Mint.
+      useAppStore.getState().addCopyDetails(result.items.map(({ card, details }) => ({ cardId: card.id, details })))
       onImported(added)
       onClose()
     } catch (err) {

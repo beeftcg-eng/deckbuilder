@@ -1,7 +1,9 @@
 import { mkdir, readdir, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { backupsDir, bindersFile, collectionFile, decksFile, wishlistFile } from './paths'
+import { backupsDir, bindersFile, collectionFile, decksFile, itemsFile, settingsFile, wishlistFile } from './paths'
 import { isPlainObject, readJsonFile, writeJsonAtomic } from './jsonStore'
+import { joinSettings, splitSettings } from '../../src/shared/settingsItems'
+import type { AppSettings } from '../../src/shared/types'
 
 export interface BackupBundle {
   version: 3
@@ -10,17 +12,23 @@ export interface BackupBundle {
   binders: unknown[]
   wishlist: unknown[]
   collection: Record<string, number>
+  /** Pack openings, price alerts, the value graph, collection batches and copy details (settingsItems.ts). Missing from older backups. */
+  items?: AppSettings
 }
 
 /** Reads the user-authored data files as they are on disk right now. */
 export async function readBundle(): Promise<BackupBundle> {
-  const [decks, binders, wishlist, collection] = await Promise.all([
+  const [decks, binders, wishlist, collection, prefs, items] = await Promise.all([
     readJsonFile<unknown[]>(decksFile(), [], Array.isArray),
     readJsonFile<unknown[]>(bindersFile(), [], Array.isArray),
     readJsonFile<unknown[]>(wishlistFile(), [], Array.isArray),
     readJsonFile<Record<string, number>>(collectionFile(), {}, isPlainObject),
+    readJsonFile<AppSettings>(settingsFile(), {}, isPlainObject),
+    readJsonFile<AppSettings>(itemsFile(), {}, isPlainObject),
   ])
-  return { version: 3, exportedAt: new Date().toISOString(), decks, binders, wishlist, collection }
+  // Read as the app does (settings.ts): records still in settings.json count until they move to items.json.
+  const records = splitSettings(joinSettings(prefs, items)).items
+  return { version: 3, exportedAt: new Date().toISOString(), decks, binders, wishlist, collection, items: records }
 }
 
 export type SnapshotKind = 'auto' | 'pre-restore'
@@ -33,8 +41,8 @@ const SNAPSHOT_NAME = /^(auto|pre-restore)-.+\.json$/
 
 let lastSnapshotAt = 0
 
-function fingerprint(bundle: Pick<BackupBundle, 'decks' | 'binders' | 'wishlist' | 'collection'>): string {
-  return JSON.stringify({ decks: bundle.decks, binders: bundle.binders, wishlist: bundle.wishlist, collection: bundle.collection })
+function fingerprint(bundle: Pick<BackupBundle, 'decks' | 'binders' | 'wishlist' | 'collection' | 'items'>): string {
+  return JSON.stringify({ decks: bundle.decks, binders: bundle.binders, wishlist: bundle.wishlist, collection: bundle.collection, items: bundle.items ?? {} })
 }
 
 /**
