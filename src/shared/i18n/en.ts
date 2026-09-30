@@ -156,6 +156,7 @@ export const en = {
     title: 'Scan cards',
     game: 'Game',
     loading: (percent: number) => `Getting the scanner ready… ${percent}%`,
+    starting: 'Starting the scanner…',
     loadingNote: 'About 26 MB, downloaded only the first time.',
     loadFailed: (message: string) => `The scanner couldn’t load: ${message}`,
     retry: 'Try again',

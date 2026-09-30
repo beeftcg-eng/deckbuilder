@@ -55,10 +55,46 @@ async function gpuEarnsItsKeep(model: PaddleModel): Promise<boolean> {
   return read.replace(/0/g, 'O').includes('BREWHOUSE') && read.includes('2048') && ms < 500
 }
 
-async function download(url: string, onBytes: (loaded: number, total: number) => void): Promise<Uint8Array> {
+/**
+ * The model files are kept in the app's own Cache Storage, so they really are downloaded once. The
+ * browser's HTTP cache isn't enough: GitHub Pages lets it keep files only 10 minutes, and phones drop
+ * big files from it when short on space. File names carry a content hash, so a new model is a new
+ * entry, and entries for old names are deleted.
+ */
+const MODEL_CACHE = 'scanner-models'
+
+async function openModelCache(): Promise<Cache | null> {
+  try {
+    return typeof caches === 'undefined' ? null : await caches.open(MODEL_CACHE)
+  } catch {
+    return null // private browsing and the like: download every time, as before
+  }
+}
+
+async function cachedModel(cache: Cache | null, url: string): Promise<Uint8Array | null> {
+  try {
+    const hit = await cache?.match(url)
+    return hit ? new Uint8Array(await hit.arrayBuffer()) : null
+  } catch {
+    return null
+  }
+}
+
+/** Forgets model files this version doesn't use (an older model's), and asks the browser to keep the rest. */
+async function tidyModelCache(cache: Cache, keep: string[]): Promise<void> {
+  const wanted = new Set(keep.map((u) => new URL(u, location.href).href))
+  for (const req of await cache.keys()) if (!wanted.has(req.url)) await cache.delete(req)
+  await navigator.storage?.persist?.().catch(() => false)
+}
+
+/**
+ * Downloads a model file. `expected` is its real size: the server sends the files gzipped, so the
+ * Content-Length header is the compressed size, while the bytes read here are the unpacked ones
+ * (going by the header is what made the bar pass 100%).
+ */
+async function download(url: string, expected: number, onBytes: (loaded: number) => void): Promise<Uint8Array<ArrayBuffer>> {
   const res = await fetch(url)
   if (!res.ok || !res.body) throw new Error(`${res.status} ${url}`)
-  const total = Number(res.headers.get('content-length')) || 0
   const reader = res.body.getReader()
   const chunks: Uint8Array[] = []
   let loaded = 0
@@ -67,7 +103,7 @@ async function download(url: string, onBytes: (loaded: number, total: number) =>
     if (done) break
     chunks.push(value)
     loaded += value.length
-    onBytes(loaded, total)
+    onBytes(Math.min(loaded, expected))
   }
   const out = new Uint8Array(loaded)
   let offset = 0
@@ -78,18 +114,52 @@ async function download(url: string, onBytes: (loaded: number, total: number) =>
   return out
 }
 
+/** A model file from the app's cache, else downloaded (with progress) and saved there. */
+async function modelFile(cache: Cache | null, url: string, expected: number, onBytes: (loaded: number) => void): Promise<Uint8Array> {
+  const cached = await cachedModel(cache, url)
+  if (cached) {
+    onBytes(expected)
+    return cached
+  }
+  const bytes = await download(url, expected, onBytes)
+  await cache?.put(url, new Response(bytes, { headers: { 'Content-Type': 'application/octet-stream' } })).catch(() => undefined)
+  return bytes
+}
+
+/** Whether the model files are already saved on this device, so opening the scanner won't download them. */
+export async function scannerModelSaved(): Promise<boolean> {
+  const cache = await openModelCache()
+  if (!cache) return false
+  try {
+    return Boolean((await cache.match(detUrl)) && (await cache.match(recUrl)))
+  } catch {
+    return false
+  }
+}
+
+/** The models' real sizes, for the progress bar (see download). */
+const DET_BYTES = 4_745_517
+const REC_BYTES = 7_830_888
+
 /**
  * The OCR models (about 12 MB, plus onnxruntime's 14 MB engine), downloaded the first time the
- * scanner opens and cached by the browser after that. `onProgress` gets 0..1 for the model files.
+ * scanner opens and kept on the device after that (the engine by the service worker, see
+ * vite.web.config.ts). `onProgress` gets 0..1 for the model files, and never goes past 1.
  */
 export function loadScannerModel(onProgress?: (fraction: number) => void): Promise<PaddleModel> {
   if (!modelPromise) {
-    const progress = { det: [0, 4_745_517], rec: [0, 7_830_888] }
-    const report = () => onProgress?.((progress.det[0] + progress.rec[0]) / (progress.det[1] + progress.rec[1]))
-    modelPromise = Promise.all([
-      download(detUrl, (l, t) => ((progress.det = [l, t || progress.det[1]]), report())),
-      download(recUrl, (l, t) => ((progress.rec = [l, t || progress.rec[1]]), report())),
-    ])
+    const loaded = { det: 0, rec: 0 }
+    const report = () => onProgress?.(Math.min(1, (loaded.det + loaded.rec) / (DET_BYTES + REC_BYTES)))
+    modelPromise = openModelCache()
+      .then((cache) =>
+        Promise.all([
+          modelFile(cache, detUrl, DET_BYTES, (n) => ((loaded.det = n), report())),
+          modelFile(cache, recUrl, REC_BYTES, (n) => ((loaded.rec = n), report())),
+        ]).then((files) => {
+          if (cache) void tidyModelCache(cache, [detUrl, recUrl]).catch(() => undefined)
+          return files
+        }),
+      )
       .then(async ([det, rec]) => {
         modelBytes = { det, rec }
         const model = await loadPaddle({ det, rec, dict: dictUrl, wasm: wasmUrl, webgpuWasm: webgpuWasmUrl })

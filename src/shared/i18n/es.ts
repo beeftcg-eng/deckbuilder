@@ -148,6 +148,7 @@ export const es: Messages = {
     title: 'Escanear cartas',
     game: 'Juego',
     loading: (percent) => `Preparando el escáner… ${percent}%`,
+    starting: 'Iniciando el escáner…',
     loadingNote: 'Unos 26 MB, se descargan solo la primera vez.',
     loadFailed: (message) => `No se pudo cargar el escáner: ${message}`,
     retry: 'Intentar de nuevo',

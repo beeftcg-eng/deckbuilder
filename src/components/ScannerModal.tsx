@@ -12,6 +12,7 @@ import {
   guideRect,
   isConfident,
   loadScannerModel,
+  scannerModelSaved,
   printingKey,
   rankByPicture,
   rankByText,
@@ -104,6 +105,8 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
 
   const [model, setModel] = useState<PaddleModel | null>(null)
   const [loadPercent, setLoadPercent] = useState(0)
+  // Whether the models are already on this device (then there's nothing to download); null until known.
+  const [modelSaved, setModelSaved] = useState<boolean | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
@@ -170,6 +173,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     let cancelled = false
     setLoadError(null)
+    void scannerModelSaved().then((saved) => !cancelled && setModelSaved(saved))
     loadScannerModel((f) => !cancelled && setLoadPercent(Math.round(f * 100)))
       .then((m) => !cancelled && setModel(m))
       .catch((err) => !cancelled && setLoadError(err instanceof Error ? err.message : String(err)))
@@ -526,7 +530,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   let status: string
   if (loadError) status = t.scanner.loadFailed(loadError)
   else if (cameraError) status = cameraError
-  else if (!model) status = t.scanner.loading(loadPercent)
+  else if (!model) status = modelSaved ? t.scanner.starting : t.scanner.loading(loadPercent)
   else if (!index) status = cachedCount > 0 ? t.browser.loading(adapter.shortName) : t.scanner.needCards(adapter.shortName)
   else if (!cameraReady) status = t.scanner.looking
   else status = phase === 'reading' ? t.scanner.reading : phase === 'checking' ? t.scanner.checking : phase === 'steady' ? t.scanner.holdSteady : t.scanner.looking
@@ -583,7 +587,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
         )}
         <div className={`scanner-status ${result || search != null ? 'hidden' : ''}`}>
           <span>{status}</span>
-          {!model && !loadError && <span className="scanner-note">{t.scanner.loadingNote}</span>}
+          {!model && !loadError && modelSaved === false && <span className="scanner-note">{t.scanner.loadingNote}</span>}
           {(loadError || cameraError) && (
             <button className="btn" onClick={() => setAttempt((a) => a + 1)}>
               {t.scanner.retry}
