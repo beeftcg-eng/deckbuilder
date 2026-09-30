@@ -10,6 +10,7 @@ import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/j
 import { sanitizeValueHistory } from '../../src/shared/valueHistory'
 import { sanitizePriceAlerts } from '../../src/shared/priceAlerts'
 import { sanitizePackOpenings } from '../../src/shared/packOpenings'
+import { sanitizeCollectionBatches } from '../../src/shared/collectionBatches'
 import { firstMerge, itemOps, settingsFromItems, touchesItems, type ItemRow } from '../../src/shared/sync/items'
 import type { SyncOp } from '../../src/shared/sync/ops'
 import { enqueueSyncOps } from './deckbuilderSync'
@@ -57,6 +58,7 @@ export function sanitize(raw: unknown): AppSettings {
   if (source.valueHistory !== undefined) settings.valueHistory = sanitizeValueHistory(source.valueHistory, GAME_IDS)
   if (source.priceAlerts !== undefined) settings.priceAlerts = sanitizePriceAlerts(source.priceAlerts)
   if (source.packOpenings !== undefined) settings.packOpenings = sanitizePackOpenings(source.packOpenings)
+  if (source.collectionBatches !== undefined) settings.collectionBatches = sanitizeCollectionBatches(source.collectionBatches, GAME_IDS)
   if (source.itemsSynced === true) settings.itemsSynced = true
   if (Array.isArray(source.tradeSeen)) settings.tradeSeen = source.tradeSeen.filter((k): k is string => typeof k === 'string').slice(0, 3000)
   if (isPlainObject(source.tradeProfile)) {

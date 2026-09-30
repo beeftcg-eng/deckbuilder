@@ -119,7 +119,8 @@ const deckRules: DeckRules = {
     {
       id: 'main',
       label: 'Main Deck',
-      match: (card) => card.category !== 'Legend' && card.category !== 'Battlefield',
+      // Rune cards go in the Rune Deck (counted by domain below), never the Main Deck or Sideboard.
+      match: (card) => card.category !== 'Legend' && card.category !== 'Battlefield' && card.category !== 'Rune',
       exactCount: 40,
     },
     {
@@ -133,7 +134,8 @@ const deckRules: DeckRules = {
     {
       id: 'sideboard',
       label: 'Sideboard',
-      match: (card) => card.category !== 'Legend' && card.category !== 'Battlefield',
+      // Rune cards go in the Rune Deck (counted by domain below), never the Main Deck or Sideboard.
+      match: (card) => card.category !== 'Legend' && card.category !== 'Battlefield' && card.category !== 'Rune',
       allowedCounts: [0, 10],
     },
     {

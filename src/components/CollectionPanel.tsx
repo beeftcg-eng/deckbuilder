@@ -4,9 +4,10 @@ import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { formatPrice, gameIdOfCardId, totalPrice } from '../shared/collection'
 import { summarizeSets, topUpItems, unownedUnwishlisted } from '../shared/setProgress'
-import type { Card } from '../shared/types'
+import type { Card, GameId } from '../shared/types'
 import { CardDetailModal } from './CardDetailModal'
-import { t } from '../shared/i18n'
+import { getLanguage, t } from '../shared/i18n'
+import { batchCopies, type CollectionBatch } from '../shared/collectionBatches'
 import { Rich } from './Rich'
 import { ValueChart } from './ValueChart'
 import { CollectionImportModal } from './CollectionImportModal'
@@ -38,6 +39,8 @@ export function CollectionPanel() {
   const wishlistCards = useAppStore((s) => s.wishlistCards)
   const valuePoints = useAppStore((s) => s.settings.valueHistory?.[s.currentGameId])
   const recordCollectionValue = useAppStore((s) => s.recordCollectionValue)
+  const allBatches = useAppStore((s) => s.settings.collectionBatches)
+  const { recordCollectionBatch, undoCollectionBatch, removeFromCollection, clearCollection } = useAppStore.getState()
   const adapter = getAdapter(currentGameId)
 
   const [tab, setTab] = useState<Tab>('cards')
@@ -48,6 +51,10 @@ export function CollectionPanel() {
   const [message, setMessage] = useState<string | null>(null)
   const [detail, setDetail] = useState<Card | null>(null)
   const [importing, setImporting] = useState(false)
+  // Select mode (My cards): the cards ticked for deleting together. Belongs to the game it was started in.
+  const [selection, setSelection] = useState<{ gameId: GameId; ids: Set<string> } | null>(null)
+  const selecting = selection?.gameId === currentGameId
+  const selected = selecting ? selection.ids : null
   const messageTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const cards = useMemo(() => catalog?.cards ?? [], [catalog])
@@ -95,6 +102,8 @@ export function CollectionPanel() {
   const wishlistedIds = useMemo(() => new Set(wishlist.map((e) => e.cardId)), [wishlist])
   const visibleSets = needle ? sets.filter((s) => s.setName.toLowerCase().includes(needle) || s.setCode.toLowerCase().includes(needle)) : sets
 
+  const batches = useMemo(() => (allBatches ?? []).filter((b) => b.gameId === currentGameId), [allBatches, currentGameId])
+
   const filterKey = `${currentGameId}|${tab}|${needle}|${sort}`
   const shown = limit.key === filterKey ? limit.count : PAGE_SIZE
 
@@ -111,7 +120,41 @@ export function CollectionPanel() {
     const ok = confirm(t.collection.addSetConfirm(copies, copiesEach, items.length, setName))
     if (!ok) return
     const added = await addToCollection(items)
+    recordCollectionBatch(currentGameId, 'set', items)
     flash(t.collection.addedFromSet(added, setName))
+  }
+
+  function toggleSelected(cardId: string) {
+    setSelection((prev) => {
+      const ids = new Set(prev?.gameId === currentGameId ? prev.ids : [])
+      if (ids.has(cardId)) ids.delete(cardId)
+      else ids.add(cardId)
+      return { gameId: currentGameId, ids }
+    })
+  }
+
+  async function handleDeleteSelected() {
+    if (!selected || selected.size === 0) return
+    const copies = [...selected].reduce((n, id) => n + (collection[id] ?? 0), 0)
+    if (!confirm(t.collection.deleteConfirm(selected.size, copies))) return
+    const removed = await removeFromCollection(currentGameId, [...selected])
+    setSelection(null)
+    flash(t.collection.removed(removed))
+  }
+
+  async function handleClear() {
+    const cardCount = owned.entries.length + owned.unknown
+    const copies = Object.entries(collection).reduce((n, [id, c]) => n + (gameIdOfCardId(id) === currentGameId ? c : 0), 0)
+    if (!confirm(t.collection.clearConfirm(adapter.shortName, cardCount, copies))) return
+    const removed = await clearCollection(currentGameId)
+    setSelection(null)
+    flash(t.collection.removed(removed))
+  }
+
+  async function handleUndoBatch(batch: CollectionBatch) {
+    const { added, removed } = batchCopies(batch)
+    if (!confirm(added > 0 ? t.collection.undoAddConfirm(added) : t.collection.undoRemoveConfirm(removed))) return
+    flash(t.collection.undone(await undoCollectionBatch(batch.id)))
   }
 
   async function handleExport() {
@@ -143,6 +186,11 @@ export function CollectionPanel() {
         {owned.entries.length > 0 && (
           <button className="btn" title={t.collectionImport.exportTitle} onClick={() => void handleExport()}>
             {t.collectionImport.export}
+          </button>
+        )}
+        {owned.entries.length + owned.unknown > 0 && (
+          <button className="btn" title={t.collection.clearTitle} onClick={() => void handleClear()}>
+            {t.collection.clear}
           </button>
         )}
         <span className="text-dim">
@@ -200,9 +248,60 @@ export function CollectionPanel() {
                 <span className="text-dim">{t.collection.ofEach}</span>
               </label>
             )}
+            {tab === 'cards' && owned.entries.length > 0 && (
+              <button
+                className={selecting ? 'btn btn-primary' : 'btn'}
+                aria-pressed={selecting}
+                title={t.collection.selectTitle}
+                onClick={() => setSelection(selecting ? null : { gameId: currentGameId, ids: new Set() })}
+              >
+                {selecting ? t.collection.doneSelecting : t.collection.select}
+              </button>
+            )}
           </div>
 
           {message && <div className="text-dim">{message}</div>}
+
+          {tab === 'cards' && selected && (
+            <div className="col-select-bar">
+              <span className="text-dim">{t.collection.selected(selected.size)}</span>
+              <button className="btn" onClick={() => setSelection({ gameId: currentGameId, ids: new Set(visibleOwned.map((e) => e.card.id)) })}>
+                {t.collection.selectAll(visibleOwned.length)}
+              </button>
+              <button className="btn" disabled={selected.size === 0} onClick={() => setSelection({ gameId: currentGameId, ids: new Set() })}>
+                {t.collection.selectNone}
+              </button>
+              <button className="btn btn-danger" disabled={selected.size === 0} onClick={() => void handleDeleteSelected()}>
+                {t.collection.deleteSelected(selected.size)}
+              </button>
+            </div>
+          )}
+
+          {tab === 'cards' && batches.length > 0 && (
+            <details className="col-batches">
+              <summary>{t.collection.batches(batches.length)}</summary>
+              <div className="text-dim">{t.collection.batchesIntro}</div>
+              <div className="col-list">
+                {batches.map((batch) => {
+                  const { added, removed } = batchCopies(batch)
+                  return (
+                    <div key={batch.id} className="col-row">
+                      <span className="col-batch-main">
+                        <span className="col-name">{t.collection.batchSource[batch.source]}</span>
+                        <span className="text-dim col-meta">
+                          {new Date(batch.at).toLocaleString(getLanguage(), { dateStyle: 'medium', timeStyle: 'short' })} · {t.common.cards(batch.items.length)} ·{' '}
+                          {added > 0 ? `+${added}` : `−${removed}`}
+                        </span>
+                      </span>
+                      <button className="btn" onClick={() => void handleUndoBatch(batch)}>
+                        {t.collection.undo}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </details>
+          )}
 
           {tab === 'cards' ? (
             <>
@@ -217,6 +316,9 @@ export function CollectionPanel() {
               <div className="col-list">
                 {visibleOwned.slice(0, shown).map(({ card, copies }) => (
                   <div key={card.id} className="col-row">
+                    {selected && (
+                      <input type="checkbox" className="col-select" checked={selected.has(card.id)} onChange={() => toggleSelected(card.id)} aria-label={card.name} />
+                    )}
                     <button className="col-card-link" onClick={() => setDetail(card)} title={t.collection.details}>
                       {card.imageUrlSmall ? <img className="deck-entry-thumb" src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="deck-entry-thumb" />}
                       <span className="col-name">{card.name}</span>

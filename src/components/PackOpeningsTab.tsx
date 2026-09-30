@@ -7,6 +7,7 @@ import { newOpening, openingValue, type PackOpening } from '../shared/packOpenin
 import { targetToUsd } from '../shared/priceAlerts'
 import type { Card, GameId } from '../shared/types'
 import { getLanguage, t } from '../shared/i18n'
+import { PackShareModal } from './PackShareModal'
 
 const SEARCH_LIMIT = 12
 
@@ -104,6 +105,7 @@ function OpeningDetail(props: {
   const { opening, cards, lookup, query, setQuery, onChange, onSave, onBack, onDelete } = props
   const value = openingValue(opening, lookup)
   const rate = displayRate()
+  const [sharing, setSharing] = useState(false)
   const [costText, setCostText] = useState(() => (opening.costUsd != null ? (opening.costUsd * rate).toFixed(displayCurrency() === 'JPY' ? 0 : 2) : ''))
   const q = query.trim().toLowerCase()
   const results = useMemo(
@@ -122,7 +124,13 @@ function OpeningDetail(props: {
             {t.packs.scan}
           </button>
         )}
+        {opening.pulls.length > 0 && (
+          <button className="btn" title={t.packs.shareTitle} onClick={() => setSharing(true)}>
+            {t.packs.share}
+          </button>
+        )}
       </div>
+      {sharing && <PackShareModal opening={opening} lookup={lookup} date={dateLabel(opening.date)} onClose={() => setSharing(false)} />}
       <div className="packs-new">
         <input value={opening.name} onChange={(e) => onSave({ ...opening, name: e.target.value })} aria-label={t.packs.namePlaceholder} />
         <input

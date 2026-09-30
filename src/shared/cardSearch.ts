@@ -16,6 +16,9 @@ export function matchRank(c: Card, query: string): number {
   if (name === q) return 0
   if (name.startsWith(q)) return 2 + vanilla
   if (name.includes(q)) return 4
+  // Every word of a several-word search in the name ("don gold"), just not side by side.
+  const words = q.split(/\s+/).filter(Boolean)
+  if (words.length > 1 && words.every((w) => name.includes(w))) return 4.5
   return 5
 }
 
@@ -43,6 +46,14 @@ export function matchesPrintedCode(c: Card, query: string): boolean {
  */
 export function matchesSearch(c: Card, query: string): boolean {
   const q = query.toLowerCase()
+  if (matchesWhole(c, q)) return true
+  // Several words also match when each one is found somewhere, in any order: "don gold" finds
+  // "DON!! Card (Gol.D.Roger) (Gold)", "rune alternate" the alt-art runes.
+  const words = q.split(/\s+/).filter(Boolean)
+  return words.length > 1 && words.every((word) => matchesWhole(c, word))
+}
+
+function matchesWhole(c: Card, q: string): boolean {
   return (
     c.name.toLowerCase().includes(q) ||
     !!c.text?.toLowerCase().includes(q) ||

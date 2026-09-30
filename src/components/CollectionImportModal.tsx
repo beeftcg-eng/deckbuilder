@@ -44,7 +44,9 @@ export function CollectionImportModal({ gameId, onClose, onImported }: { gameId:
     setImporting(true)
     setError(null)
     try {
-      const added = await addToCollection(result.items.map(({ card, quantity }) => ({ cardId: card.id, quantity })))
+      const items = result.items.map(({ card, quantity }) => ({ cardId: card.id, quantity }))
+      const added = await addToCollection(items)
+      useAppStore.getState().recordCollectionBatch(gameId, 'import', items)
       onImported(added)
       onClose()
     } catch (err) {

@@ -1,6 +1,7 @@
 import type { ValueHistory } from './valueHistory'
 import type { PriceAlerts } from './priceAlerts'
 import type { PackOpening } from './packOpenings'
+import type { CollectionBatch } from './collectionBatches'
 
 export type GameId = 'pokemon' | 'onepiece' | 'riftbound' | 'mtg' | 'yugioh'
 
@@ -291,6 +292,8 @@ export interface AppSettings {
   priceAlerts?: PriceAlerts
   /** Pack and box openings, every game's, newest first (packOpenings.ts). */
   packOpenings?: PackOpening[]
+  /** Recent many-card collection changes, newest first, kept so each can be undone (collectionBatches.ts). This device only. */
+  collectionBatches?: CollectionBatch[]
   /** Set after the first pull that included synced items (sync/items.ts firstMerge), so later pulls replace instead of merge. */
   itemsSynced?: boolean
   /** Trade matches already announced on this device (tradeAlerts.ts). */

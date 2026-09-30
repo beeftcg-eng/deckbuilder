@@ -29,3 +29,19 @@ export function kindOptions(cards: Card[], curated: readonly string[] = []): str
   const present = new Set(cards.flatMap((c) => c.subtypes))
   return curated.filter((k) => present.has(k))
 }
+
+const letters = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+
+/**
+ * Whether a search names a category the browser normally keeps out of the list (a game's
+ * mainDeckExcludedCategories: Riftbound's runes, One Piece's DON!! cards and leaders...), so that
+ * searching "rune", "fury runes" or "DON!!" finds them without ticking the Type chip first. A word
+ * counts when it starts with the category's name, or is at least three letters of its start ("run").
+ */
+export function searchNamesCategory(query: string, category: string): boolean {
+  const name = letters(category)
+  if (!name) return false
+  return letters(query)
+    .split(' ')
+    .some((word) => word.startsWith(name) || (word.length >= 3 && name.startsWith(word)))
+}

@@ -125,6 +125,20 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
   const soundRef = useRef(sound)
   soundRef.current = sound
   const [session, setSession] = useState<Added[]>([])
+  const sessionRef = useRef(session)
+  sessionRef.current = session
+  // What this session put in the collection becomes one batch, per game, that Collection can undo later.
+  useEffect(
+    () => () => {
+      const byGame = new Map<GameId, { cardId: string; quantity: number }[]>()
+      for (const e of sessionRef.current) {
+        if (e.target !== 'collection') continue
+        byGame.set(e.card.gameId, [...(byGame.get(e.card.gameId) ?? []), { cardId: e.card.id, quantity: e.quantity }])
+      }
+      for (const [game, items] of byGame) useAppStore.getState().recordCollectionBatch(game, 'scan', items)
+    },
+    [],
+  )
   const [showSession, setShowSession] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [search, setSearch] = useState<string | null>(null)

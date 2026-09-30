@@ -1,4 +1,6 @@
 import type { Card, GameId } from './types'
+import { formatPrice } from './collection'
+import { t } from './i18n'
 
 /**
  * Pack openings: what you paid for some packs or a box, the cards you pulled, and what those are
@@ -77,6 +79,47 @@ export function openingValue(opening: PackOpening, lookup: (cardId: string) => C
   const cost = opening.costUsd
   const result = cost != null ? value - cost : null
   return { value, copies, unpricedCopies, unknown, best, result, resultShare: cost ? (value - cost) / cost : null }
+}
+
+export interface RankedPull {
+  cardId: string
+  card: Card | undefined
+  quantity: number
+  /** Price × copies, USD; null when the card has no price (or isn't in the loaded data). */
+  value: number | null
+}
+
+/** The pulls, most valuable first (priced before unpriced, then by name), for sharing. */
+export function rankedPulls(opening: PackOpening, lookup: (cardId: string) => Card | undefined): RankedPull[] {
+  return opening.pulls
+    .map(({ cardId, quantity }) => {
+      const card = lookup(cardId)
+      return { cardId, card, quantity, value: card?.price != null ? card.price * quantity : null }
+    })
+    .sort((a, b) => (b.value ?? -1) - (a.value ?? -1) || (a.card?.name ?? a.cardId).localeCompare(b.card?.name ?? b.cardId))
+}
+
+/** The money line shared with an opening: "Paid $90.00 · Worth $120.50 · ▲ $30.50 (+34%)". */
+export function openingMoneyLine(opening: PackOpening, value: OpeningValue): string {
+  const parts = [...(opening.costUsd != null ? [t.packs.paidLine(formatPrice(opening.costUsd))] : []), t.packs.worthLine(formatPrice(value.value))]
+  if (value.result != null && value.resultShare != null) {
+    const percent = Math.round(Math.abs(value.resultShare) * 100)
+    parts.push(value.result >= 0 ? t.packs.up(formatPrice(value.result), percent) : t.packs.down(formatPrice(-value.result), percent))
+  }
+  return parts.join(' · ')
+}
+
+/** An opening as plain text, to paste into a chat: name and date, money, best pull, then every pull. */
+export function openingSummaryText(opening: PackOpening, lookup: (cardId: string) => Card | undefined, date: string): string {
+  const value = openingValue(opening, lookup)
+  const lines = [`📦 ${opening.name} — ${date}`, openingMoneyLine(opening, value)]
+  if (value.best) lines.push(t.packs.bestPull(value.best.card.name, formatPrice(value.best.value)))
+  lines.push('')
+  for (const pull of rankedPulls(opening, lookup)) {
+    const where = pull.card ? ` (${pull.card.setCode} ${pull.card.number})`.replace(' )', ')') : ''
+    lines.push(`${pull.quantity}× ${pull.card?.name ?? pull.cardId}${where}${pull.value != null ? ` — ${formatPrice(pull.value)}` : ''}`)
+  }
+  return lines.join('\n')
 }
 
 const GAME_IDS: readonly GameId[] = ['pokemon', 'onepiece', 'riftbound', 'mtg', 'yugioh']

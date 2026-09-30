@@ -67,3 +67,19 @@ describe('matchesSearch', () => {
     expect(find('nothing like this')).toEqual([])
   })
 })
+
+describe('searching several words', () => {
+  const gold = makeCard('onepiece', { name: 'DON!! Card (Gol.D.Roger) (Gold)', text: 'Your Turn +1000\nFrom: Carrying On His Will (OP13)' })
+  const plain = makeCard('onepiece', { name: 'DON!! Card', text: 'Your Turn +1000' })
+
+  it('matches when every word is found, in any order and any field', () => {
+    expect(matchesSearch(gold, 'don gold')).toBe(true)
+    expect(matchesSearch(gold, 'gold don')).toBe(true)
+    expect(matchesSearch(gold, 'roger op13')).toBe(true)
+    expect(matchesSearch(plain, 'don gold')).toBe(false)
+  })
+
+  it('ranks all the words in the name above a match that spills into the text', () => {
+    expect(matchRank(gold, 'don gold')).toBeLessThan(matchRank(gold, 'roger op13'))
+  })
+})

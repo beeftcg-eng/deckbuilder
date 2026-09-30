@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changePull, newOpening, openingValue } from './packOpenings'
+import { changePull, newOpening, openingSummaryText, openingValue, rankedPulls } from './packOpenings'
 import { catalogOf, makeCard } from './testFixtures'
 
 const chase = makeCard('riftbound', { name: 'Kai’Sa - Survivor (Overnumbered)', price: 80 })
@@ -35,5 +35,31 @@ describe('pack openings', () => {
     expect(v.result).toBeCloseTo(-9)
     expect(v.resultShare).toBeCloseTo(-0.1)
     expect(openingValue({ ...o, costUsd: null }, (id) => cards.get(id)).result).toBeNull()
+  })
+
+  it('ranks pulls by what they are worth, unpriced and unknown last', () => {
+    let o = newOpening('riftbound', 'x', null, false)
+    for (const [id, n] of [[unpriced.id, 1], [common.id, 3], ['gone', 1], [chase.id, 1]] as const) o = changePull(o, id, n)
+    expect(rankedPulls(o, (id) => cards.get(id)).map((p) => [p.cardId, p.value])).toEqual([
+      [chase.id, 80],
+      [common.id, expect.closeTo(0.3)],
+      ['gone', null],
+      [unpriced.id, null],
+    ])
+  })
+
+  it('writes an opening out as text to paste', () => {
+    let o = newOpening('riftbound', 'Unleashed box', 50, false)
+    o = changePull(o, common.id, 2)
+    o = changePull(o, chase.id, 1)
+    const text = openingSummaryText(o, (id) => cards.get(id), '29 Sep 2026')
+    expect(text.split('\n')).toEqual([
+      '📦 Unleashed box — 29 Sep 2026',
+      'Paid $50.00 · Worth $80.20 · ▲ $30.20 (+60%)',
+      'Best pull: Kai’Sa - Survivor (Overnumbered) ($80.00)',
+      '',
+      `1× Kai’Sa - Survivor (Overnumbered) (${chase.setCode} ${chase.number}) — $80.00`,
+      `2× Bewitching Spirit (${common.setCode} ${common.number}) — $0.20`,
+    ])
   })
 })

@@ -34,6 +34,7 @@ import { cheapestPrinting } from '../shared/buyList'
 import { checkDeckLegality } from '../shared/legality'
 import { freshTradeMatches } from '../shared/tradeAlerts'
 import { changePull, type PackOpening } from '../shared/packOpenings'
+import { cardIdsOfGame, newBatch, removalItems, undoItems, withBatch, type BatchItem, type BatchSource } from '../shared/collectionBatches'
 import { moveOneCopy, withQuantity } from '../shared/deckEdits'
 import type { UpdateStatus } from '../shared/updateStatus'
 import { currentDeckFor } from '../shared/decks'
@@ -265,6 +266,14 @@ interface AppState {
   changeOwned: (cardId: string, delta: number) => Promise<void>
   /** Adds copies of several printings at once (relative, like changeOwned). Returns the copies added. */
   addToCollection: (items: { cardId: string; quantity: number }[]) => Promise<number>
+  /** Keeps a many-card change to the collection so it can be undone later (collectionBatches.ts). */
+  recordCollectionBatch: (gameId: GameId, source: BatchSource, items: BatchItem[]) => void
+  /** Reverses a recorded batch and forgets it. Returns the copies it changed. */
+  undoCollectionBatch: (batchId: string) => Promise<number>
+  /** Removes every copy of these cards, as one undoable batch. Returns the copies removed. */
+  removeFromCollection: (gameId: GameId, cardIds: string[]) => Promise<number>
+  /** Removes every card of one game from the collection, as one undoable batch. Returns the copies removed. */
+  clearCollection: (gameId: GameId) => Promise<number>
   /** Wishlists one copy of each card; the ones already on the wishlist are the caller's to leave out. */
   wishlistCards: (cards: Card[]) => Promise<number>
   markDeckOwned: (deck: Deck) => Promise<number>
@@ -1177,6 +1186,41 @@ export const useAppStore = create<AppState>((set, get) => {
       const collection = await window.api.collection.add(items)
       set({ collection })
       return items.reduce((sum, item) => sum + item.quantity, 0)
+    },
+
+    recordCollectionBatch: (gameId, source, items) => {
+      const batch = newBatch(gameId, source, items)
+      if (!batch) return
+      const collectionBatches = withBatch(get().settings.collectionBatches ?? [], batch)
+      set((s) => ({ settings: { ...s.settings, collectionBatches } }))
+      persistSettings({ collectionBatches })
+    },
+
+    undoCollectionBatch: async (batchId) => {
+      const batch = (get().settings.collectionBatches ?? []).find((b) => b.id === batchId)
+      if (!batch) return 0
+      const items = undoItems(batch, get().collection)
+      if (items.length > 0) set({ collection: await window.api.collection.add(items) })
+      const collectionBatches = (get().settings.collectionBatches ?? []).filter((b) => b.id !== batchId)
+      set((s) => ({ settings: { ...s.settings, collectionBatches } }))
+      persistSettings({ collectionBatches })
+      return items.reduce((sum, i) => sum + Math.abs(i.quantity), 0)
+    },
+
+    removeFromCollection: async (gameId, cardIds) => {
+      const items = removalItems(get().collection, cardIds)
+      if (items.length === 0) return 0
+      set({ collection: await window.api.collection.add(items) })
+      get().recordCollectionBatch(gameId, 'delete', items)
+      return -items.reduce((sum, i) => sum + i.quantity, 0)
+    },
+
+    clearCollection: async (gameId) => {
+      const items = removalItems(get().collection, cardIdsOfGame(get().collection, gameId))
+      if (items.length === 0) return 0
+      set({ collection: await window.api.collection.add(items) })
+      get().recordCollectionBatch(gameId, 'clear', items)
+      return -items.reduce((sum, i) => sum + i.quantity, 0)
     },
 
     wishlistCards: async (cards) => {

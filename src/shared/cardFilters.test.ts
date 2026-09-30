@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { kindOptions, matchesKinds, matchesTypes, typeOptions } from './cardFilters'
+import { kindOptions, matchesKinds, matchesTypes, searchNamesCategory, typeOptions } from './cardFilters'
 import { makeCard } from './testFixtures'
 
 const set = (...xs: string[]) => new Set(xs)
@@ -40,5 +40,22 @@ describe('type and kind filters', () => {
     expect(typeOptions([ygoTrap, ygoSpell, ygoLink], ['Monster', 'Spell', 'Trap'])).toEqual(['Monster', 'Spell', 'Trap'])
     expect(kindOptions(ygo, ['Fusion', 'Xyz', 'Link'])).toEqual(['Xyz', 'Link'])
     expect(kindOptions(ygo, [])).toEqual([])
+  })
+})
+
+describe('searchNamesCategory', () => {
+  it('finds the category named anywhere in the search, singular or plural', () => {
+    expect(searchNamesCategory('fury rune', 'Rune')).toBe(true)
+    expect(searchNamesCategory('alt runes', 'Rune')).toBe(true)
+    expect(searchNamesCategory('run', 'Rune')).toBe(true)
+    expect(searchNamesCategory('DON!!', 'DON!!')).toBe(true)
+    expect(searchNamesCategory('don gold', 'DON!!')).toBe(true)
+  })
+
+  it("doesn't reveal a category for searches that only share a letter or two", () => {
+    expect(searchNamesCategory('ru', 'Rune')).toBe(false)
+    expect(searchNamesCategory('do', 'DON!!')).toBe(false)
+    expect(searchNamesCategory('brun', 'Rune')).toBe(false)
+    expect(searchNamesCategory('', 'Rune')).toBe(false)
   })
 })

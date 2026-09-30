@@ -33,6 +33,20 @@ interface OnePieceApiCard {
   market_price?: number | null
 }
 
+/** /allDonCards/: every DON!! card printing, with no set fields - the product is only in optcg_don_name. */
+interface OnePieceDonCard {
+  card_name: string
+  card_text: string | null
+  card_image_id: string
+  card_image: string | null
+  market_price?: number | null
+  /** "DON!! Card (Gol.D.Roger) (Gold) - Carrying On His Will (OP13)" */
+  optcg_don_name: string | null
+}
+
+/** The set every DON!! card goes in: they aren't numbered in their products, so they're collected as one set of their own. */
+export const DON_SET_ID = 'DON'
+
 interface OnePieceSet {
   set_name: string
   set_id: string
@@ -89,6 +103,39 @@ function normalizePromo(raw: OnePieceApiCard): Card {
   return { ...normalizeCard(raw), setId: PROMO_SET_ID, setCode: PROMO_SET_ID, setName: raw.set_name || 'One Piece Promotion Cards' }
 }
 
+/**
+ * A DON!! card. The product it came in ("Carrying On His Will (OP13)") goes in the text, so it can be
+ * searched, and its code ("OP13") in the number, which keeps the many "DON!! Card (Alternate Art)"
+ * printings apart and sorts the set by product.
+ */
+export function normalizeDon(raw: OnePieceDonCard): Card {
+  const prefix = `${raw.card_name} - `
+  const product = raw.optcg_don_name?.startsWith(prefix) ? raw.optcg_don_name.slice(prefix.length).trim() : ''
+  const code = /\(([A-Z0-9-]+)\)$/.exec(product)?.[1] ?? ''
+  const text = [raw.card_text, product && `From: ${product}`].filter(Boolean).join('\n')
+  return {
+    id: `onepiece:${raw.card_image_id}`,
+    gameId: 'onepiece',
+    sourceId: raw.card_image_id,
+    name: raw.card_name,
+    imageUrl: raw.card_image,
+    imageUrlSmall: raw.card_image,
+    orientation: 'portrait',
+    setId: DON_SET_ID,
+    setName: 'DON!! Cards',
+    setCode: DON_SET_ID,
+    number: code,
+    rarity: 'DON!!',
+    category: 'DON!!',
+    subtypes: [],
+    colors: [],
+    cost: null,
+    text: text || null,
+    legality: null,
+    price: raw.market_price != null && raw.market_price > 0 ? raw.market_price : null,
+  }
+}
+
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   const sets = await fetchJson<OnePieceSet[]>(`${API_BASE}/allSets/`)
 
@@ -102,7 +149,8 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
   // /allPromos/: without it, promo-only cards like Buggy P-098 were missing and P-084 only showed up as
   // the SP reprint that OP-17 lists. Each promo printing has its own card_image_id, so no de-dupe;
   // one that shares an id with a set card is split apart by uniquifyCardIds like any other reprint.
-  const totalSteps = sets.length + 2
+  // DON!! cards (alternate arts, gold, event promos) have their own endpoint too, and their own set (normalizeDon).
+  const totalSteps = sets.length + 3
 
   // One request per set used to run one at a time, which is what made this
   // sync noticeably slower than the other games — each request is small but
@@ -114,7 +162,7 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
   // regardless of which request finishes first.
   // Starter and promo cards get fixed slots after the sets. Promos go last, so one sharing an id with a
   // set card never takes that id from it on a tie (uniquifyCardIds gives ties to the first listed).
-  const bySet: Card[][] = new Array(sets.length + 2)
+  const bySet: Card[][] = new Array(sets.length + 3)
   let stepsDone = 0
   await Promise.all([
     ...sets.map(async (set, i) => {
@@ -146,6 +194,16 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
       stepsDone += 1
       onProgress({ loaded: stepsDone, total: totalSteps })
     })(),
+    (async () => {
+      // Optional: without it the game still syncs, just with no DON!! cards.
+      try {
+        bySet[sets.length + 2] = (await fetchJson<OnePieceDonCard[]>(`${API_BASE}/allDonCards/`)).map(normalizeDon)
+      } catch {
+        bySet[sets.length + 2] = []
+      }
+      stepsDone += 1
+      onProgress({ loaded: stepsDone, total: totalSteps })
+    })(),
   ])
 
   return bySet.flat()
@@ -172,7 +230,8 @@ const deckRules: DeckRules = {
     {
       id: 'main',
       label: 'Main Deck',
-      match: (card) => card.category !== 'Leader',
+      // DON!! cards are the separate 10-card DON!! deck, not part of the 50.
+      match: (card) => card.category !== 'Leader' && card.category !== 'DON!!',
       exactCount: 50,
     },
   ],

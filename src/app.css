@@ -2154,6 +2154,43 @@
   font-size: 12px;
 }
 
+.col-select-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.col-select-bar .btn-danger {
+  margin-left: auto;
+}
+
+.col-select {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.col-batches summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.col-batches[open] summary {
+  margin-bottom: 6px;
+}
+
+.col-batches .col-list {
+  margin-top: 6px;
+}
+
+.col-batch-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
 .col-for-trade {
   display: flex;
   align-items: center;

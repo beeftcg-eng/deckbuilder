@@ -8,7 +8,7 @@ import { rulesForFormat } from '../shared/games/rules'
 import { identityColors } from '../shared/cardColors'
 import { matchesSearch } from '../shared/cardSearch'
 import { CARD_SORTS, availableSorts, isCardSort, sortCards, type CardSort } from '../shared/cardSort'
-import { kindOptions, matchesKinds, matchesTypes, typeOptions } from '../shared/cardFilters'
+import { kindOptions, matchesKinds, matchesTypes, searchNamesCategory, typeOptions } from '../shared/cardFilters'
 import type { Card, DeckRules } from '../shared/types'
 import { CardTile } from './CardTile'
 import { CardDetailModal } from './CardDetailModal'
@@ -162,13 +162,16 @@ export function CardBrowser() {
   const results = useMemo(() => {
     if (!catalog) return []
     const q = query.trim().toLowerCase()
+    // Categories kept out of the list unless asked for: by the Type chips, or by naming them in the search ("rune", "DON!!").
+    const hidden = (adapter.mainDeckExcludedCategories ?? []).filter((category) => !(q && searchNamesCategory(q, category)))
     const filtered = catalog.cards.filter((c) => {
-      if (format && !isCardLegalInFormat(c, format).legal) return false
+      // Format legality only means something for cards a deck can hold: DON!! and rune cards go in no zone, so they always show.
+      if (format && !isCardLegalInFormat(c, format).legal && primaryZoneFor(c, rules)) return false
       if (stageFilter && !stageFilter(c)) return false
       if (!stageFilter) {
         if (types.size > 0) {
           if (!matchesTypes(c, types)) return false
-        } else if (adapter.mainDeckExcludedCategories?.includes(c.category)) {
+        } else if (hidden.includes(c.category)) {
           return false
         }
       }

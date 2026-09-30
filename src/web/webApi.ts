@@ -245,6 +245,18 @@ const binders = {
   },
 }
 
+/**
+ * Runs read-modify-write changes to the collection, trade list, wishlist and settings one at a time, like the
+ * desktop app's withDataLock. Without it two quick taps (or a scan landing mid-save) each read the old value
+ * from IndexedDB and the second write dropped the first one's change.
+ */
+let writeChain: Promise<unknown> = Promise.resolve()
+function withWriteLock<T>(task: () => Promise<T>): Promise<T> {
+  const run = writeChain.then(task, task)
+  writeChain = run.catch(() => {})
+  return run
+}
+
 const MAX_OWNED = 999
 function clampQuantity(quantity: number): number {
   return Math.min(MAX_OWNED, Math.max(0, Math.floor(Number(quantity) || 0)))
@@ -268,7 +280,7 @@ async function cardNameAndSet(cardId: string): Promise<{ name: string; setCode: 
 
 const collection = {
   get: async (): Promise<Collection> => (await idbGet<Collection>('settings', 'collection')) ?? {},
-  add: async (items: { cardId: string; quantity: number }[]): Promise<Collection> => {
+  add: (items: { cardId: string; quantity: number }[]): Promise<Collection> => withWriteLock(async () => {
     const current = (await idbGet<Collection>('settings', 'collection')) ?? {}
     const forTrade = (await idbGet<string[]>('settings', 'forTrade')) ?? []
     const droppedIds: string[] = []
@@ -290,9 +302,9 @@ const collection = {
       if (nextForTrade.length !== forTrade.length) await idbSet('settings', 'forTrade', nextForTrade)
     }
     return current
-  },
+  }),
   getForTrade: async (): Promise<string[]> => (await idbGet<string[]>('settings', 'forTrade')) ?? [],
-  setForTrade: async (cardId: string, forTrade: boolean): Promise<string[]> => {
+  setForTrade: (cardId: string, forTrade: boolean): Promise<string[]> => withWriteLock(async () => {
     const current = (await idbGet<string[]>('settings', 'forTrade')) ?? []
     const next = forTrade ? [...new Set([...current, cardId])] : current.filter((id) => id !== cardId)
     await idbSet('settings', 'forTrade', next)
@@ -300,7 +312,7 @@ const collection = {
     ensureSyncEngine()
     void syncEngine!.enqueue({ type: 'set_for_trade', gameId, cardId, forTrade })
     return next
-  },
+  }),
 }
 
 function addOrIncrement(entries: WishlistEntry[], gameId: GameId, cardId: string, quantity: number): WishlistEntry {
@@ -322,14 +334,14 @@ async function enqueueWishlistSync(gameId: GameId, cardId: string, quantity: num
 
 const wishlist = {
   list: async (): Promise<WishlistEntry[]> => (await idbGet<WishlistEntry[]>('settings', 'wishlist')) ?? [],
-  add: async (gameId: GameId, cardId: string, quantity: number): Promise<WishlistEntry[]> => {
+  add: (gameId: GameId, cardId: string, quantity: number): Promise<WishlistEntry[]> => withWriteLock(async () => {
     const entries = (await idbGet<WishlistEntry[]>('settings', 'wishlist')) ?? []
     const entry = addOrIncrement(entries, gameId, cardId, quantity)
     await idbSet('settings', 'wishlist', entries)
     await enqueueWishlistSync(gameId, cardId, entry.quantity)
     return entries
-  },
-  addMany: async (items: { gameId: GameId; cardId: string; quantity: number }[]): Promise<WishlistEntry[]> => {
+  }),
+  addMany: (items: { gameId: GameId; cardId: string; quantity: number }[]): Promise<WishlistEntry[]> => withWriteLock(async () => {
     const entries = (await idbGet<WishlistEntry[]>('settings', 'wishlist')) ?? []
     for (const { gameId, cardId, quantity } of items) {
       const entry = addOrIncrement(entries, gameId, cardId, quantity)
@@ -337,8 +349,8 @@ const wishlist = {
     }
     await idbSet('settings', 'wishlist', entries)
     return entries
-  },
-  setQuantity: async (entryId: string, quantity: number): Promise<WishlistEntry[]> => {
+  }),
+  setQuantity: (entryId: string, quantity: number): Promise<WishlistEntry[]> => withWriteLock(async () => {
     let entries = (await idbGet<WishlistEntry[]>('settings', 'wishlist')) ?? []
     const entry = entries.find((e) => e.id === entryId)
     if (quantity <= 0) {
@@ -349,16 +361,16 @@ const wishlist = {
     await idbSet('settings', 'wishlist', entries)
     if (entry) await enqueueWishlistSync(entry.gameId, entry.cardId, quantity)
     return entries
-  },
-  remove: async (entryId: string): Promise<WishlistEntry[]> => {
+  }),
+  remove: (entryId: string): Promise<WishlistEntry[]> => withWriteLock(async () => {
     const entries = (await idbGet<WishlistEntry[]>('settings', 'wishlist')) ?? []
     const entry = entries.find((e) => e.id === entryId)
     const next = entries.filter((e) => e.id !== entryId)
     await idbSet('settings', 'wishlist', next)
     if (entry) await enqueueWishlistSync(entry.gameId, entry.cardId, 0)
     return next
-  },
-  markPushed: async (results: { entryId: string; taskId: string }[]): Promise<WishlistEntry[]> => {
+  }),
+  markPushed: (results: { entryId: string; taskId: string }[]): Promise<WishlistEntry[]> => withWriteLock(async () => {
     const entries = (await idbGet<WishlistEntry[]>('settings', 'wishlist')) ?? []
     for (const { entryId, taskId } of results) {
       const entry = entries.find((e) => e.id === entryId)
@@ -366,7 +378,7 @@ const wishlist = {
     }
     await idbSet('settings', 'wishlist', entries)
     return entries
-  },
+  }),
 }
 
 // ---------- formats (read-only bundled defaults for v1 - no in-app ban-list editor on web yet) ----------
@@ -387,7 +399,7 @@ const formats = {
 
 const settingsApi = {
   get: async (): Promise<AppSettings> => (await idbGet<AppSettings>('settings', 'app')) ?? {},
-  set: async (patch: AppSettings): Promise<AppSettings> => {
+  set: (patch: AppSettings): Promise<AppSettings> => withWriteLock(async () => {
     const current = (await idbGet<AppSettings>('settings', 'app')) ?? {}
     const next = { ...current, ...patch }
     await idbSet('settings', 'app', next)
@@ -397,7 +409,7 @@ const settingsApi = {
       void syncEngine!.enqueueMany(itemOps(current, next))
     }
     return next
-  },
+  }),
 }
 
 // ---------- pawmodoro (auth + trading, mirrors electron/ipc/pawmodoro.ts) ----------
