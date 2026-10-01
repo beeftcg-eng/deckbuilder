@@ -194,3 +194,7 @@ Pokémon and Magic get legality from their card data; One Piece and Riftbound do
 - `src/` — React renderer (card browser, deck panel, wishlist panel, export/import/sample-hand/ban-list modals). State lives in one zustand store (`src/state/useAppStore.ts`); deck edits apply to it immediately and are saved in the background, which is also what makes undo cheap. This is shared between the desktop and phone builds — see "Phone app" above.
 
 Adding a new game means writing one adapter file implementing `GameAdapter` (fetch + normalize cards, deck zone rules, decklist text formatter) and registering it in `src/shared/games/registry.ts` (the game-id lists used by settings and backups are derived from the registry). A game whose deck shape depends on the format (Magic's Commander vs 60-card formats) sets `deckRulesByFormat`; read rules through `rulesForFormat()`. Optional hooks: `copyLimitFor` (basic lands/Energy, "any number of" cards), `identityColorFilter`, `importOptions`, and zones can be `manualOnly` so a plain click never lands there.
+
+## License
+
+MIT, see [LICENSE](LICENSE). It covers this project's code only: card names, images, text and other game data belong to their owners (Riot Games, Bandai, The Pokémon Company, Wizards of the Coast, Konami and others), including the card images in `public/card-art/`. Beef's Brewhouse is a fan project, not affiliated with or endorsed by any of them.
