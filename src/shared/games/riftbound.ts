@@ -5,6 +5,7 @@ import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
 import { toIsoDate } from '../cardSort'
 import { t } from '../i18n'
+import { withMissingRunes, withOriginsRuneArt } from './riftboundRunes'
 
 const API_BASE = 'https://api.riftcodex.com/cards'
 const SETS_URL = 'https://api.riftcodex.com/sets'
@@ -85,6 +86,26 @@ async function fetchSetDates(): Promise<Map<string, string>> {
   return dates
 }
 
+/**
+ * riftcodex lists most of Vendetta twice: an early entry made before TCGplayer had the set (no product id,
+ * often a shorter name - "Matriarch of War" for "Ambessa - Matriarch of War (Overnumbered)") and the
+ * current one. The early entry is dropped and its id kept on the current card (formerIds), so copies saved
+ * against it are moved over (cardIdRepair.ts). Printings that share a number but are different products
+ * (a Metal promo and the regular one) both have product ids and both stay.
+ */
+export function dropEarlyDuplicates(cards: Card[]): Card[] {
+  const current = new Map<string, Card>()
+  for (const card of cards) if (card.tcgplayerId && !current.has(card.sourceId)) current.set(card.sourceId, card)
+  const formerIds = new Map<string, string[]>()
+  const kept = cards.filter((card) => {
+    const replacement = card.tcgplayerId ? undefined : current.get(card.sourceId)
+    if (!replacement) return true
+    formerIds.set(replacement.id, [...(formerIds.get(replacement.id) ?? []), card.id])
+    return false
+  })
+  return kept.map((card) => (formerIds.has(card.id) ? { ...card, formerIds: formerIds.get(card.id) } : card))
+}
+
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   const cards: Card[] = []
   const setDates = await fetchSetDates()
@@ -101,7 +122,8 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
   } while (page <= pages)
 
   // TCGplayer market prices, from the price file the phone app's deploy publishes.
-  return applyPriceFile(cards, await loadPriceFile('riftbound'), (card) => riftboundKeys(card.tcgplayerId, card.sourceId))
+  const fixed = withOriginsRuneArt(withMissingRunes(dropEarlyDuplicates(cards)))
+  return applyPriceFile(fixed, await loadPriceFile('riftbound'), (card) => riftboundKeys(card.tcgplayerId, card.sourceId))
 }
 
 const deckRules: DeckRules = {

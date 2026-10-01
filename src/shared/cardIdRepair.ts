@@ -8,8 +8,8 @@ import type { Binder, Card, Collection, Deck, WishlistEntry } from './types'
  * view listed them as "Unknown card" and binders silently hid them. The data was never deleted - these
  * functions point each stale id at the current printing it meant, so it all comes back.
  *
- * Only Yu-Gi-Oh ids are repaired (the only game whose id scheme changed); other games' stale ids are left
- * exactly as they are, never dropped.
+ * Yu-Gi-Oh ids are worked out from the old id schemes; any game's card can also name the ids it replaced
+ * (Card.formerIds - Riftbound's merged duplicates). Other stale ids are left exactly as they are, never dropped.
  */
 
 const YGO_ID = /^yugioh:(\d+)(?:~([^~]+)(?:~(.+))?)?$/
@@ -42,8 +42,10 @@ function repairYugiohId(staleId: string, byPasscode: Map<string, Card[]>): strin
 /** stale id -> current id, for every id in `storedIds` that the catalog no longer has but can resolve. */
 export function staleIdRepairs(storedIds: Iterable<string>, catalog: Card[]): Map<string, string> {
   const known = new Set(catalog.map((c) => c.id))
+  const replacedBy = new Map<string, string>()
   const byPasscode = new Map<string, Card[]>()
   for (const card of catalog) {
+    for (const former of card.formerIds ?? []) replacedBy.set(former, card.id)
     if (card.gameId !== 'yugioh') continue
     const list = byPasscode.get(card.sourceId)
     if (list) list.push(card)
@@ -51,8 +53,8 @@ export function staleIdRepairs(storedIds: Iterable<string>, catalog: Card[]): Ma
   }
   const repairs = new Map<string, string>()
   for (const id of new Set(storedIds)) {
-    if (known.has(id) || !id.startsWith('yugioh:')) continue
-    const current = repairYugiohId(id, byPasscode)
+    if (known.has(id)) continue
+    const current = replacedBy.get(id) ?? (id.startsWith('yugioh:') ? repairYugiohId(id, byPasscode) : null)
     if (current && current !== id) repairs.set(id, current)
   }
   return repairs

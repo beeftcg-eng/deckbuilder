@@ -1047,9 +1047,9 @@ export const en = {
     newDeck: 'New Deck',
     saveFailed: (name: string, err: string) => `Couldn't save "${name}": ${err}`,
     loadFailed: (err: string) => `Couldn't load your data: ${err}`,
-    ygoRestored: (n: number) =>
-      `Restored ${n} Yu-Gi-Oh! ${plural(n, 'card', 'cards')} in your decks, binders, collection and wishlist that the updated card data had renamed.`,
-    ygoRestoreFailed: (err: string) => `Couldn't restore Yu-Gi-Oh! cards after the card-data update: ${err}`,
+    cardsRestored: (game: string, n: number) =>
+      `Restored ${n} ${game} ${plural(n, 'card', 'cards')} in your decks, binders, collection and wishlist that the updated card data had renamed.`,
+    restoreFailed: (game: string, err: string) => `Couldn't restore ${game} cards after the card-data update: ${err}`,
     lockedNoDelete: (name: string) => `"${name}" is locked. Unlock it to delete it.`,
     deleteFailed: (name: string, err: string) => `Couldn't delete "${name}": ${err}`,
     lockedNoMoveOut: (name: string) => `"${name}" is locked. Unlock it to move cards out of it.`,

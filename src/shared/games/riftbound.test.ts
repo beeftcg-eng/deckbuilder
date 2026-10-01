@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { riftboundAdapter } from './riftbound'
+import { dropEarlyDuplicates, riftboundAdapter } from './riftbound'
 import { buildExportText } from '../export'
 import { catalogOf, makeCard, makeDeck } from '../testFixtures'
 
@@ -56,5 +56,17 @@ describe('Riftbound decklist export', () => {
     const noMatch = makeDeck('riftbound', { legend: [[legend, 1]], main: [[otherChampion, 3]] })
     const text = buildExportText(noMatch, riftboundAdapter, 'Constructed', catalog)
     expect(text).toContain('Champion:\n1 Kennen, Keeper of Balance\n\nMainDeck:\n2 Kennen, Keeper of Balance')
+  })
+})
+
+describe('dropEarlyDuplicates', () => {
+  it("drops riftcodex's early entry for a printing and remembers its id on the current one", () => {
+    const early = makeCard('riftbound', { id: 'riftbound:early', name: 'Matriarch of War', sourceId: 'ven-196-166' })
+    const current = makeCard('riftbound', { id: 'riftbound:current', name: 'Ambessa - Matriarch of War (Overnumbered)', sourceId: 'ven-196-166', tcgplayerId: '706061' })
+    const metal = makeCard('riftbound', { id: 'riftbound:metal', name: 'Jinx - Loose Cannon (Metal)', sourceId: 'opp-251-298', tcgplayerId: '669252' })
+    const regular = makeCard('riftbound', { id: 'riftbound:regular', name: 'Jinx - Loose Cannon', sourceId: 'opp-251-298', tcgplayerId: '662894' })
+    const cards = dropEarlyDuplicates([early, current, metal, regular])
+    expect(cards.map((c) => c.id)).toEqual(['riftbound:current', 'riftbound:metal', 'riftbound:regular'])
+    expect(cards[0].formerIds).toEqual(['riftbound:early'])
   })
 })

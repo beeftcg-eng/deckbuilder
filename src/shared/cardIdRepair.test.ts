@@ -3,6 +3,7 @@ import { applyIdRepairs, staleIdRepairs, storedCardIds, type RepairableData } fr
 import { uniquifyCardIds } from './cardIds'
 import { normalizeCard } from './games/yugioh'
 import type { Card, Deck } from './types'
+import { makeCard } from './testFixtures'
 
 // One card with several printings, the way YGOPRODeck lists them.
 function catalog(): Card[] {
@@ -45,6 +46,11 @@ describe('staleIdRepairs', () => {
     expect(repairs.get('yugioh:10045474~RA01~9')).toBe(idOf(cards, 'RA01', 'Super Rare'))
     expect(repairs.get('yugioh:10045474~MAMA')).toBe('yugioh:10045474')
     expect(repairs.get('yugioh:10045474~RA01~Starlight Rare')).toBe(idOf(cards, 'RA01', 'Super Rare'))
+  })
+
+  it("points an id a card lists as one it replaced at that card, in any game", () => {
+    const merged = makeCard('riftbound', { id: 'riftbound:current', name: 'Body Rune', formerIds: ['riftbound:early'] })
+    expect(staleIdRepairs(['riftbound:early', 'riftbound:current'], [...cards, merged])).toEqual(new Map([['riftbound:early', 'riftbound:current']]))
   })
 
   it('never touches a card that is gone, or another game\'s ids', () => {

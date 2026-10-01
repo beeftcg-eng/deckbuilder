@@ -1086,9 +1086,9 @@ export const pt: Messages = {
     newDeck: 'Deck novo',
     saveFailed: (name, err) => `Não foi possível salvar "${name}": ${err}`,
     loadFailed: (err) => `Não foi possível carregar seus dados: ${err}`,
-    ygoRestored: (n) =>
-      `${n} ${plural(n, 'carta', 'cartas')} de Yu-Gi-Oh! ${plural(n, 'restaurada', 'restauradas')} nos seus decks, fichários, coleção e lista de desejos, que a atualização dos dados de cartas tinha renomeado.`,
-    ygoRestoreFailed: (err) => `Não foi possível restaurar as cartas de Yu-Gi-Oh! depois de atualizar os dados de cartas: ${err}`,
+    cardsRestored: (game, n) =>
+      `${n} ${plural(n, 'carta', 'cartas')} de ${game} ${plural(n, 'restaurada', 'restauradas')} nos seus decks, fichários, coleção e lista de desejos, que a atualização dos dados de cartas tinha renomeado.`,
+    restoreFailed: (game, err) => `Não foi possível restaurar as cartas de ${game} depois de atualizar os dados de cartas: ${err}`,
     lockedNoDelete: (name) => `"${name}" está bloqueado. Desbloqueie para apagá-lo.`,
     deleteFailed: (name, err) => `Não foi possível apagar "${name}": ${err}`,
     lockedNoMoveOut: (name) => `"${name}" está bloqueado. Desbloqueie para tirar cartas dele.`,

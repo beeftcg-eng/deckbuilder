@@ -58,6 +58,11 @@ export interface Card {
   /** Riftbound: TCGplayer's product id, which daily price updates are matched by (see priceRefresh.ts). */
   tcgplayerId?: string
   /**
+   * Ids this card had in older card data, for cards whose source listed them twice and now keeps one
+   * (Riftbound: riftcodex's early Vendetta entries). cardIdRepair.ts points saved references at this card.
+   */
+  formerIds?: string[]
+  /**
    * Alternate "flavor" names this card has also been printed under — Secret Lair drops and
    * Universes Beyond crossovers often reprint an existing card with a different name (e.g.
    * Dovin's Veto as "Shadowbringers"). Magic-only currently; lets a search for the flavor name

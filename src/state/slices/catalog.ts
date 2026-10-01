@@ -1,6 +1,7 @@
 import { staleIdRepairs, storedCardIds } from '../../shared/cardIdRepair'
 import { applyArtChoices, printingKey, withArtwork } from '../../shared/artChoice'
 import { t } from '../../shared/i18n'
+import { getAdapter } from '../../shared/games/registry'
 import { errorMessage, type AppState } from '../storeUtils'
 import type { StoreContext } from '../storeContext'
 
@@ -37,9 +38,10 @@ export function createCatalogSlice(ctx: StoreContext) {
       const cards = applyArtChoices(await window.api.cards.load(gameId), get().settings.artChoices)
       const byId = new Map(cards.map((c) => [c.id, c]))
       set((s) => ({ catalogs: { ...s.catalogs, [gameId]: { cards, byId } } }))
-      // Card ids saved against older card data (Yu-Gi-Oh's changed in v0.12.0) are pointed at the current
-      // cards, so decks, binders, the collection and the wishlist don't lose them - see cardIdRepair.ts.
-      if (gameId === 'yugioh') {
+      // Card ids saved against older card data (Yu-Gi-Oh's changed in v0.12.0; Riftbound merged riftcodex's
+      // duplicates) are pointed at the current cards, so decks, binders, the collection and the wishlist
+      // don't lose them - see cardIdRepair.ts.
+      if (gameId === 'yugioh' || gameId === 'riftbound') {
         try {
           // Read from the saved files, not the store: at startup this can run before binders, the
           // collection and the wishlist have been loaded into it, and their stale ids would be missed.
@@ -56,12 +58,12 @@ export function createCatalogSlice(ctx: StoreContext) {
               // Reload from the repaired files, so a startup load that read them earlier can't leave old ids on screen.
               await Promise.all([get().loadDecks(), get().loadBinders(), get().loadCollection(), get().loadForTrade(), get().loadWishlist()])
               set({
-                notice: t.store.ygoRestored(fixed.repaired),
+                notice: t.store.cardsRestored(getAdapter(gameId).shortName, fixed.repaired),
               })
             }
           }
         } catch (err) {
-          set({ error: t.store.ygoRestoreFailed(errorMessage(err)) })
+          set({ error: t.store.restoreFailed(getAdapter(gameId).shortName, errorMessage(err)) })
         }
       }
       recordValueOf(gameId)
