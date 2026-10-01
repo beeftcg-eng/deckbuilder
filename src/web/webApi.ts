@@ -36,6 +36,7 @@ import { getAdapter } from '../shared/games/registry'
 import { uniquifyCardIds } from '../shared/cardIds'
 import { resolveDbImgUrl } from '../shared/dbImgUrl'
 import { carryOverPrices } from '../shared/carryOverPrices'
+import { keepExtrasWhenMissing } from '../shared/games/riftboundExtras'
 import { fetchJson, USER_AGENT } from '../shared/games/fetchUtil'
 import { callRpc, passwordLogin, refreshAccessToken, signUp as clientSignUp, type SyncConfig } from '../shared/sync/client'
 import { SyncEngine } from '../shared/sync/engine'
@@ -105,7 +106,7 @@ const cards = {
       broadcast({ gameId, loaded: 0, total: 0, done: true, error: err instanceof Error ? err.message : String(err) })
       throw err
     }
-    const finalCards = previous ? carryOverPrices(fetched, previous.cards) : fetched
+    const finalCards = previous ? carryOverPrices(keepExtrasWhenMissing(fetched, previous.cards), previous.cards) : fetched
     const cache: CardCache = { cards: finalCards, lastSynced: new Date().toISOString() }
     await idbSet('cards', gameId, cache)
     nameLookup.delete(gameId) // rebuilt from the new catalog on next use

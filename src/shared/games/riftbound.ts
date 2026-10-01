@@ -5,7 +5,7 @@ import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
 import { toIsoDate } from '../cardSort'
 import { t } from '../i18n'
-import { withMissingRunes, withOriginsRuneArt } from './riftboundRunes'
+import { extraCards, withOriginsRuneArt } from './riftboundExtras'
 
 const API_BASE = 'https://api.riftcodex.com/cards'
 const SETS_URL = 'https://api.riftcodex.com/sets'
@@ -106,7 +106,8 @@ export function dropEarlyDuplicates(cards: Card[]): Card[] {
   return kept.map((card) => (formerIds.has(card.id) ? { ...card, formerIds: formerIds.get(card.id) } : card))
 }
 
-async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
+/** riftcodex's cards, its early duplicates dropped: what scripts/build-prices.ts compares TCGplayer's catalog with. */
+export async function fetchRiftcodexCards(onProgress: (p: FetchProgress) => void = () => {}): Promise<Card[]> {
   const cards: Card[] = []
   const setDates = await fetchSetDates()
   let page = 1
@@ -121,9 +122,15 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
     page += 1
   } while (page <= pages)
 
-  // TCGplayer market prices, from the price file the phone app's deploy publishes.
-  const fixed = withOriginsRuneArt(withMissingRunes(dropEarlyDuplicates(cards)))
-  return applyPriceFile(fixed, await loadPriceFile('riftbound'), (card) => riftboundKeys(card.tcgplayerId, card.sourceId))
+  return dropEarlyDuplicates(cards)
+}
+
+async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
+  const cards = await fetchRiftcodexCards(onProgress)
+  // The price file the phone app's deploy publishes: TCGplayer market prices, and the printings riftcodex lacks.
+  const file = await loadPriceFile('riftbound')
+  const all = withOriginsRuneArt([...cards, ...extraCards(file?.extraCards ?? [], cards)])
+  return applyPriceFile(all, file, (card) => riftboundKeys(card.tcgplayerId, card.sourceId))
 }
 
 const deckRules: DeckRules = {

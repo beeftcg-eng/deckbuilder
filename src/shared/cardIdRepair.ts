@@ -9,7 +9,8 @@ import type { Binder, Card, Collection, Deck, WishlistEntry } from './types'
  * functions point each stale id at the current printing it meant, so it all comes back.
  *
  * Yu-Gi-Oh ids are worked out from the old id schemes; any game's card can also name the ids it replaced
- * (Card.formerIds - Riftbound's merged duplicates). Other stale ids are left exactly as they are, never dropped.
+ * (Card.formerIds - Riftbound's merged duplicates), and a Riftbound printing added from TCGplayer moves to
+ * riftcodex's card once riftcodex lists it. Other stale ids are left exactly as they are, never dropped.
  */
 
 const YGO_ID = /^yugioh:(\d+)(?:~([^~]+)(?:~(.+))?)?$/
@@ -43,9 +44,11 @@ function repairYugiohId(staleId: string, byPasscode: Map<string, Card[]>): strin
 export function staleIdRepairs(storedIds: Iterable<string>, catalog: Card[]): Map<string, string> {
   const known = new Set(catalog.map((c) => c.id))
   const replacedBy = new Map<string, string>()
+  const byProduct = new Map<string, string>()
   const byPasscode = new Map<string, Card[]>()
   for (const card of catalog) {
     for (const former of card.formerIds ?? []) replacedBy.set(former, card.id)
+    if (card.gameId === 'riftbound' && card.tcgplayerId) byProduct.set(card.tcgplayerId, card.id)
     if (card.gameId !== 'yugioh') continue
     const list = byPasscode.get(card.sourceId)
     if (list) list.push(card)
@@ -54,7 +57,11 @@ export function staleIdRepairs(storedIds: Iterable<string>, catalog: Card[]): Ma
   const repairs = new Map<string, string>()
   for (const id of new Set(storedIds)) {
     if (known.has(id)) continue
-    const current = replacedBy.get(id) ?? (id.startsWith('yugioh:') ? repairYugiohId(id, byPasscode) : null)
+    const current =
+      replacedBy.get(id) ??
+      (id.startsWith('yugioh:') ? repairYugiohId(id, byPasscode) : null) ??
+      // A printing added from TCGplayer (riftboundExtras.ts) that riftcodex now lists itself.
+      (/^riftbound:tcg-\d+$/.test(id) ? byProduct.get(id.slice('riftbound:tcg-'.length)) ?? null : null)
     if (current && current !== id) repairs.set(id, current)
   }
   return repairs

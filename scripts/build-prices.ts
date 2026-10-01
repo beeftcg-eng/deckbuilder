@@ -7,6 +7,10 @@
  *   npx rolldown scripts/build-prices.ts --platform node --format esm -o .prices/build-prices.mjs
  *   node .prices/build-prices.mjs dist-web/prices
  *
+ * Riftbound's file also lists the printings TCGplayer has that riftcodex doesn't (Nexus Night and
+ * tournament promos, Signature cards, most runes, a new set's first cards); the apps add them as cards
+ * when they sync (src/shared/games/riftboundExtras.ts).
+ *
  * One Piece and Magic already get prices from their own card sources (optcgapi, Scryfall); for them
  * this runs the app's own download code and publishes each card's price by card id, so the apps can
  * refresh prices daily without re-downloading those catalogs (priceRefresh.ts).
@@ -16,7 +20,9 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { pokemonKey, pokemonPromoKey, riftboundKey, splitYugiohCode, yugiohExactKey, yugiohKey, type PriceFile } from '../src/shared/priceKeys.ts'
+import { pokemonKey, pokemonPromoKey, riftboundKey, splitYugiohCode, yugiohExactKey, yugiohKey, type PriceFile, type RiftboundExtra } from '../src/shared/priceKeys.ts'
+import { fetchRiftcodexCards } from '../src/shared/games/riftbound.ts'
+import { missingPrintings } from '../src/shared/games/riftboundExtras.ts'
 import { getAdapter } from '../src/shared/games/registry.ts'
 import { uniquifyCardIds } from '../src/shared/cardIds.ts'
 import { idKey } from '../src/shared/priceRefresh.ts'
@@ -30,6 +36,7 @@ interface Group {
   groupId: number
   name: string
   abbreviation?: string | null
+  publishedOn?: string | null
 }
 interface PriceRow {
   productId: number
@@ -42,6 +49,7 @@ interface PriceRow {
 interface Product {
   productId: number
   name: string
+  imageCount?: number
   extendedData?: { name: string; value: string }[]
 }
 
@@ -73,6 +81,7 @@ async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise
 interface Prices {
   prices: Record<string, number>
   foilPrices: Record<string, number>
+  extraCards?: RiftboundExtra[]
 }
 
 interface ProductPrices {
@@ -115,24 +124,60 @@ function keep(prices: Record<string, number>, key: string, price: number) {
 async function riftbound(): Promise<Prices> {
   // Riftbound's card data carries each card's TCGplayer product id; set + printed number covers the
   // cards it doesn't have one for yet (a brand-new set).
-  const prices = await byProductList(CATEGORY.riftbound, (group, p) => {
-    const number = extended(p, 'Number')
-    return group.abbreviation && number ? [riftboundKey(group.abbreviation, number)] : []
-  })
+  const products: RiftboundExtra[] = []
+  const prices = await byProductList(
+    CATEGORY.riftbound,
+    (group, p) => {
+      const number = extended(p, 'Number')
+      return group.abbreviation && number ? [riftboundKey(group.abbreviation, number)] : []
+    },
+    // Every product, priced or not: a set that isn't out yet has cards but no prices.
+    (group, p) => {
+      const number = extended(p, 'Number')
+      if (group.abbreviation && number) products.push(riftboundProduct(group, p, number))
+    },
+  )
   for (const byProduct of await mapPool(await groupsOf(CATEGORY.riftbound), CONCURRENCY, (g) => groupPrices(CATEGORY.riftbound, g.groupId))) {
     for (const [id, price] of byProduct.any) keep(prices.prices, String(id), price)
     for (const [id, price] of byProduct.foil) keep(prices.foilPrices, String(id), price)
   }
+  // The printings riftcodex doesn't list, for the apps to add (games/riftboundExtras.ts). Without riftcodex
+  // to compare with, none are published, and the apps keep the ones they have.
+  try {
+    prices.extraCards = missingPrintings(products, await fetchRiftcodexCards())
+  } catch (err) {
+    console.warn(`::warning::riftbound extra printings skipped: ${err instanceof Error ? err.message : err}`)
+  }
   return prices
 }
 
-async function byProductList(category: number, keysOf: (group: Group, product: Product) => string[]): Promise<Prices> {
+function riftboundProduct(group: Group, p: Product, number: string): RiftboundExtra {
+  const energy = Number(extended(p, 'Energy Cost'))
+  const domains = (extended(p, 'Domain') ?? '').split(';').map((d) => d.trim()).filter((d) => d && d !== 'None')
+  return {
+    productId: p.productId,
+    name: p.name,
+    group: group.abbreviation!,
+    groupName: group.name,
+    number,
+    rarity: extended(p, 'Rarity') ?? null,
+    type: extended(p, 'Card Type') ?? null,
+    domains,
+    energy: extended(p, 'Energy Cost') != null && Number.isFinite(energy) ? energy : null,
+    text: extended(p, 'Description') ?? null,
+    image: (p.imageCount ?? 0) > 0,
+    released: group.publishedOn ? group.publishedOn.slice(0, 10) : null,
+  }
+}
+
+async function byProductList(category: number, keysOf: (group: Group, product: Product) => string[], onProduct?: (group: Group, product: Product) => void): Promise<Prices> {
   const prices: Prices = { prices: {}, foilPrices: {} }
   const groups = await groupsOf(category)
   await mapPool(groups, CONCURRENCY, async (group) => {
     try {
       const [products, byProduct] = await Promise.all([getJson<{ results: Product[] }>(`${BASE}/${category}/${group.groupId}/products`), groupPrices(category, group.groupId)])
       for (const p of products.results) {
+        onProduct?.(group, p)
         const price = byProduct.any.get(p.productId)
         if (price == null) continue
         const foil = byProduct.foil.get(p.productId)
@@ -199,13 +244,13 @@ try {
 }
 for (const [game, build] of Object.entries({ riftbound, pokemon, yugioh, onepiece: byCardId('onepiece'), mtg: byCardId('mtg') })) {
   try {
-    const { prices, foilPrices } = await build()
+    const { prices, foilPrices, extraCards } = await build()
     const count = Object.keys(prices).length
     if (!count) throw new Error('no prices')
     const foilCount = Object.keys(foilPrices).length
-    const file: PriceFile = { updatedAt: new Date().toISOString(), prices, ...(foilCount ? { foilPrices } : {}) }
+    const file: PriceFile = { updatedAt: new Date().toISOString(), prices, ...(foilCount ? { foilPrices } : {}), ...(extraCards ? { extraCards } : {}) }
     await writeFile(join(out, `${game}.json`), JSON.stringify(file))
-    console.log(`${game}: ${count} prices, ${foilCount} foil prices`)
+    console.log(`${game}: ${count} prices, ${foilCount} foil prices${extraCards ? `, ${extraCards.length} extra printings` : ''}`)
   } catch (err) {
     console.warn(`::warning::${game} prices skipped: ${err instanceof Error ? err.message : err}`)
   }

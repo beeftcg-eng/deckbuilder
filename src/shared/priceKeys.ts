@@ -14,6 +14,30 @@ export interface PriceFile {
   prices: Record<string, number>
   /** key -> USD market price of a foil copy (TCGplayer's Foil / Holofoil rows, Scryfall's usd_foil). Missing from files built before foils were priced. */
   foilPrices?: Record<string, number>
+  /** Riftbound: the printings TCGplayer lists that riftcodex doesn't, which a sync adds (games/riftboundExtras.ts). */
+  extraCards?: RiftboundExtra[]
+}
+
+/** A Riftbound printing as TCGplayer lists it, for one riftcodex is missing. */
+export interface RiftboundExtra {
+  productId: number
+  /** TCGplayer's name: "Kayle, Justified (Top 8)", "Fury Rune (R01a)". */
+  name: string
+  /** TCGplayer's group abbreviation ("OPP", "VEN") and name. */
+  group: string
+  groupName: string
+  /** As TCGplayer gives it: "002/166", "R01a", "T1A 001/005"; Signature printings have a star after the number. */
+  number: string
+  rarity: string | null
+  /** TCGplayer's Card Type: "Unit", "Champion Unit", "Signature Spell", "Rune"... */
+  type: string | null
+  domains: string[]
+  energy: number | null
+  text: string | null
+  /** Whether TCGplayer has a picture of it. */
+  image: boolean
+  /** The group's release date, "YYYY-MM-DD". */
+  released: string | null
 }
 
 /** "001/165" -> "1", "SWSH048" -> "swsh48", "TG12" -> "tg12", "A01" -> "a1". */

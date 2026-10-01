@@ -7,12 +7,17 @@ import type { Card, GameId } from './types'
 import { fetchJson } from './games/fetchUtil'
 import { PRICE_FILES_URL, type PriceFile } from './priceKeys'
 
-export type PriceMaps = Pick<PriceFile, 'prices' | 'foilPrices'>
+export type PriceMaps = Pick<PriceFile, 'prices' | 'foilPrices' | 'extraCards'>
 
 export async function loadPriceFile(game: GameId): Promise<PriceMaps | null> {
   try {
     const file = await fetchJson<PriceFile>(`${PRICE_FILES_URL}/${game}.json`, 3)
-    return file && typeof file.prices === 'object' ? { prices: file.prices, foilPrices: typeof file.foilPrices === 'object' ? file.foilPrices : undefined } : null
+    if (!file || typeof file.prices !== 'object') return null
+    return {
+      prices: file.prices,
+      foilPrices: typeof file.foilPrices === 'object' ? file.foilPrices : undefined,
+      extraCards: Array.isArray(file.extraCards) ? file.extraCards : undefined,
+    }
   } catch {
     return null
   }

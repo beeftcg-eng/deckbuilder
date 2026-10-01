@@ -53,6 +53,11 @@ describe('staleIdRepairs', () => {
     expect(staleIdRepairs(['riftbound:early', 'riftbound:current'], [...cards, merged])).toEqual(new Map([['riftbound:early', 'riftbound:current']]))
   })
 
+  it("moves a Riftbound printing added from TCGplayer to riftcodex's card once riftcodex lists it", () => {
+    const listed = makeCard('riftbound', { id: 'riftbound:abc', name: 'Blade Twirler', tcgplayerId: '709727' })
+    expect(staleIdRepairs(['riftbound:tcg-709727', 'riftbound:tcg-1'], [...cards, listed])).toEqual(new Map([['riftbound:tcg-709727', 'riftbound:abc']]))
+  })
+
   it('never touches a card that is gone, or another game\'s ids', () => {
     const repairs = staleIdRepairs(['yugioh:99999999~LEDE', 'onepiece:OP01-001~2', 'riftbound:gone'], cards)
     expect(repairs.size).toBe(0)

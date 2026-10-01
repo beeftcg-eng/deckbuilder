@@ -7,6 +7,7 @@ import { applyPriceUpdate, fetchPriceUpdate } from '../../src/shared/priceRefres
 import { getAdapter } from '../../src/shared/games/registry'
 import { uniquifyCardIds } from '../../src/shared/cardIds'
 import { carryOverPrices } from '../../src/shared/carryOverPrices'
+import { keepExtrasWhenMissing } from '../../src/shared/games/riftboundExtras'
 import { cardsCacheDir, ensureDataDirs } from '../lib/paths'
 
 interface CacheFile {
@@ -71,7 +72,7 @@ export function registerCardDataIpc(): void {
         const progress: SyncProgress = { gameId, loaded: p.loaded, total: p.total, done: false }
         broadcast('cards:syncProgress', progress)
       }))
-      const cards = previous ? carryOverPrices(fetched, previous.cards) : fetched
+      const cards = previous ? carryOverPrices(keepExtrasWhenMissing(fetched, previous.cards), previous.cards) : fetched
 
       const cache: CacheFile = { cards, lastSynced: new Date().toISOString() }
       await writeFile(cacheFilePath(gameId), JSON.stringify(cache), 'utf-8')
