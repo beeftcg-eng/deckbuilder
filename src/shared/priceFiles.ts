@@ -5,19 +5,24 @@
  */
 import type { Card, GameId } from './types'
 import { fetchJson } from './games/fetchUtil'
-import { PRICE_FILES_URL, type PriceFile } from './priceKeys'
+import { PRICE_FILES_URL, type PriceFile, type RiftboundExtra, type RiftboundPrintingsFile } from './priceKeys'
 
-export type PriceMaps = Pick<PriceFile, 'prices' | 'foilPrices' | 'extraCards'>
+export type PriceMaps = Pick<PriceFile, 'prices' | 'foilPrices'>
 
 export async function loadPriceFile(game: GameId): Promise<PriceMaps | null> {
   try {
     const file = await fetchJson<PriceFile>(`${PRICE_FILES_URL}/${game}.json`, 3)
-    if (!file || typeof file.prices !== 'object') return null
-    return {
-      prices: file.prices,
-      foilPrices: typeof file.foilPrices === 'object' ? file.foilPrices : undefined,
-      extraCards: Array.isArray(file.extraCards) ? file.extraCards : undefined,
-    }
+    return file && typeof file.prices === 'object' ? { prices: file.prices, foilPrices: typeof file.foilPrices === 'object' ? file.foilPrices : undefined } : null
+  } catch {
+    return null
+  }
+}
+
+/** TCGplayer's Riftbound printings (priceKeys.ts, RiftboundPrintingsFile), or null when the file can't be loaded. */
+export async function loadRiftboundPrintings(): Promise<RiftboundExtra[] | null> {
+  try {
+    const file = await fetchJson<RiftboundPrintingsFile>(`${PRICE_FILES_URL}/riftbound-printings.json`, 3)
+    return file && Array.isArray(file.products) ? file.products : null
   } catch {
     return null
   }

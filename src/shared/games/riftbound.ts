@@ -1,11 +1,11 @@
 import type { Card, DeckRules, Deck, Format } from '../types'
-import { loadPriceFile, applyPriceFile } from '../priceFiles'
+import { loadPriceFile, applyPriceFile, loadRiftboundPrintings } from '../priceFiles'
 import { riftboundKeys } from '../priceKeys'
 import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
 import { toIsoDate } from '../cardSort'
 import { t } from '../i18n'
-import { extraCards, withOriginsRuneArt } from './riftboundExtras'
+import { extraCards, missingPrintings, withOriginsRuneArt } from './riftboundExtras'
 
 const API_BASE = 'https://api.riftcodex.com/cards'
 const SETS_URL = 'https://api.riftcodex.com/sets'
@@ -106,8 +106,8 @@ export function dropEarlyDuplicates(cards: Card[]): Card[] {
   return kept.map((card) => (formerIds.has(card.id) ? { ...card, formerIds: formerIds.get(card.id) } : card))
 }
 
-/** riftcodex's cards, its early duplicates dropped: what scripts/build-prices.ts compares TCGplayer's catalog with. */
-export async function fetchRiftcodexCards(onProgress: (p: FetchProgress) => void = () => {}): Promise<Card[]> {
+/** riftcodex's cards, its early duplicates dropped. */
+async function fetchRiftcodexCards(onProgress: (p: FetchProgress) => void = () => {}): Promise<Card[]> {
   const cards: Card[] = []
   const setDates = await fetchSetDates()
   let page = 1
@@ -127,9 +127,9 @@ export async function fetchRiftcodexCards(onProgress: (p: FetchProgress) => void
 
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   const cards = await fetchRiftcodexCards(onProgress)
-  // The price file the phone app's deploy publishes: TCGplayer market prices, and the printings riftcodex lacks.
-  const file = await loadPriceFile('riftbound')
-  const all = withOriginsRuneArt([...cards, ...extraCards(file?.extraCards ?? [], cards)])
+  // Published with the phone app: TCGplayer market prices, and TCGplayer's printings to add the ones riftcodex lacks.
+  const [file, printings] = await Promise.all([loadPriceFile('riftbound'), loadRiftboundPrintings()])
+  const all = withOriginsRuneArt([...cards, ...extraCards(missingPrintings(printings ?? [], cards), cards)])
   return applyPriceFile(all, file, (card) => riftboundKeys(card.tcgplayerId, card.sourceId))
 }
 

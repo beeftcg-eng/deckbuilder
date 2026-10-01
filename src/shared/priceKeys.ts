@@ -14,11 +14,19 @@ export interface PriceFile {
   prices: Record<string, number>
   /** key -> USD market price of a foil copy (TCGplayer's Foil / Holofoil rows, Scryfall's usd_foil). Missing from files built before foils were priced. */
   foilPrices?: Record<string, number>
-  /** Riftbound: the printings TCGplayer lists that riftcodex doesn't, which a sync adds (games/riftboundExtras.ts). */
-  extraCards?: RiftboundExtra[]
 }
 
-/** A Riftbound printing as TCGplayer lists it, for one riftcodex is missing. */
+/**
+ * Every Riftbound card printing TCGplayer lists (prices/riftbound-printings.json): a sync adds the ones
+ * riftcodex is missing (games/riftboundExtras.ts). Its own file, read only on sync, so the daily price
+ * refresh doesn't download it. The comparison is done by the apps: riftcodex refuses GitHub's servers.
+ */
+export interface RiftboundPrintingsFile {
+  updatedAt: string
+  products: RiftboundExtra[]
+}
+
+/** A Riftbound printing as TCGplayer lists it. */
 export interface RiftboundExtra {
   productId: number
   /** TCGplayer's name: "Kayle, Justified (Top 8)", "Fury Rune (R01a)". */

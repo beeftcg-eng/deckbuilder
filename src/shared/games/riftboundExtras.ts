@@ -3,12 +3,12 @@ import { riftboundKey, type RiftboundExtra } from '../priceKeys'
 
 /**
  * Riftbound printings TCGplayer lists but riftcodex doesn't: Nexus Night and tournament promos, Signature
- * cards, most rune printings, a new set's first cards... scripts/build-prices.ts works them out each day
- * (missingPrintings) and publishes them in the Riftbound price file; a sync turns them into cards
- * (extraCards), priced by product id like every other Riftbound card.
+ * cards, most rune printings, a new set's first cards... scripts/build-prices.ts publishes TCGplayer's
+ * printings each day (prices/riftbound-printings.json); a sync works out which riftcodex lacks
+ * (missingPrintings) and turns them into cards (extraCards), priced by product id like every other card.
  *
- * Their ids are "riftbound:tcg-<product id>". Once riftcodex lists the printing itself, the price file
- * drops it and cardIdRepair.ts moves saved copies to riftcodex's card with that product id.
+ * Their ids are "riftbound:tcg-<product id>". Once riftcodex lists the printing itself, it's no longer
+ * added and cardIdRepair.ts moves saved copies to riftcodex's card with that product id.
  */
 
 const ART_URL = 'https://beeftcg-eng.github.io/deckbuilder/card-art/riftbound'
@@ -65,7 +65,7 @@ function isCard(product: RiftboundExtra): boolean {
 }
 
 /**
- * The products riftcodex doesn't have (build-prices.ts). riftcodex gives most cards their product id;
+ * The products riftcodex doesn't have. riftcodex gives most cards their product id;
  * a card without one (a brand-new set) counts as the product with its set and number - and, when several
  * products share that number (a promo's Top 8 and Champion versions), its name.
  */
@@ -185,7 +185,7 @@ export function withOriginsRuneArt(cards: Card[]): Card[] {
 }
 
 /**
- * A sync that couldn't load the price file has none of its extra printings; the previous sync's are kept
+ * A sync that couldn't load the printings file has none of its extra printings; the previous sync's are kept
  * rather than turning everyone's copies of them into unknown cards until the next sync.
  */
 export function keepExtrasWhenMissing(fresh: Card[], previous: readonly Card[]): Card[] {
