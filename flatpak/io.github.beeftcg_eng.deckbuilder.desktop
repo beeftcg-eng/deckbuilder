@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Beef's Brewhouse
+GenericName=Card deckbuilder
+Comment=Build decks and track your collection for Riftbound, One Piece, Pokémon, Magic and Yu-Gi-Oh!
+Exec=deckbuilder %U
+Icon=io.github.beeftcg_eng.deckbuilder
+Terminal=false
+StartupNotify=true
+StartupWMClass=io.github.beeftcg_eng.deckbuilder
+Categories=Game;CardGame;
+Keywords=deck;deckbuilder;tcg;trading card;collection;riftbound;one piece;pokemon;magic;mtg;yugioh;

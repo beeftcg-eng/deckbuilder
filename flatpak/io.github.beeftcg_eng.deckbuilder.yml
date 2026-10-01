@@ -1,0 +1,72 @@
+# Flatpak build of Beef's Brewhouse (see flatpak/README.md).
+#
+# Built from source, offline: flatpak/generated-sources.json lists every npm package and the Electron
+# download, made from package-lock.json by flatpak-node-generator. Regenerate it whenever the lockfile
+# changes.
+app-id: io.github.beeftcg_eng.deckbuilder
+runtime: org.freedesktop.Platform
+runtime-version: '26.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '26.08'
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node22
+separate-locales: false
+command: deckbuilder
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # Flatpak updates the app; the built-in updater is for the AppImage and Windows builds.
+  - --env=DECKBUILDER_DISABLE_UPDATES=1
+modules:
+  - name: deckbuilder
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/node22/bin
+      env:
+        XDG_CACHE_HOME: /run/build/deckbuilder/flatpak-node/cache
+        npm_config_cache: /run/build/deckbuilder/flatpak-node/npm-cache
+        npm_config_offline: 'true'
+    build-commands:
+      - npm ci --offline --no-audit --no-fund
+      # The window's Wayland app id comes from desktopName: it must be the Flatpak id so the desktop
+      # matches the window to its launcher and icon.
+      - npm pkg set desktopName=io.github.beeftcg_eng.deckbuilder.desktop
+      - npx vite build
+      # electronDist: Electron from the pre-downloaded zip (generated-sources.json), not a download.
+      - . flatpak-node/electron-builder-arch-args.sh; npx electron-builder --linux --dir --publish never -c.electronDist=flatpak-node/cache/electron $ELECTRON_BUILDER_ARCH_ARGS
+      - cp -r release/linux*unpacked /app/deckbuilder
+      - install -Dm755 deckbuilder.sh /app/bin/deckbuilder
+      - install -Dm644 flatpak/io.github.beeftcg_eng.deckbuilder.desktop -t /app/share/applications
+      - install -Dm644 flatpak/io.github.beeftcg_eng.deckbuilder.metainfo.xml -t /app/share/metainfo
+      - install -Dm644 build/icon.svg /app/share/icons/hicolor/scalable/apps/io.github.beeftcg_eng.deckbuilder.svg
+      - install -Dm644 build/icon-256.png /app/share/icons/hicolor/256x256/apps/io.github.beeftcg_eng.deckbuilder.png
+      - install -Dm644 LICENSE -t /app/share/licenses/io.github.beeftcg_eng.deckbuilder
+    sources:
+      # Local builds use this checkout. The Flathub manifest points at a release tag instead:
+      #   - type: git
+      #     url: https://github.com/beeftcg-eng/deckbuilder.git
+      #     tag: v0.41.1
+      #     commit: <that tag's commit>
+      - type: dir
+        path: ..
+        skip:
+          - .git
+          - node_modules
+          - dist
+          - dist-electron
+          - dist-web
+          - release
+          - .flatpak-builder
+          - flatpak/build-dir
+          - flatpak/repo
+          - flatpak/screenshots
+      - generated-sources.json
+      - type: script
+        dest-filename: deckbuilder.sh
+        commands:
+          # Zypak lets Chromium's sandbox work inside the Flatpak one.
+          - exec zypak-wrapper /app/deckbuilder/deckbuilder "$@"

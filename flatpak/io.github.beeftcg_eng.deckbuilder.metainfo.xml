@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.beeftcg_eng.deckbuilder</id>
+  <name>Beef's Brewhouse</name>
+  <summary>Build decks and track your trading card collection</summary>
+  <developer id="io.github.beeftcg_eng">
+    <name>beeftcg</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <launchable type="desktop-id">io.github.beeftcg_eng.deckbuilder.desktop</launchable>
+  <url type="homepage">https://github.com/beeftcg-eng/deckbuilder</url>
+  <url type="bugtracker">https://github.com/beeftcg-eng/deckbuilder/issues</url>
+  <url type="vcs-browser">https://github.com/beeftcg-eng/deckbuilder</url>
+
+  <description>
+    <p>
+      A deckbuilder and collection tracker for Riftbound, One Piece Card Game, Pokémon TCG,
+      Magic: The Gathering and Yu-Gi-Oh!, with every card's picture and market price.
+    </p>
+    <ul>
+      <li>Build decks with each game's zones and copy limits, and check them against format rules and ban lists</li>
+      <li>Track the cards you own, with foil and condition, binders, a trade list and a wishlist</li>
+      <li>See deck and collection values, and get told when a wishlist card drops to your target price</li>
+      <li>Draw sample hands and work out the odds of drawing the cards you need</li>
+      <li>Import decklists, and export them as text, a link or a picture</li>
+    </ul>
+    <p>
+      Card data and pictures are downloaded from each game's public card database. Beef's Brewhouse is a
+      fan project, not affiliated with or endorsed by the games' publishers.
+    </p>
+  </description>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>A deck with its card images, value and legality</caption>
+      <image type="source" width="1400" height="900">https://raw.githubusercontent.com/beeftcg-eng/deckbuilder/master/flatpak/screenshots/1-deck.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Building a deck: the card browser, deck stats and the deck list</caption>
+      <image type="source" width="1400" height="900">https://raw.githubusercontent.com/beeftcg-eng/deckbuilder/master/flatpak/screenshots/2-editor.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Drawing sample hands to practice a deck</caption>
+      <image type="source" width="1400" height="900">https://raw.githubusercontent.com/beeftcg-eng/deckbuilder/master/flatpak/screenshots/3-practice.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Tracking the cards you own and what they are worth</caption>
+      <image type="source" width="1400" height="900">https://raw.githubusercontent.com/beeftcg-eng/deckbuilder/master/flatpak/screenshots/4-collection.png</image>
+    </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1"/>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#c3d1ff</color>
+    <color type="primary" scheme_preference="dark">#14151a</color>
+  </branding>
+
+  <releases>
+    <release version="0.41.1" date="2026-10-01">
+      <description>
+        <p>Adds Riftbound printings missing from the card data: Nexus Night and tournament promos, Signature cards, runes and Radiance's first cards.</p>
+      </description>
+    </release>
+  </releases>
+</component>

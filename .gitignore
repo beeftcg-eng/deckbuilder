@@ -32,3 +32,10 @@ release
 
 # Personal backups (never commit real decks)
 backup/
+
+# Flatpak builds (flatpak/README.md)
+.flatpak-builder/
+flatpak/.flatpak-builder/
+flatpak/build-dir/
+flatpak/repo/
+*.flatpak
