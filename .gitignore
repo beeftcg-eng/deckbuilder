@@ -39,3 +39,4 @@ flatpak/.flatpak-builder/
 flatpak/build-dir/
 flatpak/repo/
 *.flatpak
+flatpak/flathub-test/
