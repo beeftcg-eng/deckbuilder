@@ -26,6 +26,7 @@ import {
 import { printedNumber, variantName } from '../shared/scan/scanIndex'
 import { playChime, unlockChime } from '../lib/scan/chime'
 import { t } from '../shared/i18n'
+import { formatPrice } from '../shared/collection'
 
 type Phase = 'looking' | 'reading' | 'checking' | 'steady'
 type Target = 'collection' | 'wishlist' | 'opening'
@@ -523,6 +524,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
 
   const guide: Rect = guideRect(stageSize.width, stageSize.height)
   const sessionCount = session.reduce((n, e) => n + e.quantity, 0)
+  const sessionWorth = session.reduce((sum, e) => sum + (e.card.price ?? 0) * e.quantity, 0)
   const ready = model && index && cameraReady
   const selected = result?.selected
   const alternatives = result ? (showAll ? result.allPrintings : result.ranked.map((c) => c.card)).slice(0, showAll ? 200 : 12) : []
@@ -610,7 +612,8 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
             </label>
             {session.length > 0 && (
               <button className="btn" onClick={() => setShowSession((v) => !v)} aria-expanded={showSession}>
-                {t.scanner.session(sessionCount)} {showSession ? '▾' : '▴'}
+                {t.scanner.session(sessionCount)}
+                {sessionWorth > 0 ? ` · ${formatPrice(sessionWorth)}` : ''} {showSession ? '▾' : '▴'}
               </button>
             )}
             {showSession && (
@@ -619,6 +622,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
                   <li key={e.key}>
                     <span>
                       {e.quantity}× {e.card.name} <span className="text-dim">{e.card.setCode} {printedNumber(e.card)}</span>
+                      {e.card.price != null && <span className="text-dim"> · {formatPrice(e.card.price * e.quantity)}</span>}
                     </span>
                     <button className="btn" onClick={() => void add(e.card, 1)}>
                       {t.scanner.oneMore}
@@ -662,6 +666,9 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
                 )}
               </span>
               {variantName(selected) && <span className="scanner-variant">{variantName(selected)}</span>}
+              <span className="scanner-price">
+                {selected.price != null ? t.scanner.price(formatPrice(selected.price), selected.foilPrice != null && selected.foilPrice > 0 ? formatPrice(selected.foilPrice) : null) : t.scanner.noPrice}
+              </span>
               <span className="text-dim">
                 {t.scanner.owned(collection[selected.id] ?? 0)}
                 {wishlist.some((w) => w.cardId === selected.id) ? ` · ${t.scanner.onWishlist}` : ''}
@@ -699,6 +706,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
                     </span>
                     {variantName(card) && <span className="scanner-alt-variant">{variantName(card)}</span>}
                     {card.rarity && <span className={`scanner-alt-rarity ${rarityColorClass(card.rarity)}`}>{card.rarity}</span>}
+                    {card.price != null && <span className="scanner-alt-price">{formatPrice(card.price)}</span>}
                   </button>
                 ))}
               </div>
@@ -746,6 +754,7 @@ export default function ScannerModal({ onClose }: { onClose: () => void }) {
                     {card.setCode} {printedNumber(card)}
                     {card.rarity ? ` · ${card.rarity}` : ''}
                     {variantName(card) ? ` · ${variantName(card)}` : ''}
+                    {card.price != null ? ` · ${formatPrice(card.price)}` : ''}
                   </span>
                 </span>
               </button>

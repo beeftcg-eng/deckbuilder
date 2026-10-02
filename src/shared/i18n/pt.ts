@@ -191,6 +191,8 @@ export const pt: Messages = {
     oneMore: '+1',
     added: (name) => `${name} adicionada`,
     noPicture: 'sem imagem',
+    price: (price, foil) => `Preço de mercado ≈ ${price}${foil ? ` · foil ${foil}` : ''}`,
+    noPrice: 'Sem preço ainda',
   },
 
   mobile: {

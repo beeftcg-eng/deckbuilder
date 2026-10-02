@@ -199,6 +199,8 @@ export const en = {
     oneMore: '+1',
     added: (name: string) => `Added ${name}`,
     noPicture: 'no picture',
+    price: (price: string, foil: string | null) => `Market price ≈ ${price}${foil ? ` · foil ${foil}` : ''}`,
+    noPrice: 'No price yet',
   },
 
   /** Phone app only: the top bar, bottom tab bar and card-browser filter toggle (MobileNav.tsx). */
