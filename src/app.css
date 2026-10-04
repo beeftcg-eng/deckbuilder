@@ -4363,3 +4363,22 @@
 .version-line .link-btn {
   white-space: nowrap;
 }
+
+/* "Share the app" (ShareAppModal): the QR code, as big as the dialog allows, for a friend's camera. */
+.share-app-modal {
+  width: 420px;
+}
+
+.share-app-qr {
+  display: block;
+  width: min(280px, 100%);
+  margin: 0 auto;
+  border-radius: 8px;
+}
+
+.share-app-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}

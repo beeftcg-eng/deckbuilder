@@ -142,6 +142,16 @@ export const es: Messages = {
     openLink: 'Abrir el mazo compartido ↗',
   },
 
+  shareApp: {
+    button: '📲 Compartir la app',
+    buttonTitle: 'Muestra un código QR que un amigo puede escanear para tener Beef’s Brewhouse',
+    title: 'Compartir la app',
+    intro: 'Pídele a un amigo que apunte la cámara de su teléfono a este código. Abre Beef’s Brewhouse en su navegador, gratis, sin tienda de apps, en iPhone o Android.',
+    hint: 'Después: Agregar a pantalla de inicio (Safari: Compartir → Agregar a inicio; Chrome: menú → Instalar app).',
+    qrLabel: 'Código QR con el enlace a Beef’s Brewhouse',
+    shareText: 'Constructor de mazos para Riftbound, One Piece, Pokémon, Magic y Yu-Gi-Oh!, con tu colección, lista de deseos y precios.',
+  },
+
   scanner: {
     open: '📷 Escanear cartas',
     openTitle: 'Añade cartas a tu colección apuntándoles con la cámara',

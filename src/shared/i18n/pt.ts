@@ -142,6 +142,16 @@ export const pt: Messages = {
     openLink: 'Abrir o deck compartilhado ↗',
   },
 
+  shareApp: {
+    button: '📲 Compartilhar o app',
+    buttonTitle: 'Mostra um QR code que um amigo pode escanear para ter o Beef’s Brewhouse',
+    title: 'Compartilhar o app',
+    intro: 'Peça para um amigo apontar a câmera do celular para este código. Ele abre o Beef’s Brewhouse no navegador, de graça, sem loja de apps, no iPhone ou Android.',
+    hint: 'Depois: Adicionar à Tela de Início (Safari: Compartilhar → Adicionar à Tela de Início; Chrome: menu → Instalar app).',
+    qrLabel: 'QR code com o link do Beef’s Brewhouse',
+    shareText: 'Construtor de decks para Riftbound, One Piece, Pokémon, Magic e Yu-Gi-Oh!, com sua coleção, lista de desejos e preços.',
+  },
+
   scanner: {
     open: '📷 Escanear cartas',
     openTitle: 'Adicione cartas à sua coleção apontando a câmera para elas',

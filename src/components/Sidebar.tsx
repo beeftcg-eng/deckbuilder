@@ -18,6 +18,7 @@ const PatchNotesModal = lazyModal(() => import('./PatchNotesModal'), 'PatchNotes
 const ImportDeckModal = lazyModal(() => import('./ImportDeckModal'), 'ImportDeckModal')
 const PairingsAccountModal = lazyModal(() => import('./PairingsAccountModal'), 'PairingsAccountModal')
 const PawmodoroAccountModal = lazyModal(() => import('./PawmodoroAccountModal'), 'PawmodoroAccountModal')
+const ShareAppModal = lazyModal(() => import('./ShareAppModal'), 'ShareAppModal')
 
 function formatRelativeTime(iso: string | null): string {
   if (!iso) return t.sidebar.neverSynced
@@ -92,6 +93,7 @@ export function Sidebar() {
   const [showImport, setShowImport] = useState(false)
   const [showPatchNotes, setShowPatchNotes] = useState(false)
   const [showBugReport, setShowBugReport] = useState(false)
+  const [showShareApp, setShowShareApp] = useState(false)
   const [showAccount, setShowAccount] = useState(false)
   const [showPairings, setShowPairings] = useState(false)
   const pairingsConfig = useAppStore((s) => s.pairingsConfig)
@@ -343,6 +345,11 @@ export function Sidebar() {
           {t.scanner.open}
         </button>
       )}
+      {__WEB__ && (
+        <button className="wishlist-nav-btn" title={t.shareApp.buttonTitle} onClick={() => setShowShareApp(true)}>
+          {t.shareApp.button}
+        </button>
+      )}
       <button data-tour="nav" className={`wishlist-nav-btn ${showCollection ? 'active' : ''}`} onClick={() => setShowCollection(!showCollection)}>
         {t.sidebar.collection}
         {collectionCopies > 0 ? ` (${collectionCopies})` : ''}
@@ -575,6 +582,7 @@ export function Sidebar() {
       {showBugReport && <BugReportModal onClose={() => setShowBugReport(false)} />}
       {showAccount && <PawmodoroAccountModal onClose={() => setShowAccount(false)} />}
       {showPairings && <PairingsAccountModal onClose={() => setShowPairings(false)} />}
+      {showShareApp && <ShareAppModal onClose={() => setShowShareApp(false)} />}
     </aside>
   )
 }
