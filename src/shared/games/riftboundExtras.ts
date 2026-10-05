@@ -38,7 +38,10 @@ const OVERRIDES: Record<number, Override> = {
     ),
   ),
   ...Object.fromEntries(
-    ([[709312, 'ven-r01a'], [709313, 'ven-r03a'], [709309, 'ven-r04a'], [709311, 'ven-r05a'], [709314, 'ven-r06a'], [694647, 'unl-r02b'], [694650, 'unl-r03b'], [694648, 'unl-r05b'], [694651, 'unl-r06b']] as const).map(
+    ([
+      [709312, 'ven-r01a'], [709313, 'ven-r03a'], [709309, 'ven-r04a'], [709311, 'ven-r05a'], [709314, 'ven-r06a'],
+      [694649, 'unl-r01b'], [694647, 'unl-r02b'], [694650, 'unl-r03b'], [694646, 'unl-r04b'], [694648, 'unl-r05b'], [694651, 'unl-r06b'],
+    ] as const).map(
       ([productId, file]) => [productId, { image: `${file}.webp` }],
     ),
   ),
