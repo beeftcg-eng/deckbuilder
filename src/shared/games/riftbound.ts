@@ -5,7 +5,7 @@ import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
 import { toIsoDate } from '../cardSort'
 import { t } from '../i18n'
-import { extraCards, missingPrintings, withOriginsRuneArt } from './riftboundExtras'
+import { extraCards, missingPrintings, onlyOriginsRegularRunes, withPromoRuneArt } from './riftboundExtras'
 
 const API_BASE = 'https://api.riftcodex.com/cards'
 const SETS_URL = 'https://api.riftcodex.com/sets'
@@ -129,7 +129,7 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
   const cards = await fetchRiftcodexCards(onProgress)
   // Published with the phone app: TCGplayer market prices, and TCGplayer's printings to add the ones riftcodex lacks.
   const [file, printings] = await Promise.all([loadPriceFile('riftbound'), loadRiftboundPrintings()])
-  const all = withOriginsRuneArt([...cards, ...extraCards(missingPrintings(printings ?? [], cards), cards)])
+  const all = onlyOriginsRegularRunes(withPromoRuneArt([...cards, ...extraCards(missingPrintings(printings ?? [], cards), cards)]))
   return applyPriceFile(all, file, (card) => riftboundKeys(card.tcgplayerId, card.sourceId))
 }
 

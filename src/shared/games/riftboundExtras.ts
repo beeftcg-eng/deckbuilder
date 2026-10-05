@@ -28,12 +28,21 @@ interface Override {
  * Where TCGplayer's listing needs correcting. The Vendetta promo runes (Pixelverse's art) are printed
  * "VEN · R01b · P" but TCGplayer files them under Organized Play Promos as "Fury Rune (Vendetta)", a
  * Common, with no picture; theirs are cropped from Riot's announcement image.
+ * Most of Vendetta's showcase runes (Greg Ghielmetti's art, VEN R01a...) and Unleashed's promo runes
+ * (UNL R01b...) have no TCGplayer picture either; the ones listed here are cropped from preview images.
  */
-const OVERRIDES: Record<number, Override> = Object.fromEntries(
-  ([[709748, 'Fury'], [709746, 'Calm'], [709749, 'Mind'], [709745, 'Body'], [709747, 'Chaos'], [709750, 'Order']] as const).map(
-    ([productId, domain], i) => [productId, { name: `${domain} Rune`, setId: 'VEN', rarity: 'Promo', image: `opp-r0${i + 1}b.png` }],
+const OVERRIDES: Record<number, Override> = {
+  ...Object.fromEntries(
+    ([[709748, 'Fury'], [709746, 'Calm'], [709749, 'Mind'], [709745, 'Body'], [709747, 'Chaos'], [709750, 'Order']] as const).map(
+      ([productId, domain], i) => [productId, { name: `${domain} Rune`, setId: 'VEN', rarity: 'Promo', image: `opp-r0${i + 1}b.png` }],
+    ),
   ),
-)
+  ...Object.fromEntries(
+    ([[709312, 'ven-r01a'], [709313, 'ven-r03a'], [709309, 'ven-r04a'], [709311, 'ven-r05a'], [709314, 'ven-r06a'], [694647, 'unl-r02b'], [694650, 'unl-r03b'], [694648, 'unl-r05b'], [694651, 'unl-r06b']] as const).map(
+      ([productId, file]) => [productId, { image: `${file}.webp` }],
+    ),
+  ),
+}
 
 const PARENTHETICAL = /\s*\(([^)]*)\)/g
 /** "(R01a)" in TCGplayer's rune names is just the printed number. */
@@ -171,16 +180,41 @@ export function extraCards(extras: readonly RiftboundExtra[], cards: readonly Ca
 }
 
 /**
- * riftcodex shows the Origins Organized Play promo runes (OPP 007b/298 ... 214b/298) with Vendetta's
- * common rune pictures - "VEN · R01" is printed right on them. No source has a picture of the promos
- * themselves; their number makes them variants of Origins' runes (OGN 007/298), so they show that art.
+ * riftcodex shows the Origins Organized Play promo runes (OPP 007b/298 ... 214b/298, Greg Ghielmetti &
+ * Leah Chen's art) with Vendetta's common rune pictures - "VEN · R01" is printed right on them. Theirs
+ * are published with the phone app.
  */
-export function withOriginsRuneArt(cards: Card[]): Card[] {
-  const bySource = new Map(cards.map((c) => [c.sourceId, c]))
+export function withPromoRuneArt(cards: Card[]): Card[] {
   return cards.map((card) => {
     const m = /^opp-(\d{3})b-298$/.exec(card.sourceId)
-    const origins = m && card.category === 'Rune' ? bySource.get(`ogn-${m[1]}-298`) : undefined
-    return origins ? { ...card, imageUrl: origins.imageUrl, imageUrlSmall: origins.imageUrlSmall } : card
+    if (!m || card.category !== 'Rune') return card
+    const imageUrl = `${ART_URL}/opp-${m[1]}b.webp`
+    return { ...card, imageUrl, imageUrlSmall: imageUrl }
+  })
+}
+
+/** "Fury Rune", not "Fury Rune (Alternate Art)" or a promo. */
+function isRegularRune(card: Card): boolean {
+  return card.category === 'Rune' && card.rarity === 'Common' && /^\w+ Rune$/.test(card.name)
+}
+
+/**
+ * Every set reprints the six regular runes, all the same card worth about a dime; only Origins' are
+ * listed, so the browser isn't six rows of each. The others' ids are kept on Origins' (formerIds) so
+ * copies saved against them move over (cardIdRepair.ts).
+ */
+export function onlyOriginsRegularRunes(cards: Card[]): Card[] {
+  const origins = new Map(cards.filter((c) => c.setId === 'OGN' && isRegularRune(c)).map((c) => [c.name, c]))
+  const formerIds = new Map<string, string[]>()
+  const kept = cards.filter((card) => {
+    const target = card.setId !== 'OGN' && isRegularRune(card) ? origins.get(card.name) : undefined
+    if (!target) return true
+    formerIds.set(target.id, [...(formerIds.get(target.id) ?? []), card.id, ...(card.formerIds ?? [])])
+    return false
+  })
+  return kept.map((card) => {
+    const moved = formerIds.get(card.id)
+    return moved ? { ...card, formerIds: [...(card.formerIds ?? []), ...moved] } : card
   })
 }
 

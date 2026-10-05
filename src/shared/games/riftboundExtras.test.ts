@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extraCards, keepExtrasWhenMissing, missingPrintings, withOriginsRuneArt } from './riftboundExtras'
+import { extraCards, keepExtrasWhenMissing, missingPrintings, onlyOriginsRegularRunes, withPromoRuneArt } from './riftboundExtras'
 import type { RiftboundExtra } from '../priceKeys'
 import { makeCard } from '../testFixtures'
 
@@ -68,6 +68,14 @@ describe('extraCards', () => {
     expect(vendetta).toMatchObject({ sourceId: 'ven-r01b', name: 'Fury Rune', setId: 'VEN', setName: 'Vendetta', rarity: 'Promo', released: '2026-07-31', imageUrl: expect.stringMatching(/card-art\/riftbound\/opp-r01b\.png$/) })
   })
 
+  it('gives Vendetta showcase runes without a TCGplayer picture the published art', () => {
+    const [fury] = extraCards(
+      [product({ productId: 709312, name: 'Fury Rune (R01a)', number: 'R01a', group: 'VEN', groupName: 'Vendetta', rarity: 'Showcase', type: 'Rune' })],
+      [],
+    )
+    expect(fury).toMatchObject({ sourceId: 'ven-r01a', name: 'Fury Rune (Alternate Art)', rarity: 'Showcase', imageUrl: expect.stringMatching(/card-art\/riftbound\/ven-r01a\.webp$/) })
+  })
+
   it('reads type and text from TCGplayer for a card riftcodex has no printing of', () => {
     const [card] = extraCards([product({ productId: 721346, name: "K'Sante, Courageous (Showcase)", number: '178/167', group: 'RAD', groupName: 'Radiance', rarity: 'Showcase', type: 'Champion Unit', domains: ['Body'], energy: 5, text: '<em>Tank.</em>', released: '2026-10-23' })], cards)
     expect(card).toMatchObject({ name: "K'Sante, Courageous (Showcase)", setName: 'Radiance', category: 'Unit', subtypes: ['Champion'], colors: ['Body'], cost: '5', text: 'Tank.', released: '2026-10-23' })
@@ -94,13 +102,33 @@ describe('keepExtrasWhenMissing', () => {
   })
 })
 
-describe('withOriginsRuneArt', () => {
-  it("shows the Origins rune's art on its Organized Play promo, not Vendetta's", () => {
-    const origins = makeCard('riftbound', { name: 'Calm Rune', sourceId: 'ogn-042-298', category: 'Rune', imageUrl: 'https://x/ogn042.png', imageUrlSmall: 'https://x/ogn042.png' })
+describe('withPromoRuneArt', () => {
+  it("shows the Organized Play promo rune's own art, not Vendetta's", () => {
     const promo = makeCard('riftbound', { name: 'Calm Rune', sourceId: 'opp-042b-298', category: 'Rune', imageUrl: 'https://x/venr02.png' })
     const other = makeCard('riftbound', { name: 'Jinx', sourceId: 'opp-251-298', imageUrl: 'https://x/jinx.png' })
-    const [, fixed, untouched] = withOriginsRuneArt([origins, promo, other])
-    expect(fixed.imageUrl).toBe('https://x/ogn042.png')
+    const [fixed, untouched] = withPromoRuneArt([promo, other])
+    expect(fixed.imageUrl).toMatch(/card-art\/riftbound\/opp-042b\.webp$/)
+    expect(fixed.imageUrlSmall).toBe(fixed.imageUrl)
     expect(untouched).toBe(other)
+  })
+})
+
+describe('onlyOriginsRegularRunes', () => {
+  const rune = (over: Parameters<typeof makeCard>[1]) => makeCard('riftbound', { category: 'Rune', rarity: 'Common', ...over })
+
+  it("keeps Origins' regular runes and moves the other sets' onto them", () => {
+    const origins = rune({ id: 'riftbound:ogn-calm', name: 'Calm Rune', setId: 'OGN' })
+    const vendetta = rune({ id: 'riftbound:ven-calm', name: 'Calm Rune', setId: 'VEN', formerIds: ['riftbound:ven-calm-early'] })
+    const unleashed = rune({ id: 'riftbound:tcg-696616', name: 'Calm Rune', setId: 'UNL' })
+    const altArt = rune({ id: 'riftbound:tcg-692933', name: 'Calm Rune (Alternate Art)', setId: 'UNL', rarity: 'Showcase' })
+    const promo = rune({ id: 'riftbound:tcg-709746', name: 'Calm Rune', setId: 'VEN', rarity: 'Promo' })
+    const kept = onlyOriginsRegularRunes([origins, vendetta, unleashed, altArt, promo])
+    expect(kept.map((c) => c.id)).toEqual([origins.id, altArt.id, promo.id])
+    expect(kept[0].formerIds).toEqual(['riftbound:ven-calm', 'riftbound:ven-calm-early', 'riftbound:tcg-696616'])
+  })
+
+  it("keeps another set's regular rune when Origins' is missing", () => {
+    const vendetta = rune({ name: 'Fury Rune', setId: 'VEN' })
+    expect(onlyOriginsRegularRunes([vendetta])).toEqual([vendetta])
   })
 })
