@@ -7,8 +7,8 @@
  *   npx rolldown scripts/missing-art.ts --platform node --format esm -o .prices/missing-art.mjs
  *   node .prices/missing-art.mjs [game ...] [--markdown]
  *
- * The daily deploy (.github/workflows/deploy-pwa.yml) runs it for Riftbound with --markdown and puts
- * the list on the run's summary page. Pictures to fill a gap go in public/card-art/<game>/.
+ * Run it from your own machine: riftcodex answers 403 to GitHub Actions' runners, so it can't run in the
+ * daily deploy. --markdown prints a table for pasting. Pictures to fill a gap go in public/card-art/<game>/.
  */
 import { getAdapter } from '../src/shared/games/registry.ts'
 import type { Card, GameId } from '../src/shared/types.ts'
