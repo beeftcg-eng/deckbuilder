@@ -222,6 +222,16 @@ export function onlyOriginsRegularRunes(cards: Card[]): Card[] {
 }
 
 /**
+ * Overnumbered printings (numbered past the set's size, "187/166") share the Showcase rarity with alternate arts;
+ * as a subtype they get their own Kind chip in the browser, like Signature.
+ */
+export function withOvernumberedKind(cards: Card[]): Card[] {
+  return cards.map((card) =>
+    /\(Overnumbered\)/i.test(card.name) && !card.subtypes.includes('Overnumbered') ? { ...card, subtypes: [...card.subtypes, 'Overnumbered'] } : card,
+  )
+}
+
+/**
  * A sync that couldn't load the printings file has none of its extra printings; the previous sync's are kept
  * rather than turning everyone's copies of them into unknown cards until the next sync.
  */

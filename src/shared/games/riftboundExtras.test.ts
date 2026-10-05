@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extraCards, keepExtrasWhenMissing, missingPrintings, onlyOriginsRegularRunes, withPromoRuneArt } from './riftboundExtras'
+import { extraCards, keepExtrasWhenMissing, missingPrintings, onlyOriginsRegularRunes, withOvernumberedKind, withPromoRuneArt } from './riftboundExtras'
 import type { RiftboundExtra } from '../priceKeys'
 import { makeCard } from '../testFixtures'
 
@@ -130,5 +130,15 @@ describe('onlyOriginsRegularRunes', () => {
   it("keeps another set's regular rune when Origins' is missing", () => {
     const vendetta = rune({ name: 'Fury Rune', setId: 'VEN' })
     expect(onlyOriginsRegularRunes([vendetta])).toEqual([vendetta])
+  })
+})
+
+describe('withOvernumberedKind', () => {
+  it('gives Overnumbered printings their own kind', () => {
+    const over = makeCard('riftbound', { name: 'Kayle, Justified (Overnumbered)', rarity: 'Showcase', subtypes: ['Champion'] })
+    const alt = makeCard('riftbound', { name: 'Kayle, Justified (Alternate Art)', rarity: 'Showcase', subtypes: ['Champion'] })
+    const [tagged, untouched] = withOvernumberedKind([over, alt])
+    expect(tagged.subtypes).toEqual(['Champion', 'Overnumbered'])
+    expect(untouched).toBe(alt)
   })
 })
