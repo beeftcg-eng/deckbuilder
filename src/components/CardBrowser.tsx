@@ -67,27 +67,31 @@ export function CardBrowser() {
   const syncing = syncProgress != null && !syncProgress.done
   const [detailCard, setDetailCard] = useState<Card | null>(null)
 
+  const showCollection = useAppStore((s) => s.showCollection)
+
   const deck = currentDeckFor(decks, currentDeckId, currentGameId)
+  // Browsing for the collection isn't building the deck: its guided stage, format and Legend colours don't narrow the list.
+  const filterDeck = showCollection ? undefined : deck
   const adapter = getAdapter(currentGameId)
   const cardsById = useCardsById(currentGameId)
-  const stage = deck ? (adapter.getGuidedStage?.(deck, cardsById) ?? null) : null
+  const stage = filterDeck ? (adapter.getGuidedStage?.(filterDeck, cardsById) ?? null) : null
   // A stage may let you switch its filter off (Magic's "Commanders only") to browse everything.
   const stageFilter = stage?.filter && !(stage.filterLabel && showAllDuringStage) ? stage.filter : undefined
 
-  const gameFormats = deck ? (formats[deck.gameId] ?? adapter.defaultFormats) : []
-  const format = deck ? (gameFormats.find((f) => f.id === deck.formatId) ?? gameFormats[0]) : undefined
+  const gameFormats = filterDeck ? (formats[filterDeck.gameId] ?? adapter.defaultFormats) : []
+  const format = filterDeck ? (gameFormats.find((f) => f.id === filterDeck.formatId) ?? gameFormats[0]) : undefined
 
   // The deck's shape (zones, limits) can depend on its format — Magic's Commander vs 60-card formats.
   const rules = deck ? rulesForFormat(adapter, deck.formatId) : adapter.deckRules
 
   const identityZoneId = rules.identityZoneId
   const identityCards = useMemo(() => {
-    if (!deck || !identityZoneId) return []
-    return (deck.zones[identityZoneId] ?? []).flatMap((entry) => {
+    if (!filterDeck || !identityZoneId) return []
+    return (filterDeck.zones[identityZoneId] ?? []).flatMap((entry) => {
       const card = cardsById.get(entry.cardId)
       return card ? [card] : []
     })
-  }, [deck, identityZoneId, cardsById])
+  }, [filterDeck, identityZoneId, cardsById])
   const identityKey = identityCards.map((c) => c.id).join('|')
 
   // When the deck's Leader/Legend/Commander changes, snap the color filter to its colors. Done
@@ -97,9 +101,13 @@ export function CardBrowser() {
 
   // The filters belong to the game being browsed. This component stays mounted when you switch game tabs, and a
   // Riftbound deck's colours left on the filter meant Magic showed only colourless cards and Pokémon nothing at all.
+  // Opening the collection starts it unfiltered too, instead of with whatever the deck was being browsed by;
+  // going back to the deck snaps the colours to its Legend again (below).
   const [filterGameId, setFilterGameId] = useState(currentGameId)
-  if (filterGameId !== currentGameId) {
+  const [filterForCollection, setFilterForCollection] = useState(showCollection)
+  if (filterGameId !== currentGameId || filterForCollection !== showCollection) {
     setFilterGameId(currentGameId)
+    setFilterForCollection(showCollection)
     setQuery('')
     setTypes(new Set())
     setKinds(new Set())
