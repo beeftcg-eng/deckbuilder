@@ -71,6 +71,12 @@ export interface GameAdapter {
    * hold any number of (basic Energy, basic lands), or a smaller number. null = no override.
    */
   copyLimitFor?: (card: Card) => number | null
+  /**
+   * The name a card's copies are counted under for the copy limit, when it isn't the printing's own name:
+   * Riftbound's alternate art, Overnumbered and promo printings carry a suffix ("(Alternate Art)") and older
+   * sets dash a title ("Ahri - Alluring") that reprints comma, but they're all the same card.
+   */
+  copyName?: (card: Card) => string
   /** Shown on the collection's Sets tab when a game's card data doesn't list every printing in every set. */
   setNote?: string
   /** Order to show color filter chips in (default: alphabetical). */

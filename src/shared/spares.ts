@@ -1,7 +1,6 @@
 import type { Card, DeckRules } from './types'
 import { getAdapter } from './games/registry'
 import { normalizeName, poolKey } from './collection'
-import { riftboundDecklistName } from './games/riftbound'
 
 /**
  * Spare copies: the ones you own beyond what a deck can hold, which are free to trade or sell. Every
@@ -35,9 +34,13 @@ function zoneLimit(card: Card, rules: DeckRules): number | null {
   return adapter.copyLimitFor?.(card) ?? zone.maxCopiesPerCard ?? rules.defaultMaxCopiesPerCard
 }
 
+// A card's printings under one name, as the deck's copy limit counts them (GameAdapter.copyName).
+function copyName(card: Card): string {
+  return getAdapter(card.gameId).copyName?.(card) ?? card.name
+}
+
 function sameCardKey(card: Card): string {
-  // riftcodex names a card's special printings with a suffix that isn't part of its name.
-  return card.gameId === 'riftbound' ? `riftbound:${normalizeName(riftboundDecklistName(card))}` : poolKey(card)
+  return getAdapter(card.gameId).copyName ? `${card.gameId}:${normalizeName(copyName(card))}` : poolKey(card)
 }
 
 export function spareCopies(owned: readonly SparePrinting[]): SpareGroup[] {
@@ -65,7 +68,7 @@ export function spareCopies(owned: readonly SparePrinting[]): SpareGroup[] {
     const first = printings[0].card
     spares.push({
       key,
-      name: first.gameId === 'riftbound' ? riftboundDecklistName(first) : first.name,
+      name: copyName(first),
       printings: [...printings].sort((a, b) => (b.card.price ?? 0) - (a.card.price ?? 0)),
       owned: ownedCopies,
       limit,

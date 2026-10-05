@@ -2,6 +2,7 @@ import type { Card, Deck, DeckZoneRule, Format, LegalityIssue, LegalityResult } 
 import type { GameAdapter } from './games/types'
 import { rulesForFormat } from './games/rules'
 import { identityColors } from './cardColors'
+import { normalizeName } from './collection'
 import { isRotationLegalPromo } from './games/onepiecePromos'
 import { t, zoneLabel } from './i18n'
 
@@ -58,8 +59,10 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
   const rules = rulesForFormat(adapter, format.id)
 
   // Combined copy-limit pool: zones that don't override maxCopiesPerCard share the deck-wide limit.
-  // Pooled by name or by sourceId depending on the game's actual rules — see DeckRules.copyLimitBy.
-  const poolKeyFor = (card: Card) => (rules.copyLimitBy === 'sourceId' ? card.sourceId : card.name)
+  // Pooled by name or by sourceId depending on the game's actual rules — see DeckRules.copyLimitBy —
+  // and every printing of a card under one name (GameAdapter.copyName).
+  const copyName = (card: Card) => adapter.copyName?.(card) ?? card.name
+  const poolKeyFor = (card: Card) => (rules.copyLimitBy === 'sourceId' ? card.sourceId : normalizeName(copyName(card)))
   const pooledCounts = new Map<string, number>()
   const pooledCards = new Map<string, Card>()
 
@@ -92,10 +95,11 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
       }
 
       if (zone.uniqueNames) {
-        if (namesSeen.has(card.name)) {
-          issues.push({ severity: 'error', message: t.legality.uniqueNames(zoneLabel(zone.label), card.name) })
+        const name = normalizeName(copyName(card))
+        if (namesSeen.has(name)) {
+          issues.push({ severity: 'error', message: t.legality.uniqueNames(zoneLabel(zone.label), copyName(card)) })
         }
-        namesSeen.add(card.name)
+        namesSeen.add(name)
       }
 
       const zoneMaxCopies = zone.maxCopiesPerCard
@@ -135,7 +139,7 @@ export function checkDeckLegality(deck: Deck, adapter: GameAdapter, format: Form
     if (!card) continue
     const limit = adapter.copyLimitFor?.(card) ?? rules.defaultMaxCopiesPerCard
     if (count > limit) {
-      issues.push({ severity: 'error', message: t.legality.copyLimit(card.name, count, limit) })
+      issues.push({ severity: 'error', message: t.legality.copyLimit(copyName(card), count, limit) })
     }
     // Vintage's restricted list / Yu-Gi-Oh!'s Limited: legal, but a single copy across every zone.
     if (card.legality?.[format.id] === 'restricted' && count > 1) {

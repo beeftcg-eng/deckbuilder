@@ -3,6 +3,7 @@ import { checkDeckLegality } from './legality'
 import { onepieceAdapter } from './games/onepiece'
 import { pokemonAdapter } from './games/pokemon'
 import { mtgAdapter } from './games/mtg'
+import { riftboundAdapter } from './games/riftbound'
 import { catalogOf, makeCard, makeDeck } from './testFixtures'
 import type { Card, Format } from './types'
 
@@ -33,6 +34,34 @@ describe('checkDeckLegality copy limits', () => {
     const deck = makeDeck('onepiece', { leader: [[leader, 1]], main: [[banned, 1]] })
     const result = checkDeckLegality(deck, onepieceAdapter, format, catalogOf([banned, leader]))
     expect(result.issues.some((i) => i.message.includes('Banned is banned'))).toBe(true)
+  })
+})
+
+describe('Riftbound copy limits', () => {
+  const legend = makeCard('riftbound', { name: 'Ahri - Nine-Tailed Fox', category: 'Legend', colors: ['Calm'] })
+  const result = (zones: Parameters<typeof makeDeck>[1], cards: Card[]) =>
+    checkDeckLegality(makeDeck('riftbound', { legend: [[legend, 1]], ...zones }), riftboundAdapter, noBans, catalogOf([legend, ...cards]))
+
+  it("counts a card's alternate art, Overnumbered and comma-titled reprint as the same card", () => {
+    const regular = makeCard('riftbound', { name: 'Ahri - Alluring', colors: ['Calm'] })
+    const altArt = makeCard('riftbound', { name: 'Ahri - Alluring (Alternate Art)', colors: ['Calm'] })
+    const reprint = makeCard('riftbound', { name: 'Ahri, Alluring (Overnumbered)', colors: ['Calm'] })
+    const issues = result({ main: [[regular, 2], [altArt, 1], [reprint, 1]] }, [regular, altArt, reprint]).issues.map((i) => i.message)
+    expect(issues.filter((m) => m.includes('exceeds'))).toEqual([expect.stringContaining('Ahri, Alluring: 4 copies exceeds the 3-copy limit')])
+  })
+
+  it('allows three copies split between printings', () => {
+    const regular = makeCard('riftbound', { name: 'Ahri - Alluring', colors: ['Calm'] })
+    const altArt = makeCard('riftbound', { name: 'Ahri - Alluring (Alternate Art)', colors: ['Calm'] })
+    const issues = result({ main: [[regular, 2], [altArt, 1]] }, [regular, altArt]).issues.map((i) => i.message)
+    expect(issues.some((m) => m.includes('exceeds'))).toBe(false)
+  })
+
+  it("won't take a Battlefield twice through its alternate art", () => {
+    const field = makeCard('riftbound', { name: 'Bandle Tree', category: 'Battlefield' })
+    const fieldAlt = makeCard('riftbound', { name: 'Bandle Tree (Alternate Art)', category: 'Battlefield' })
+    const issues = result({ battlefields: [[field, 1], [fieldAlt, 1]] }, [field, fieldAlt]).issues.map((i) => i.message)
+    expect(issues.some((m) => m.includes('Bandle Tree'))).toBe(true)
   })
 })
 

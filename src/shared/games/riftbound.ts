@@ -294,6 +294,7 @@ export const riftboundAdapter: GameAdapter = {
   id: 'riftbound',
   typeOrder: ['Unit', 'Spell', 'Gear', 'Battlefield', 'Legend', 'Rune'],
   filterKinds: ['Champion', 'Signature', 'Overnumbered'],
+  copyName: riftboundDecklistName,
   name: 'Riftbound: League of Legends TCG',
   shortName: 'Riftbound',
   deckRules,
