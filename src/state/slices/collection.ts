@@ -206,5 +206,13 @@ export function createCollectionSlice(ctx: StoreContext) {
       const ids = await window.api.collection.setForTrade(cardId, !isOn)
       set({ forTrade: new Set(ids) })
     },
+
+    markForTrade: async (cardIds) => {
+      for (const cardId of cardIds) {
+        if (get().forTrade.has(cardId)) continue
+        const ids = await window.api.collection.setForTrade(cardId, true)
+        set({ forTrade: new Set(ids) })
+      }
+    },
   } satisfies Partial<AppState>
 }

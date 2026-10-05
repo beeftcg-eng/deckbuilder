@@ -3,7 +3,7 @@ import { formatMoney } from '../shared/currency'
 import { localDay, valueChange, type ValuePoint } from '../shared/valueHistory'
 import { getLanguage, t } from '../shared/i18n'
 
-const RANGES = [30, 90, 365, 0] as const
+const RANGES = [30, 90, 365, 0]
 const W = 300
 const H = 64
 
@@ -14,11 +14,14 @@ function shortDate(day: string): string {
   })
 }
 
-/** The collection's value over time (valueHistory.ts): a small line graph and how much it moved. */
-export function ValueChart({ points }: { points: ValuePoint[] }) {
-  const [range, setRange] = useState<(typeof RANGES)[number]>(30)
+/**
+ * The collection's value over time (valueHistory.ts), or a card's price (priceHistory.ts): a small line
+ * graph and how much it moved.
+ */
+export function ValueChart({ points, title = t.valueHistory.title, firstDay = t.valueHistory.firstDay, ranges = RANGES }: { points: ValuePoint[]; title?: string; firstDay?: string; ranges?: number[] }) {
+  const [range, setRange] = useState<number>(ranges[0])
   if (points.length === 0) return null
-  if (points.length < 2) return <div className="text-dim value-chart-note">{t.valueHistory.firstDay}</div>
+  if (points.length < 2) return <div className="text-dim value-chart-note">{firstDay}</div>
 
   const today = localDay()
   const change = valueChange(points, range || 100_000, today)
@@ -42,14 +45,14 @@ export function ValueChart({ points }: { points: ValuePoint[] }) {
   return (
     <div className="value-chart">
       <div className="value-chart-head">
-        <span className="value-chart-title">{t.valueHistory.title}</span>
+        <span className="value-chart-title">{title}</span>
         {change && (
           <span className={`value-chart-change ${up ? 'up' : 'down'}`}>
             {t.valueHistory.change(diffText, percentText)} <span className="text-dim">{t.valueHistory.since(shortDate(change.from.d))}</span>
           </span>
         )}
         <span className="value-chart-ranges" role="group">
-          {RANGES.map((r) => (
+          {ranges.map((r) => (
             <button key={r} className={`btn value-chart-range ${range === r ? 'btn-primary' : ''}`} aria-pressed={range === r} onClick={() => setRange(r)}>
               {r ? t.valueHistory.days(r) : t.valueHistory.all}
             </button>
@@ -61,7 +64,7 @@ export function ValueChart({ points }: { points: ValuePoint[] }) {
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
         role="img"
-        aria-label={t.valueHistory.title}
+        aria-label={title}
       >
         <polygon className="value-chart-area" points={area} />
         <polyline className="value-chart-line" points={line} vectorEffect="non-scaling-stroke" />

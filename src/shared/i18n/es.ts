@@ -414,7 +414,7 @@ export const es: Messages = {
     linkOtherGame: (game: string) => `Es un mazo de ${game}: cambia a ${game} para importarlo.`,
     linkBlocked: 'Ese sitio no deja que la app del teléfono lea sus mazos. Abre el mazo allí, copia su lista (Exportar / Copiar) y pégala aquí, o importa el enlace en la app de escritorio.',
     linkFailed: (status: string) => `No se pudo traer el mazo (${status}). ¿El enlace es correcto y el mazo es público?`,
-    linkHint: 'También sirven enlaces de Archidekt y Limitless.',
+    linkHint: 'También sirven enlaces de Archidekt, Limitless y Piltover Archive.',
     title: (game) => `Importar lista de mazo de ${game}`,
     noData: (game) => `Todavía no hay datos de cartas de ${game} — usa “Descargar datos de cartas” en la barra lateral y luego importa.`,
     placeholder:
@@ -844,6 +844,16 @@ export const es: Messages = {
     select: '☑ Seleccionar',
     selectTitle: 'Marca varias cartas para borrarlas juntas',
     doneSelecting: 'Listo',
+    spares: '♻ Repetidas',
+    sparesTitle: 'Las copias que tienes de más de lo que cabe en un mazo: libres para intercambiar o vender',
+    sparesIntro: 'Copias de más de lo que cabe en un mazo, contando juntas todas las impresiones de una carta. Las copias más baratas cuentan como repetidas; te quedas con las mejores.',
+    sparesNone: 'Sin repetidas: no tienes más copias de ninguna carta de las que caben en un mazo.',
+    spareLine: (owned, limit, spare) => `tienes ${owned} · un mazo lleva ${limit} · ${spare} de más`,
+    spareTotal: (spare, cards) => `${spare} ${spare === 1 ? 'copia' : 'copias'} de más en ${cards} ${cards === 1 ? 'carta' : 'cartas'}`,
+    markForTrade: 'Marcar para intercambio',
+    markedForTrade: '✓ Para intercambio',
+    markAllForTrade: (n) => `Marcar las ${n} para intercambio`,
+    markedAll: (n) => `${n} ${n === 1 ? 'carta marcada' : 'cartas marcadas'} para intercambio`,
     selected: (n) => `${n} ${plural(n, 'seleccionada', 'seleccionadas')}`,
     selectAll: (n) => `Seleccionar ${plural(n, 'la', 'las')} ${n}`,
     selectNone: 'Quitar selección',
@@ -1200,6 +1210,11 @@ export const es: Messages = {
     hit: '💸 ¡A tu precio!',
     invalid: 'Escribe un precio mayor que 0.',
     howItWorks: 'Los precios se revisan cada día. Te sale un aviso (y una notificación, si la permites) cuando llegue.',
+  },
+
+  priceHistory: {
+    title: 'Precio en el tiempo',
+    firstDay: 'Los precios se guardan cada día. El gráfico empieza a llenarse a partir de mañana.',
   },
 
   valueHistory: {

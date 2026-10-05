@@ -297,6 +297,8 @@ export interface AppState {
   forTrade: Set<string>
   loadForTrade: () => Promise<void>
   toggleForTrade: (cardId: string) => Promise<void>
+  /** Marks every card in `cardIds` for trade (ones already marked stay marked). */
+  markForTrade: (cardIds: string[]) => Promise<void>
   /** Turns your profile public/private (and sets the name shown while browsing); public turns on an immediate sync. */
   setTradeVisibility: (isPublic: boolean, displayName: string) => Promise<void>
   tradeSyncing: boolean

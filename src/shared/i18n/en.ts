@@ -424,7 +424,7 @@ export const en = {
     linkOtherGame: (game: string) => `That's a ${game} deck: switch to ${game} to import it.`,
     linkBlocked: "That site doesn't let the phone app read its decks. Open the deck there, copy its list (Export / Copy to clipboard) and paste it here, or import the link in the desktop app.",
     linkFailed: (status: string) => `Couldn't get the deck (${status}). Is the link right, and the deck public?`,
-    linkHint: 'Links from Archidekt and Limitless work too.',
+    linkHint: 'Links from Archidekt, Limitless and Piltover Archive work too.',
     title: (game: string) => `Import ${game} decklist`,
     noData: (game: string) => `No ${game} card data yet — use “Sync card data” in the sidebar first, then import.`,
     placeholder:
@@ -806,6 +806,16 @@ export const en = {
     select: '☑ Select',
     selectTitle: 'Tick several cards to delete them together',
     doneSelecting: 'Done',
+    spares: '♻ Spares',
+    sparesTitle: 'The copies you own beyond what a deck can hold: free to trade or sell',
+    sparesIntro: 'Copies beyond what a deck can hold, every printing of a card counted together. The cheapest copies count as the spares; you keep the best.',
+    sparesNone: 'No spares: you own no more copies of any card than a deck can hold.',
+    spareLine: (owned: number, limit: number, spare: number) => `own ${owned} · a deck holds ${limit} · ${spare} spare`,
+    spareTotal: (spare: number, cards: number) => `${spare} spare ${spare === 1 ? 'copy' : 'copies'} of ${cards} ${cards === 1 ? 'card' : 'cards'}`,
+    markForTrade: 'Mark for trade',
+    markedForTrade: '✓ For trade',
+    markAllForTrade: (n: number) => `Mark all ${n} for trade`,
+    markedAll: (n: number) => `${n} ${n === 1 ? 'card' : 'cards'} marked for trade`,
     selected: (n: number) => `${n} selected`,
     selectAll: (n: number) => `Select all ${n}`,
     selectNone: 'Select none',
@@ -1168,6 +1178,12 @@ export const en = {
     hit: '💸 At your price!',
     invalid: 'Type a price above 0.',
     howItWorks: 'Prices are checked every day. You get a notice (and a notification, if you allow it) when it gets there.',
+  },
+
+  /** A card's price over time (priceHistory.ts), in its details. */
+  priceHistory: {
+    title: 'Price over time',
+    firstDay: 'Prices are saved every day. The graph starts filling in from tomorrow.',
   },
 
   /** The collection's value over time (valueHistory.ts). */

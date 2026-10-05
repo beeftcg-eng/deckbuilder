@@ -25,6 +25,7 @@ import { getAdapter } from '../src/shared/games/registry.ts'
 import { uniquifyCardIds } from '../src/shared/cardIds.ts'
 import { idKey } from '../src/shared/priceRefresh.ts'
 import type { GameId } from '../src/shared/types.ts'
+import { HISTORY_SHARDS, addDay, emptyShard, historyUrl, parseShard, shardOf, type PriceHistoryShard } from '../src/shared/priceHistory.ts'
 
 const BASE = 'https://tcgcsv.com/tcgplayer'
 const CATEGORY = { riftbound: 89, pokemon: 3, yugioh: 2 } as const
@@ -237,11 +238,13 @@ try {
 } catch (err) {
   console.warn(`::warning::exchange rates skipped: ${err instanceof Error ? err.message : err}`)
 }
+const todaysPrices = new Map<string, Record<string, number>>()
 for (const [game, build] of Object.entries({ riftbound, pokemon, yugioh, onepiece: byCardId('onepiece'), mtg: byCardId('mtg') })) {
   try {
     const { prices, foilPrices, printings } = await build()
     const count = Object.keys(prices).length
     if (!count) throw new Error('no prices')
+    todaysPrices.set(game, prices)
     const foilCount = Object.keys(foilPrices).length
     const file: PriceFile = { updatedAt: new Date().toISOString(), prices, ...(foilCount ? { foilPrices } : {}) }
     await writeFile(join(out, `${game}.json`), JSON.stringify(file))
@@ -253,4 +256,43 @@ for (const [game, build] of Object.entries({ riftbound, pokemon, yugioh, onepiec
   } catch (err) {
     console.warn(`::warning::${game} prices skipped: ${err instanceof Error ? err.message : err}`)
   }
+}
+
+/**
+ * The last 90 days of prices (src/shared/priceHistory.ts): yesterday's history from the live site plus
+ * today's prices. The deploy replaces the whole site, so a game whose prices failed today still writes
+ * its history (unchanged), and a shard that can't be read is left out with a warning rather than
+ * starting over from nothing.
+ */
+async function previousShard(game: GameId, shard: number): Promise<PriceHistoryShard> {
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(historyUrl(game, shard)).catch(() => null)
+    if (res?.status === 404) return emptyShard() // the first day
+    if (res?.ok) {
+      const parsed = parseShard(await res.json().catch(() => null))
+      if (parsed) return parsed
+    }
+    if (attempt === 3) throw new Error(`history/${game}/${shard}.json unreadable (${res?.status ?? 'no response'})`)
+    await new Promise((r) => setTimeout(r, 2000 * attempt))
+  }
+}
+
+const today = new Date().toISOString().slice(0, 10)
+for (const [game, shards] of Object.entries(HISTORY_SHARDS) as [GameId, number][]) {
+  const prices = todaysPrices.get(game)
+  const byShard: Record<string, number>[] = Array.from({ length: shards }, () => ({}))
+  for (const [key, price] of Object.entries(prices ?? {})) byShard[shardOf(key, shards)][key] = price
+  await mkdir(join(out, 'history', game), { recursive: true })
+  let written = 0
+  await mapPool([...Array(shards).keys()], CONCURRENCY, async (shard) => {
+    try {
+      const previous = await previousShard(game, shard)
+      const next = prices ? addDay(previous, today, byShard[shard]) : previous
+      await writeFile(join(out, 'history', game, `${shard}.json`), JSON.stringify(next))
+      written++
+    } catch (err) {
+      console.warn(`::warning::${game} price history: ${err instanceof Error ? err.message : err}`)
+    }
+  })
+  console.log(`${game}: price history ${written}/${shards} files${prices ? '' : ' (no prices today: kept as it was)'}`)
 }

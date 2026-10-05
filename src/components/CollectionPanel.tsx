@@ -14,6 +14,7 @@ import { collectionCsv } from '../shared/collectionImport'
 import { PackOpeningsTab } from './PackOpeningsTab'
 import { copyBreakdown, ownedValue, type CopyDetail } from '../shared/copyDetails'
 import { lazyModal } from './lazyModal'
+import { spareCopies } from '../shared/spares'
 
 const CollectionImportModal = lazyModal(() => import('./CollectionImportModal'), 'CollectionImportModal')
 const CopyDetailsModal = lazyModal(() => import('./CopyDetailsModal'), 'CopyDetailsModal')
@@ -58,6 +59,7 @@ export function CollectionPanel() {
   const addToCollection = useAppStore((s) => s.addToCollection)
   const forTrade = useAppStore((s) => s.forTrade)
   const toggleForTrade = useAppStore((s) => s.toggleForTrade)
+  const markForTrade = useAppStore((s) => s.markForTrade)
   const tradeProfile = useAppStore((s) => s.settings.tradeProfile)
   const wishlistCards = useAppStore((s) => s.wishlistCards)
   const valuePoints = useAppStore((s) => s.settings.valueHistory?.[s.currentGameId])
@@ -76,6 +78,8 @@ export function CollectionPanel() {
   const [detail, setDetail] = useState<Card | null>(null)
   const [importing, setImporting] = useState(false)
   const [editingDetails, setEditingDetails] = useState<Card | null>(null)
+  // My cards → Spares: only the cards you own more copies of than a deck can hold.
+  const [showSpares, setShowSpares] = useState(false)
   // Select mode (My cards): the cards ticked for deleting together. Belongs to the game it was started in.
   const [selection, setSelection] = useState<{ gameId: GameId; ids: Set<string> } | null>(null)
   const selecting = selection?.gameId === currentGameId
@@ -119,6 +123,18 @@ export function CollectionPanel() {
     return [...matching].sort(compare[sort])
   }, [owned, needle, sort])
 
+  const spares = useMemo(() => (showSpares ? spareCopies(owned.entries) : []), [showSpares, owned])
+  const visibleSpares = needle ? spares.filter((g) => g.name.toLowerCase().includes(needle)) : spares
+  const spareCount = visibleSpares.reduce((n, g) => n + g.spare, 0)
+  const spareWorth = visibleSpares.reduce((n, g) => n + g.spareValue, 0)
+  const unmarkedSpares = visibleSpares.flatMap((g) => g.printings.map((p) => p.card.id)).filter((id) => !forTrade.has(id))
+
+  async function handleMarkAll() {
+    const groups = visibleSpares.filter((g) => g.printings.some((p) => !forTrade.has(p.card.id))).length
+    await markForTrade(unmarkedSpares)
+    flash(t.collection.markedAll(groups))
+  }
+
   const cardsBySet = useMemo(() => {
     const map = new Map<string, Card[]>()
     for (const card of cards) map.set(card.setId, [...(map.get(card.setId) ?? []), card])
@@ -130,7 +146,7 @@ export function CollectionPanel() {
 
   const batches = useMemo(() => (allBatches ?? []).filter((b) => b.gameId === currentGameId), [allBatches, currentGameId])
 
-  const filterKey = `${currentGameId}|${tab}|${needle}|${sort}`
+  const filterKey = `${currentGameId}|${tab}|${needle}|${sort}|${showSpares}`
   const shown = limit.key === filterKey ? limit.count : PAGE_SIZE
 
   function flash(text: string) {
@@ -275,6 +291,11 @@ export function CollectionPanel() {
               </label>
             )}
             {tab === 'cards' && owned.entries.length > 0 && (
+              <button className={showSpares ? 'btn btn-primary' : 'btn'} aria-pressed={showSpares} title={t.collection.sparesTitle} onClick={() => { setShowSpares(!showSpares); setSelection(null) }}>
+                {t.collection.spares}
+              </button>
+            )}
+            {tab === 'cards' && owned.entries.length > 0 && !showSpares && (
               <button
                 className={selecting ? 'btn btn-primary' : 'btn'}
                 aria-pressed={selecting}
@@ -329,7 +350,50 @@ export function CollectionPanel() {
             </details>
           )}
 
-          {tab === 'cards' ? (
+          {tab === 'cards' && showSpares ? (
+            <>
+              <div className="text-dim col-note">{t.collection.sparesIntro}</div>
+              {visibleSpares.length === 0 ? (
+                <div className="text-dim">{t.collection.sparesNone}</div>
+              ) : (
+                <div className="col-select-bar">
+                  <span className="text-dim">
+                    {t.collection.spareTotal(spareCount, visibleSpares.length)}
+                    {adapter.hasPrices && spareWorth > 0 ? ` · ≈ ${formatPrice(spareWorth)}` : ''}
+                  </span>
+                  <button className="btn" disabled={unmarkedSpares.length === 0} title={tradeProfile?.public ? t.collection.forTradeTitle : t.collection.forTradeOffTitle} onClick={() => void handleMarkAll()}>
+                    {t.collection.markAllForTrade(visibleSpares.length)}
+                  </button>
+                </div>
+              )}
+              <div className="col-list">
+                {visibleSpares.slice(0, shown).map((group) => {
+                  const marked = group.printings.every((p) => forTrade.has(p.card.id))
+                  const first = group.printings[0].card
+                  return (
+                    <div key={group.key} className="col-row">
+                      <button className="col-card-link" onClick={() => setDetail(first)} title={t.collection.details}>
+                        {first.imageUrlSmall ? <img className="deck-entry-thumb" src={first.imageUrlSmall} alt="" loading="lazy" /> : <span className="deck-entry-thumb" />}
+                        <span className="col-name">{group.name}</span>
+                      </button>
+                      <span className="text-dim col-meta" title={group.printings.map((p) => `${p.copies}× ${p.card.setCode} ${p.card.number} ${p.card.name}`).join('\n')}>
+                        {t.collection.spareLine(group.owned, group.limit, group.spare)}
+                      </span>
+                      {adapter.hasPrices && group.spareValue > 0 && <span className="text-dim col-price">{formatPrice(group.spareValue)}</span>}
+                      <button className={marked ? 'btn btn-primary' : 'btn'} disabled={marked} onClick={() => void markForTrade(group.printings.map((p) => p.card.id))}>
+                        {marked ? t.collection.markedForTrade : t.collection.markForTrade}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+              {shown < visibleSpares.length && (
+                <button className="btn" onClick={() => setLimit({ key: filterKey, count: shown + PAGE_SIZE })}>
+                  {t.browser.showMore(Math.min(PAGE_SIZE, visibleSpares.length - shown), shown, visibleSpares.length)}
+                </button>
+              )}
+            </>
+          ) : tab === 'cards' ? (
             <>
               {owned.entries.length === 0 && (
                 <div className="text-dim">

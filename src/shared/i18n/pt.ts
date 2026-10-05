@@ -414,7 +414,7 @@ export const pt: Messages = {
     linkOtherGame: (game: string) => `Esse é um deck de ${game}: mude para ${game} para importá-lo.`,
     linkBlocked: 'Esse site não deixa o app do celular ler os decks dele. Abra o deck lá, copie a lista (Exportar / Copiar) e cole aqui, ou importe o link no app para computador.',
     linkFailed: (status: string) => `Não foi possível buscar o deck (${status}). O link está certo e o deck é público?`,
-    linkHint: 'Links do Archidekt e do Limitless também funcionam.',
+    linkHint: 'Links do Archidekt, do Limitless e do Piltover Archive também funcionam.',
     title: (game) => `Importar lista de deck de ${game}`,
     noData: (game) => `Ainda não há dados de cartas de ${game} — use “Baixar dados de cartas” na barra lateral e depois importe.`,
     placeholder:
@@ -844,6 +844,16 @@ export const pt: Messages = {
     select: '☑ Selecionar',
     selectTitle: 'Marque várias cartas para apagá-las juntas',
     doneSelecting: 'Pronto',
+    spares: '♻ Repetidas',
+    sparesTitle: 'As cópias que você tem além do que cabe num deck: livres para trocar ou vender',
+    sparesIntro: 'Cópias além do que cabe num deck, contando juntas todas as impressões de uma carta. As cópias mais baratas contam como repetidas; você fica com as melhores.',
+    sparesNone: 'Nenhuma repetida: você não tem mais cópias de nenhuma carta do que cabe num deck.',
+    spareLine: (owned, limit, spare) => `tem ${owned} · um deck leva ${limit} · ${spare} a mais`,
+    spareTotal: (spare, cards) => `${spare} ${spare === 1 ? 'cópia' : 'cópias'} a mais em ${cards} ${cards === 1 ? 'carta' : 'cartas'}`,
+    markForTrade: 'Marcar para troca',
+    markedForTrade: '✓ Para troca',
+    markAllForTrade: (n) => `Marcar as ${n} para troca`,
+    markedAll: (n) => `${n} ${n === 1 ? 'carta marcada' : 'cartas marcadas'} para troca`,
     selected: (n) => `${n} ${plural(n, 'selecionada', 'selecionadas')}`,
     selectAll: (n) => `Selecionar ${plural(n, 'a', 'as')} ${n}`,
     selectNone: 'Limpar seleção',
@@ -1200,6 +1210,11 @@ export const pt: Messages = {
     hit: '💸 No seu preço!',
     invalid: 'Digite um preço maior que 0.',
     howItWorks: 'Os preços são verificados todo dia. Você recebe um aviso (e uma notificação, se permitir) quando chegar.',
+  },
+
+  priceHistory: {
+    title: 'Preço ao longo do tempo',
+    firstDay: 'Os preços são salvos todo dia. O gráfico começa a se preencher a partir de amanhã.',
   },
 
   valueHistory: {

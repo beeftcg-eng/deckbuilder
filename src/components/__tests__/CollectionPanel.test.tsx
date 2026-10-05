@@ -11,8 +11,13 @@ import { t } from '../../shared/i18n'
  */
 let collection: Collection = {}
 let settings: AppSettings = {}
+let forTrade: string[] = []
 const api = {
   collection: {
+    setForTrade: vi.fn(async (cardId: string, on: boolean) => {
+      forTrade = on ? [...new Set([...forTrade, cardId])] : forTrade.filter((id) => id !== cardId)
+      return forTrade
+    }),
     add: vi.fn(async (items: { cardId: string; quantity: number }[]) => {
       const next = { ...collection }
       for (const { cardId, quantity } of items) {
@@ -42,11 +47,13 @@ const negate = makeCard('mtg', { name: 'Negate', price: 1 })
 beforeEach(() => {
   collection = { [bolt.id]: 3, [negate.id]: 1 }
   settings = {}
+  forTrade = []
   window.confirm = () => true
   useAppStore.setState({
     currentGameId: 'mtg',
     catalogs: { mtg: { cards: [bolt, negate], byId: new Map([bolt, negate].map((c) => [c.id, c])) } },
     collection,
+    forTrade: new Set(),
     settings: {},
   })
 })
@@ -92,5 +99,21 @@ describe('Collection panel', () => {
     useAppStore.getState().setCopyDetails(bolt.id, [{ finish: 'foil', condition: 'LP', quantity: 2 }])
     await useAppStore.getState().removeFromCollection('mtg', [bolt.id])
     expect(useAppStore.getState().settings.collectionDetails).toEqual({})
+  })
+
+  it('lists copies beyond a playset as spares, and marks them for trade', async () => {
+    const boltReprint = makeCard('mtg', { name: 'Lightning Bolt', price: 1 })
+    useAppStore.setState({
+      catalogs: { mtg: { cards: [bolt, boltReprint, negate], byId: new Map([bolt, boltReprint, negate].map((c) => [c.id, c])) } },
+      collection: { [bolt.id]: 3, [boltReprint.id]: 3, [negate.id]: 1 },
+    })
+    render(<CollectionPanel />)
+    fireEvent.click(screen.getByText(t.collection.spares))
+
+    expect(screen.getByText(t.collection.spareLine(6, 4, 2))).toBeTruthy()
+    expect(screen.queryByText('Negate')).toBeNull()
+    fireEvent.click(screen.getByText(t.collection.markAllForTrade(1)))
+    await waitFor(() => expect(useAppStore.getState().forTrade).toEqual(new Set([bolt.id, boltReprint.id])))
+    expect(await screen.findByText(t.collection.markedForTrade)).toBeTruthy()
   })
 })

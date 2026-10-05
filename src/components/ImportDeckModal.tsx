@@ -61,7 +61,7 @@ export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: 
     setFetching(true)
     setError(null)
     try {
-      const site = deckFromSite(siteTarget.site, await window.api.fetchDeckPage(text.trim()))
+      const site = deckFromSite(siteTarget.site, await window.api.fetchDeckPage(text.trim()), cardsById)
       if (!site.text.trim()) throw new Error(t.importDeck.linkEmpty)
       setFromSite(site)
       setText(site.text)

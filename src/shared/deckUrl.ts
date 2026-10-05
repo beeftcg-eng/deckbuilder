@@ -14,7 +14,7 @@ import { cleanTags } from './deckTags'
  * for MTGO text pastes fine.
  */
 
-export type DeckSite = 'archidekt' | 'limitless-pokemon' | 'limitless-onepiece'
+export type DeckSite = 'archidekt' | 'limitless-pokemon' | 'limitless-onepiece' | 'piltover'
 
 export interface DeckUrlTarget {
   site: DeckSite
@@ -42,6 +42,10 @@ export function deckUrlTarget(input: string): DeckUrlTarget | null {
     const id = /^\/decks\/list\/(?:jp\/)?(\d+)/.exec(path)?.[1]
     return id ? { site: 'limitless-pokemon', gameId: 'pokemon', fetchUrl: `https://limitlesstcg.com/decks/list/${id}` } : null
   }
+  if (host === 'piltoverarchive.com') {
+    const id = /^\/decks\/view\/([0-9a-f-]{36})/i.exec(path)?.[1]
+    return id ? { site: 'piltover', gameId: 'riftbound', fetchUrl: `https://piltoverarchive.com/decks/view/${id}` } : null
+  }
   if (host === 'onepiece.limitlesstcg.com') {
     const id = /^\/decks\/list\/(\d+)/.exec(path)?.[1]
     return id ? { site: 'limitless-onepiece', gameId: 'onepiece', fetchUrl: `https://onepiece.limitlesstcg.com/decks/list/${id}` } : null
@@ -50,7 +54,7 @@ export function deckUrlTarget(input: string): DeckUrlTarget | null {
 }
 
 /** The hosts deckUrlTarget can send a fetch to (the desktop app refuses any other). */
-export const DECK_SITE_HOSTS = ['archidekt.com', 'limitlesstcg.com', 'onepiece.limitlesstcg.com'] as const
+export const DECK_SITE_HOSTS = ['archidekt.com', 'limitlesstcg.com', 'onepiece.limitlesstcg.com', 'piltoverarchive.com'] as const
 
 export interface DeckFromSite {
   name: string | null
@@ -140,10 +144,109 @@ export function fromLimitlessOnePiece(html: string): DeckFromSite {
   return { name: pageTitle(html), text: lines.join('\n'), printings: new Map(), tags: new Map() }
 }
 
-export function deckFromSite(site: DeckSite, body: string): DeckFromSite {
+export function deckFromSite(site: DeckSite, body: string, cardsById?: Map<string, Card>): DeckFromSite {
   if (site === 'archidekt') return fromArchidekt(JSON.parse(body))
   if (site === 'limitless-pokemon') return fromLimitlessPokemon(body)
+  if (site === 'piltover') return fromPiltoverArchive(body, cardsById)
   return fromLimitlessOnePiece(body)
+}
+
+// ---------- Piltover Archive (Riftbound) ----------
+
+interface PiltoverVariant {
+  id: string
+  variantNumber?: string
+  tcgplayerId?: number | null
+}
+interface PiltoverEntry {
+  variantId?: string
+  quantity?: number
+  card?: { name?: string; cardVariants?: PiltoverVariant[] }
+}
+
+/** The data a Next.js page streams into itself (`self.__next_f.push([1, "..."])`), as one string. */
+function nextFlightData(html: string): string {
+  let text = ''
+  const chunk = /self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g
+  for (let m = chunk.exec(html); m; m = chunk.exec(html)) {
+    try {
+      text += JSON.parse(`"${m[1]}"`) as string
+    } catch {
+      // a chunk that isn't a plain string: not the deck
+    }
+  }
+  return text
+}
+
+/** The JSON value that starts at `from` in `text` (an object or array), or undefined. */
+function jsonValueAt(text: string, from: number): unknown {
+  let depth = 0
+  let inString = false
+  for (let i = from; i < text.length; i++) {
+    const c = text[i]
+    if (inString) {
+      if (c === '\\') i++
+      else if (c === '"') inString = false
+    } else if (c === '"') inString = true
+    else if (c === '{' || c === '[') depth++
+    else if (c === '}' || c === ']') {
+      depth--
+      if (depth === 0) {
+        try {
+          return JSON.parse(text.slice(from, i + 1))
+        } catch {
+          return undefined
+        }
+      }
+    }
+  }
+  return undefined
+}
+
+/**
+ * piltoverarchive.com's deck pages carry the whole deck as data: the Legend, its Champions, Main Deck,
+ * Battlefields, Runes and Sideboard, each card with the printing picked. A printing this catalog has
+ * (by its TCGplayer id) is written as its own id, "3 ogn-263-298 Teemo, Swift Scout", so alternate arts
+ * come across as they were; the rest by name.
+ */
+export function fromPiltoverArchive(html: string, cardsById?: Map<string, Card>): DeckFromSite {
+  const data = nextFlightData(html)
+  const byProduct = new Map<string, Card>()
+  for (const card of cardsById?.values() ?? []) if (card.gameId === 'riftbound' && card.tcgplayerId) byProduct.set(card.tcgplayerId, card)
+
+  const section = (key: string): PiltoverEntry[] => {
+    const at = data.indexOf(`"${key}":[{"deckId"`)
+    const value = at >= 0 ? jsonValueAt(data, at + key.length + 3) : undefined
+    return Array.isArray(value) ? (value as PiltoverEntry[]) : []
+  }
+  const line = (entry: PiltoverEntry, quantity = entry.quantity ?? 1): string | null => {
+    const name = entry.card?.name
+    if (!name || quantity <= 0) return null
+    const variant = entry.card?.cardVariants?.find((v) => v.id === entry.variantId) ?? entry.card?.cardVariants?.[0]
+    const card = variant?.tcgplayerId ? byProduct.get(String(variant.tcgplayerId)) : undefined
+    return card ? `${quantity} ${card.sourceId} ${name}` : `${quantity} ${name}`
+  }
+
+  const legendAt = data.indexOf('"legend":{')
+  const legend = legendAt >= 0 ? (jsonValueAt(data, legendAt + '"legend":'.length) as (PiltoverVariant & { card?: PiltoverEntry['card'] }) | undefined) : undefined
+  const legendLine = legend?.card ? line({ variantId: legend.id, quantity: 1, card: legend.card }) : null
+  // The deck's own name comes just before its Legend.
+  const nameMatch = legendAt >= 0 ? [...data.slice(Math.max(0, legendAt - 20_000), legendAt).matchAll(/"name":"((?:[^"\\]|\\.)*)","description":/g)].pop() : undefined
+
+  const lines = (entries: PiltoverEntry[]) => entries.flatMap((e) => line(e) ?? [])
+  const runes = section('runes').flatMap((e) => (e.card?.name && e.quantity ? [`${e.quantity} ${e.card.name}`] : []))
+  const sections: [string, string[]][] = [
+    ['Legend', legendLine ? [legendLine] : []],
+    ['MainDeck', [...lines(section('champions')), ...lines(section('maindeck'))]],
+    ['Battlefields', lines(section('battlefields'))],
+    ['Runes', runes],
+    ['Sideboard', lines(section('sideboard'))],
+  ]
+  const text = sections
+    .filter(([, l]) => l.length > 0)
+    .map(([heading, l]) => [`${heading}:`, ...l].join('\n'))
+    .join('\n\n')
+  return { name: nameMatch ? (JSON.parse(`"${nameMatch[1]}"`) as string) : null, text, printings: new Map(), tags: new Map() }
 }
 
 // ---------- after the text import ----------

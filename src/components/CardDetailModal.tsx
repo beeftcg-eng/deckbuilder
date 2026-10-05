@@ -4,11 +4,28 @@ import { useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
 import { rarityColorClass } from '../shared/rarityColor'
 import { artUrl, artworkIds, knownArtIds } from '../shared/artChoice'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '../shared/i18n'
 import { lazyModal } from './lazyModal'
+import { ValueChart } from './ValueChart'
+import { fetchCardHistory } from '../shared/priceHistory'
+import type { ValuePoint } from '../shared/valueHistory'
 
 const CardImageViewer = lazyModal(() => import('./CardImageViewer'), 'CardImageViewer')
+
+/** The card's market price over the last 90 days (priceHistory.ts), for the games that keep one. */
+function PriceHistory({ card }: { card: Card }) {
+  const [points, setPoints] = useState<{ id: string; points: ValuePoint[] } | null>(null)
+  useEffect(() => {
+    let live = true
+    void fetchCardHistory(card).then((p) => live && p && setPoints({ id: card.id, points: p }))
+    return () => {
+      live = false
+    }
+  }, [card])
+  if (!points || points.id !== card.id || points.points.length === 0) return null
+  return <ValueChart points={points.points} title={t.priceHistory.title} firstDay={t.priceHistory.firstDay} ranges={[30, 90]} />
+}
 
 export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose: () => void }) {
   // Read the card from the catalog, so picking an artwork below shows up here straight away.
@@ -118,6 +135,7 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
           {card.price != null && <div className="text-dim">
               {t.cardDetail.marketPrice} {formatPrice(card.price)}
             </div>}
+          {card.price != null && <PriceHistory card={card} />}
           <div className="detail-owned">
             <span>{t.cardDetail.ownedPrinting}</span>
             <button className="btn stepper-btn" disabled={owned <= 0} onClick={() => changeOwned(card.id, -1)}>
