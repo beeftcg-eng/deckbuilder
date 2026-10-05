@@ -17,6 +17,7 @@ on:
       - "public/**"
       - "package.json"
       - "scripts/build-prices.ts"
+      - "scripts/missing-art.ts"
       - ".github/workflows/deploy-pwa.yml"
   workflow_dispatch: {}
   # Daily, so the TCGplayer price files (below) stay current even when nothing else changed.
@@ -62,3 +63,18 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # The cards a Riftbound sync ends up with no picture for (scripts/missing-art.ts), on this run's
+  # summary page. After the deploy, so it reads the printings file just published. Never fails the run.
+  missing-art:
+    needs: deploy
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx rolldown scripts/missing-art.ts --platform node --format esm -o .prices/missing-art.mjs && node .prices/missing-art.mjs riftbound --markdown >> "$GITHUB_STEP_SUMMARY"
