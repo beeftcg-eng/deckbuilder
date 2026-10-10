@@ -1,3 +1,4 @@
+import type { Announcement } from '../shared/announcement'
 import type {
   AppSettings,
   Binder,
@@ -232,6 +233,9 @@ export interface AppState {
   /** The welcome tour (WelcomeTour.tsx): opens by itself on a first launch, or from the sidebar. */
   showTour: boolean
   setShowTour: (show: boolean) => void
+  /** A message to all users waiting to be read (AnnouncementModal.tsx), else null. */
+  announcement: Announcement | null
+  dismissAnnouncement: () => void
   /** The UI language. Changing it re-mounts the screens (App.tsx) so every string picks it up. */
   language: Language
   setLanguage: (language: Language) => void

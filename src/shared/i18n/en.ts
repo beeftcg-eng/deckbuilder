@@ -119,6 +119,11 @@ export const en = {
   },
 
   /** Share links (ShareDeckModal.tsx) and opening one (SharedDeckView.tsx). */
+  announcement: {
+    title: 'Message',
+    more: 'More info',
+    ok: 'Got it',
+  },
   share: {
     button: '🔗 Share',
     buttonShared: '🔗 Shared',

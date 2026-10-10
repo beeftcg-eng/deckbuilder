@@ -112,6 +112,11 @@ export const es: Messages = {
     private: 'Solo tú las ves. No aparecen en un enlace para compartir.',
   },
 
+  announcement: {
+    title: 'Mensaje',
+    more: 'Más información',
+    ok: 'Entendido',
+  },
   share: {
     button: '🔗 Compartir',
     buttonShared: '🔗 Compartido',

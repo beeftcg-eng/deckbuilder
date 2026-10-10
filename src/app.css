@@ -2728,6 +2728,19 @@
   line-height: 1.5;
 }
 
+.shared-status h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.shared-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 /* Card scanner (ScannerModal, phone app only): camera view with a card-shaped guide, and a result sheet. */
 .scanner-layer {
   position: fixed;
@@ -4381,4 +4394,21 @@
   font-size: 13px;
   line-height: 1.5;
   text-align: center;
+}
+
+/* A message to all users (AnnouncementModal.tsx, public/announcement.json). */
+.announcement-modal {
+  max-width: 440px;
+}
+
+.announcement-message {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  margin: 12px 0 16px;
+}
+
+.announcement-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }

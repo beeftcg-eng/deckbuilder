@@ -147,7 +147,7 @@ describe('SyncEngine', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const { engine, pulls } = makeEngine(store)
-    const startPromise = engine.start(1_000_000) // effectively only ticks once, manually
+    const startPromise = engine.start() // the first tick is the only one in this test; the interval is far longer
     // Wait until the pull's own fetch call is actually in flight (after the refresh call has
     // resolved) before simulating a local edit landing while it's held open - mutating rev
     // synchronously right after calling start() would run before any of its awaits have had a
@@ -184,7 +184,7 @@ describe('SyncEngine', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const { engine, statuses } = makeEngine(store)
-    await engine.start(1_000_000)
+    await engine.start()
     engine.stop()
 
     expect(fetchMock).not.toHaveBeenCalled()

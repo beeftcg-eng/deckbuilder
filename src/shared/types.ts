@@ -308,6 +308,8 @@ export interface AppSettings {
   currencyRates?: { updatedAt: string; rates: Record<string, number> }
   /** Set once the welcome tour was finished or skipped, so it only opens by itself on a first launch. */
   tourSeen?: boolean
+  /** The id of the last announcement shown on this device (shared/announcement.ts), so each one shows once. */
+  announcementSeen?: string
   /** Local copy of the last trade-profile visibility pushed to the cloud (see shared/types.ts TradeProfile). */
   tradeProfile?: TradeProfile
   /** Yu-Gi-Oh artwork picked per printing (artChoice.ts printingKey -> artwork id). */

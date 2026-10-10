@@ -20,7 +20,7 @@ import { registerCollectionIpc } from './ipc/collection'
 import { registerSettingsIpc } from './ipc/settings'
 import { registerUpdaterIpc, startUpdateChecks } from './ipc/updater'
 import { registerPatchNotesIpc } from './ipc/patchNotes'
-import { registerDeckbuilderSyncIpc } from './ipc/deckbuilderSync'
+import { registerDeckbuilderSyncIpc, setSyncBackground } from './ipc/deckbuilderSync'
 import { snapshot } from './lib/backups'
 import { withDataLock } from './lib/dataFiles'
 import { isWebUrl } from './lib/urls'
@@ -48,6 +48,10 @@ function createWindow() {
       nodeIntegration: false,
     },
   })
+
+  // Sync pulls slowly while you're not looking at the window, and at once when you come back.
+  win.on('focus', () => setSyncBackground(false))
+  win.on('blur', () => setSyncBackground(true))
 
   // The app is one page: a link in card text must open in the user's browser, never replace the app or open a new window.
   win.webContents.setWindowOpenHandler(({ url }) => {

@@ -16,6 +16,7 @@ import { useDeckbuilderSyncListener } from './state/deckbuilderSync'
 import { currentDeckFor } from './shared/decks'
 import { UpdateBanner } from './components/UpdateBanner'
 import { WelcomeTour } from './components/WelcomeTour'
+import { AnnouncementModal } from './components/AnnouncementModal'
 import { MobileNav, type MobileView } from './components/MobileNav'
 import { SharedDeckView } from './components/SharedDeckView'
 import { ShortcutsModal } from './components/ShortcutsModal'
@@ -172,6 +173,7 @@ export default function App() {
       )}
       <UpdateBanner />
       {showTour && <WelcomeTour />}
+      <AnnouncementModal />
       <ErrorBoundary area="shared deck">
         <SharedDeckView />
       </ErrorBoundary>

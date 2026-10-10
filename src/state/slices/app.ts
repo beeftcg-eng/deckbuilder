@@ -1,6 +1,7 @@
 import type { GameId } from '../../shared/types'
 import { GAME_LIST } from '../../shared/games/registry'
 import { parseShareToken } from '../../shared/deckShare'
+import { loadAnnouncement } from '../../shared/announcement'
 import { displayCurrency, setDisplayCurrency } from '../../shared/currency'
 import { applyTheme } from '../../lib/theme'
 import { getLanguage, isLanguage, t } from '../../shared/i18n'
@@ -24,9 +25,18 @@ export function createAppSlice(ctx: StoreContext) {
     updateStatus: null,
     language: getLanguage(),
     showTour: false,
+    announcement: null,
     showScanner: false,
     currencyKey: 'USD',
     showShortcuts: false,
+
+    dismissAnnouncement: () => {
+      const id = get().announcement?.id
+      set({ announcement: null })
+      if (!id) return
+      set((s) => ({ settings: { ...s.settings, announcementSeen: id } }))
+      persistSettings({ announcementSeen: id })
+    },
 
     initialize: async () => {
       try {
@@ -49,6 +59,12 @@ export function createAppSlice(ctx: StoreContext) {
         // Not over a share link, though: a friend opening one came to see that deck.
         const openingShareLink = typeof location !== 'undefined' && new URLSearchParams(location.search).has('share')
         if (!settings.tourSeen && decks.length === 0 && !openingShareLink) set({ showTour: true })
+        // A message to everyone (shared/announcement.ts), once. Not over the tour or a share link, so it waits for the next launch.
+        void loadAnnouncement().then((announcement) => {
+          if (!announcement || announcement.id === get().settings.announcementSeen) return
+          if (get().showTour || get().sharedDeckState) return
+          set({ announcement })
+        })
         if (isLanguage(settings.language) && settings.language !== get().language) {
           applyLanguage(settings.language)
           set({ language: settings.language })

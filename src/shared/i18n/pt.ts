@@ -112,6 +112,11 @@ export const pt: Messages = {
     private: 'Só você vê. Elas não aparecem em um link de compartilhamento.',
   },
 
+  announcement: {
+    title: 'Mensagem',
+    more: 'Mais informações',
+    ok: 'Entendi',
+  },
   share: {
     button: '🔗 Compartilhar',
     buttonShared: '🔗 Compartilhado',

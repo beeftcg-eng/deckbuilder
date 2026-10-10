@@ -204,10 +204,14 @@ function ensureSyncEngine(): SyncEngine {
       (state) => void applyPulledState(state),
       () => {}, // status surfaced via pawmodoro.getConfig() polling from the UI, same as Electron
     )
+    syncEngine.setBackground(document.hidden)
     void syncEngine.start()
   }
   return syncEngine
 }
+
+// A phone app in the background or a hidden tab pulls slowly, and at once when it's back on screen.
+document.addEventListener('visibilitychange', () => syncEngine?.setBackground(document.hidden))
 
 const decks = {
   list: async (): Promise<Deck[]> => idbGetAll<Deck>('decks'),

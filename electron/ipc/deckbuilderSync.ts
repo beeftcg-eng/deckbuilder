@@ -65,6 +65,8 @@ async function applyPulledState(state: PulledState): Promise<void> {
   broadcast('deckbuilderSync:pulled', undefined)
 }
 
+let inBackground = false
+
 function ensureEngine(): SyncEngine {
   if (!engine) {
     engine = new SyncEngine(
@@ -72,9 +74,17 @@ function ensureEngine(): SyncEngine {
       (state) => void applyPulledState(state),
       (status: SyncStatus) => broadcast('deckbuilderSync:status', status),
     )
+    engine.setBackground(inBackground)
     void engine.start()
   }
   return engine
+}
+
+/** main.ts calls this as the window loses and gets focus: this runs in the main process, which the
+ * OS never throttles, so without it a window left open all day pulled every few seconds. */
+export function setSyncBackground(background: boolean): void {
+  inBackground = background
+  engine?.setBackground(background)
 }
 
 export function enqueueSyncOp(op: SyncOp): void {

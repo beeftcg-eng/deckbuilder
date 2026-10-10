@@ -23,6 +23,14 @@ export type SyncStatus =
   | { state: 'syncing' }
   | { state: 'offline'; message: string }
 
+/** How often to pull while the app is on screen, and while it isn't (a minimized desktop window, a
+ * phone app in the background). Every pull downloads the whole account, so this is most of the
+ * Supabase project's egress: at the old flat 5 seconds one desktop app left open in the tray used
+ * ~17,000 pulls a day. Your own edits still go up straight away (enqueue ticks immediately), and
+ * coming back to the app pulls at once (setBackground). Mirrors Pawmodoro's sync_engine.py. */
+export const FOREGROUND_PULL_MS = 20_000
+export const BACKGROUND_PULL_MS = 10 * 60_000
+
 /** Runs the outbox drain + periodic pull loop. One instance per app; `onPulled` is called with a
  * PulledState only when it's actually safe to apply (rev unchanged, outbox empty at pull time) -
  * callers never see a stale pull and never need to re-check anything themselves. */
@@ -33,6 +41,7 @@ export class SyncEngine {
   private accessToken: string | null = null
   private timer: ReturnType<typeof setInterval> | null = null
   private draining = false
+  private background = false
 
   constructor(store: SyncStore, onPulled: (state: PulledState) => void, onStatus: (status: SyncStatus) => void) {
     this.store = store
@@ -41,10 +50,24 @@ export class SyncEngine {
   }
 
   /** Call after connect/disconnect changes, or once at startup. */
-  async start(intervalMs = 5000): Promise<void> {
-    if (this.timer) clearInterval(this.timer)
-    this.timer = setInterval(() => void this.tick(), intervalMs)
+  async start(): Promise<void> {
+    this.schedule()
     await this.tick()
+  }
+
+  private schedule(): void {
+    if (this.timer) clearInterval(this.timer)
+    this.timer = setInterval(() => void this.tick(), this.background ? BACKGROUND_PULL_MS : FOREGROUND_PULL_MS)
+  }
+
+  /** The app went off screen (true) or came back (false). Coming back pulls straight away, so
+   * changes made on another device show up without waiting out the slow background interval. */
+  setBackground(background: boolean): void {
+    if (background === this.background) return
+    this.background = background
+    if (!this.timer) return // stopped
+    this.schedule()
+    if (!background) void this.tick()
   }
 
   stop(): void {
