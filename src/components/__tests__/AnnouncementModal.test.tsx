@@ -19,7 +19,7 @@ describe('AnnouncementModal', () => {
     render(<AnnouncementModal />)
     expect(document.querySelector('.announcement-modal')).toBeNull()
 
-    act(() => useAppStore.setState({ announcement: { id: 'a1', title: 'Heads up', message: 'Hello everyone', link: null } }))
+    act(() => useAppStore.setState({ announcement: { id: 'a1', title: 'Heads up', message: 'Hello everyone', link: null, linkLabel: null } }))
     expect(screen.getByText('Heads up')).toBeTruthy()
     expect(screen.getByText('Hello everyone')).toBeTruthy()
 

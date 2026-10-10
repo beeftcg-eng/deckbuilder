@@ -3,7 +3,7 @@
 # file and pushes it to master, which runs "Deploy PWA to GitHub Pages". A few minutes later every
 # app (desktop and phone) shows it once, the next time it opens. See src/shared/announcement.ts.
 #
-#   scripts/send-announcement.sh "Message" [--title "Title"] [--link https://...] [--until YYYY-MM-DD]
+#   scripts/send-announcement.sh "Message" [--title "Title"] [--link https://... [--link-label "Donate"]] [--until YYYY-MM-DD]
 #   scripts/send-announcement.sh --clear        # take the current message down
 #
 # Write "\n" in the message for a new line. Each run gets a fresh id, so it shows even to people
@@ -12,7 +12,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 FILE=public/announcement.json
-MESSAGE="" TITLE="" LINK="" UNTIL="" CLEAR=0
+MESSAGE="" TITLE="" LINK="" LINK_LABEL="" UNTIL="" CLEAR=0
 
 usage() { sed -n '6,7p' "$0" | sed 's/^#   //' >&2; exit 1; }
 
@@ -20,6 +20,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --title) TITLE="${2:?--title needs a value}"; shift 2 ;;
     --link) LINK="${2:?--link needs a value}"; shift 2 ;;
+    --link-label) LINK_LABEL="${2:?--link-label needs a value}"; shift 2 ;;
     --until) UNTIL="${2:?--until needs a value}"; shift 2 ;;
     --clear) CLEAR=1; shift ;;
     -h|--help) usage ;;
@@ -29,7 +30,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$CLEAR" = 1 ]; then
-  MESSAGE="" TITLE="" LINK="" UNTIL=""
+  MESSAGE="" TITLE="" LINK="" LINK_LABEL="" UNTIL=""
 else
   [ -n "$MESSAGE" ] || usage
   [ -z "$LINK" ] || [[ "$LINK" == https://* ]] || { echo "--link must start with https://" >&2; exit 1; }
@@ -41,10 +42,11 @@ git pull -q --ff-only origin master
 
 ID="$([ "$CLEAR" = 1 ] && echo "" || date -u +%Y%m%d-%H%M%S)"
 MESSAGE="${MESSAGE//\\n/$'\n'}"
-ID="$ID" MESSAGE="$MESSAGE" TITLE="$TITLE" LINK="$LINK" UNTIL="$UNTIL" node -e '
-  const { ID, MESSAGE, TITLE, LINK, UNTIL } = process.env
+ID="$ID" MESSAGE="$MESSAGE" TITLE="$TITLE" LINK="$LINK" LINK_LABEL="$LINK_LABEL" UNTIL="$UNTIL" node -e '
+  const { ID, MESSAGE, TITLE, LINK, LINK_LABEL, UNTIL } = process.env
   const out = { id: ID, title: TITLE, message: MESSAGE }
   if (LINK) out.link = LINK
+  if (LINK && LINK_LABEL) out.linkLabel = LINK_LABEL
   if (UNTIL) out.until = UNTIL
   require("fs").writeFileSync(process.argv[1], JSON.stringify(out, null, 2) + "\n")
 ' "$FILE"

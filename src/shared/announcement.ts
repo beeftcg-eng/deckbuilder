@@ -9,6 +9,7 @@
  *   "title": "Heads up",               // optional
  *   "message": "Text.\nNew lines work.",
  *   "link": "https://...",             // optional, shown as a button
+ *   "linkLabel": "Donate",             // optional, that button's text (else "More info")
  *   "until": "2026-11-01"              // optional, not shown from this date on (so new installs months later skip it)
  * }
  * An empty `message` sends nothing.
@@ -20,6 +21,7 @@ export interface Announcement {
   title: string | null
   message: string
   link: string | null
+  linkLabel: string | null
 }
 
 /** The file's contents as an Announcement to show, or null when there's nothing (valid) to show today. */
@@ -38,6 +40,7 @@ export function normalizeAnnouncement(raw: unknown, now = new Date()): Announcem
     title: typeof r.title === 'string' && r.title.trim() ? r.title.trim().slice(0, 120) : null,
     message: r.message.trim().slice(0, 2000),
     link,
+    linkLabel: link && typeof r.linkLabel === 'string' && r.linkLabel.trim() ? r.linkLabel.trim().slice(0, 40) : null,
   }
 }
 

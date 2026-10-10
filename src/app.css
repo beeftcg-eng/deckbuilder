@@ -4401,10 +4401,13 @@
   max-width: 440px;
 }
 
+/* A long message scrolls inside the box, so the buttons stay on screen. */
 .announcement-message {
   white-space: pre-wrap;
   line-height: 1.5;
   margin: 12px 0 16px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .announcement-actions {

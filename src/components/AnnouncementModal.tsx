@@ -17,7 +17,7 @@ export function AnnouncementModal() {
         <div className="announcement-actions">
           {announcement.link && (
             <a className="btn" href={announcement.link} target="_blank" rel="noreferrer">
-              {t.announcement.more}
+              {announcement.linkLabel ?? t.announcement.more}
             </a>
           )}
           <button className="btn btn-primary" onClick={dismiss}>

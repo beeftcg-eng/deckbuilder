@@ -5,11 +5,12 @@ describe('normalizeAnnouncement', () => {
   const now = new Date('2026-10-10T12:00:00Z')
 
   it('reads a full announcement', () => {
-    expect(normalizeAnnouncement({ id: ' a1 ', title: 'Hi', message: ' Hello\nthere ', link: 'https://example.com' }, now)).toEqual({
+    expect(normalizeAnnouncement({ id: ' a1 ', title: 'Hi', message: ' Hello\nthere ', link: 'https://example.com', linkLabel: ' Donate ' }, now)).toEqual({
       id: 'a1',
       title: 'Hi',
       message: 'Hello\nthere',
       link: 'https://example.com',
+      linkLabel: 'Donate',
     })
   })
 
