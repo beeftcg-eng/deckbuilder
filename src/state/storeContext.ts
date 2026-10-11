@@ -3,6 +3,7 @@ import { GAME_LIST, getAdapter } from '../shared/games/registry'
 import { gameIdOfCardId, totalPrice } from '../shared/collection'
 import { localDay, recordValue, type ValueHistory } from '../shared/valueHistory'
 import { checkPriceAlerts } from '../shared/priceAlerts'
+import { isCatalogStale } from '../shared/catalogAge'
 import { notify } from '../lib/notify'
 import { freshTradeMatches } from '../shared/tradeAlerts'
 import type { CollectionDetails, CopyDetail } from '../shared/copyDetails'
@@ -122,19 +123,36 @@ export function createStoreContext(set: SetState, get: GetState) {
 
   const PRICE_CHECK_EVERY_MS = 6 * 60 * 60 * 1000
   let lastPriceCheck = 0
-  /** Applies the day's published prices to each downloaded game's saved cards (priceRefresh.ts). */
+  /**
+   * Keeps each downloaded game's saved cards current: cards a week old or more are downloaded again
+   * (catalogAge.ts), so new sets turn up without anyone pressing Update; the rest get the day's
+   * published prices (priceRefresh.ts). One game at a time - both rewrite that game's saved cards.
+   */
   async function refreshAllPrices(): Promise<void> {
     if (Date.now() - lastPriceCheck < PRICE_CHECK_EVERY_MS) return
     lastPriceCheck = Date.now()
     for (const adapter of GAME_LIST) {
       const gameId = adapter.id
-      if (!get().syncMeta[gameId]?.count) continue
+      const meta = get().syncMeta[gameId]
+      if (!meta?.count) continue
       const progress = get().syncProgress[gameId]
       if (progress && !progress.done) continue // a full download is on its way anyway
+      if (isCatalogStale(meta.lastSynced) && !get().settings.hiddenGames?.includes(gameId)) {
+        // A failure shows under the sidebar's Update button, and the next check tries again.
+        await resyncCatalog(gameId).catch(() => undefined)
+        continue
+      }
       const result = await window.api.cards.refreshPrices(gameId).catch(() => null)
       if (result?.changed && get().catalogs[gameId]) await get().loadCatalog(gameId)
     }
     await loadAlertCatalogs()
+  }
+
+  /** Downloads a game's cards again in the background; they're only reloaded when that game's cards are already open. */
+  async function resyncCatalog(gameId: GameId): Promise<void> {
+    const meta = await window.api.cards.sync(gameId)
+    set((s) => ({ syncMeta: { ...s.syncMeta, [gameId]: meta } }))
+    if (get().catalogs[gameId]) await get().loadCatalog(gameId)
   }
 
   /**

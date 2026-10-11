@@ -5,6 +5,8 @@ import { getAdapter } from '../shared/games/registry'
 import type { Card, Format, GameId } from '../shared/types'
 import { t } from '../shared/i18n'
 import { formatLabel } from '../shared/formatText'
+import { isSetLegal } from '../shared/legality'
+import { setReleaseDates, sortSetsByRelease } from '../shared/setOrder'
 
 const MAX_PICKER_RESULTS = 8
 const NO_CARDS: Card[] = []
@@ -93,9 +95,9 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
   const sets = useMemo(() => {
     const byId = new Map<string, string>()
     for (const card of cards) byId.set(card.setId, card.setName)
-    for (const id of active?.legalSetIds ?? []) if (!byId.has(id)) byId.set(id, id)
-    return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1]))
-  }, [cards, active?.legalSetIds])
+    for (const id of [...(active?.legalSetIds ?? []), ...(active?.illegalSetIds ?? [])]) if (!byId.has(id)) byId.set(id, id)
+    return sortSetsByRelease([...byId.entries()], setReleaseDates(cards), ([id]) => id, ([, name]) => name)
+  }, [cards, active?.legalSetIds, active?.illegalSetIds])
 
   if (!active) return null
   const keyOf = (card: Card) => `${gameId}:${card.sourceId}`
@@ -120,10 +122,14 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
     setPairB(null)
   }
 
+  const hasSetList = Boolean(active.legalSetIds || active.illegalSetIds)
+  const legalSets = sets.filter(([id]) => isSetLegal(active, id))
+
   function toggleSet(setId: string) {
     edit((f) => {
-      const current = f.legalSetIds ?? []
-      return { ...f, legalSetIds: current.includes(setId) ? current.filter((s) => s !== setId) : [...current, setId] }
+      const toggled = (list: string[]) => (list.includes(setId) ? list.filter((s) => s !== setId) : [...list, setId])
+      // A list of the illegal sets (illegalSetIds) leaves every set it doesn't name legal, new ones included.
+      return f.legalSetIds ? { ...f, legalSetIds: toggled(f.legalSetIds) } : { ...f, illegalSetIds: toggled(f.illegalSetIds ?? []) }
     })
   }
 
@@ -234,15 +240,16 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
             </div>
           </section>
 
-          {active.legalSetIds && (
+          {hasSetList && (
             <section className="banlist-section">
               <h3>
-                {t.banList.legalSets} ({active.legalSetIds.length}) <span className="text-dim">{t.banList.legalSetsHelp}</span>
+                {t.banList.legalSets} ({legalSets.length}){' '}
+                <span className="text-dim">{active.legalSetIds ? t.banList.legalSetsHelp : t.banList.illegalSetsHelp}</span>
               </h3>
               <div className="set-checklist">
                 {sets.map(([id, name]) => (
                   <label key={id}>
-                    <input type="checkbox" checked={active.legalSetIds!.includes(id)} onChange={() => toggleSet(id)} />
+                    <input type="checkbox" checked={isSetLegal(active, id)} onChange={() => toggleSet(id)} />
                     <span>
                       {name} <span className="text-dim">{id}</span>
                     </span>
@@ -252,7 +259,7 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
             </section>
           )}
 
-          {active.legalSetIds && active.legalSetIds.length > 0 && (
+          {hasSetList && legalSets.length > 0 && (
             <section className="banlist-section">
               <h3>
                 {t.rotation.editorTitle} <span className="text-dim">{t.rotation.editorHelp}</span>
@@ -262,16 +269,14 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
                 <input type="date" value={active.nextRotation?.date ?? ''} onChange={(e) => setRotationDate(e.target.value)} />
               </label>
               <div className="set-checklist">
-                {sets
-                  .filter(([id]) => active.legalSetIds!.includes(id))
-                  .map(([id, name]) => (
-                    <label key={id}>
-                      <input type="checkbox" checked={active.nextRotation?.leavingSetIds.includes(id) ?? false} onChange={() => toggleLeaving(id)} />
-                      <span>
-                        {name} <span className="text-dim">{id}</span>
-                      </span>
-                    </label>
-                  ))}
+                {legalSets.map(([id, name]) => (
+                  <label key={id}>
+                    <input type="checkbox" checked={active.nextRotation?.leavingSetIds.includes(id) ?? false} onChange={() => toggleLeaving(id)} />
+                    <span>
+                      {name} <span className="text-dim">{id}</span>
+                    </span>
+                  </label>
+                ))}
               </div>
             </section>
           )}

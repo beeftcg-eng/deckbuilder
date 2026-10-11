@@ -13,6 +13,7 @@ import type { Card, DeckRules } from '../shared/types'
 import { CardTile } from './CardTile'
 import { CardDetailModal } from './CardDetailModal'
 import { t } from '../shared/i18n'
+import { setReleaseDates, sortSetsByRelease } from '../shared/setOrder'
 
 const PAGE_SIZE = 60
 // The Sort menu's choice, remembered on this device for every game.
@@ -135,7 +136,7 @@ export function CardBrowser() {
       if (format && !isCardLegalInFormat(c, format).legal) continue
       map.set(c.setId, c.setName)
     }
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+    return sortSetsByRelease([...map.entries()], setReleaseDates(catalog.cards), ([id]) => id, ([, name]) => name)
   }, [catalog, format])
 
   const rarities = useMemo(() => {

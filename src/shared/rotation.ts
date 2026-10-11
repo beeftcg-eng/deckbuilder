@@ -1,4 +1,5 @@
 import type { Card, Deck, Format } from './types'
+import { isSetLegal } from './legality'
 
 /**
  * Cards in a deck that stop being legal at the format's next rotation, so a deck can say so before
@@ -40,7 +41,7 @@ export function isRotating(card: Card, format: Format, futureKnown: boolean): bo
     return format.id === 'standard' && futureKnown && card.legality?.standard === 'legal' && card.legality?.future !== 'legal'
   }
   const leaving = format.nextRotation?.leavingSetIds
-  return Boolean(leaving?.length && leaving.includes(card.setId) && (!format.legalSetIds || format.legalSetIds.includes(card.setId)))
+  return Boolean(leaving?.length && leaving.includes(card.setId) && isSetLegal(format, card.setId))
 }
 
 /** The deck's rotating cards, or null when none are (or nothing is known about the next rotation). */

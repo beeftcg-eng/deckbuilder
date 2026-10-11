@@ -27,4 +27,10 @@ describe('rotation', () => {
     expect(deckRotation(deck, f, byId, false)).toEqual({ date: '2027-04-01', cards: [{ card: old, quantity: 4 }], copies: 4 })
     expect(deckRotation(deck, format({ legalSetIds: ['OP05', 'OP12'] }), byId, false)).toBeNull()
   })
+  it('only flags leaving sets that are still legal', () => {
+    const old = makeCard('onepiece', { name: 'Old', setId: 'OP-05' })
+    const leaving = { date: '2027-04-01', leavingSetIds: ['OP-05'] }
+    expect(isRotating(old, format({ illegalSetIds: ['OP-01'], nextRotation: leaving }), false)).toBe(true)
+    expect(isRotating(old, format({ illegalSetIds: ['OP-05'], nextRotation: leaving }), false)).toBe(false)
+  })
 })

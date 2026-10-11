@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { stat } from 'node:fs/promises'
 import type { Format, GameId } from '../../src/shared/types'
 import { GAME_LIST } from '../../src/shared/games/registry'
+import { migrateFormats } from '../../src/shared/formatMigration'
 import { formatsFile } from '../lib/paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/jsonStore'
 
@@ -23,6 +24,23 @@ async function readFormatsFile(): Promise<FormatsFile> {
   // Fill in any game missing from a user-edited file (e.g. after adding a new game).
   for (const gameId of Object.keys(defaults) as GameId[]) {
     if (!Array.isArray(existing[gameId])) existing[gameId] = defaults[gameId]
+  }
+  // Saved lists from older versions are brought up to date (formatMigration.ts) and written back once.
+  let migrated = false
+  for (const gameId of Object.keys(existing) as GameId[]) {
+    const next = migrateFormats(gameId, existing[gameId]!)
+    if (next) {
+      existing[gameId] = next
+      migrated = true
+    }
+  }
+  if (migrated) {
+    // Rewriting the file resets its modified time, which stands in for "reviewed" on formats with no date.
+    const previousModified = (await stat(formatsFile())).mtime.toISOString()
+    for (const gameId of Object.keys(existing) as GameId[]) {
+      existing[gameId] = existing[gameId]!.map((f) => ({ ...f, reviewedAt: f.reviewedAt ?? previousModified }))
+    }
+    await writeJsonAtomic(formatsFile(), existing)
   }
   return existing as FormatsFile
 }
@@ -46,6 +64,7 @@ function sanitizeFormat(raw: Format, reviewedAt: string): Format {
     label: raw.label,
     ...(typeof raw.description === 'string' ? { description: raw.description } : {}),
     ...(isStringArray(raw.legalSetIds) ? { legalSetIds: raw.legalSetIds } : {}),
+    ...(isStringArray(raw.illegalSetIds) ? { illegalSetIds: raw.illegalSetIds } : {}),
     bannedCardIds: isStringArray(raw.bannedCardIds) ? raw.bannedCardIds : [],
     restrictedCardIds: isStringArray(raw.restrictedCardIds) ? raw.restrictedCardIds : [],
     bannedPairs: pairs,

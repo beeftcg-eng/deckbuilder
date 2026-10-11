@@ -46,6 +46,11 @@ export interface Card {
    * for card data synced before the field existed.
    */
   released?: string
+  /**
+   * When the card's set came out ("YYYY-MM-DD"), for games where `released` isn't already that: Yu-Gi-Oh
+   * (YGOPRODeck's set list) and One Piece (TCGplayer's, prices/onepiece-sets.json). Orders set lists (setOrder.ts).
+   */
+  setReleased?: string
   legality: Record<string, CardLegalityStatus> | null
   /**
    * Market price in USD, when the source API provides one (One Piece and
@@ -225,6 +230,8 @@ export interface Format {
   description?: string
   /** If set, only cards whose setId is in this list are legal (undefined = all sets legal). */
   legalSetIds?: string[]
+  /** If set, cards whose setId is in this list aren't legal; every other set is, new ones included. */
+  illegalSetIds?: string[]
   bannedCardIds: string[]
   restrictedCardIds: string[]
   /** Pairs of card ids/names that cannot both appear in the same deck. */

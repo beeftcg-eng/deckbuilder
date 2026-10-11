@@ -10,6 +10,7 @@ import { toIsoDate } from '../cardSort'
 // ("IP blacklist"), so the images are not linked to directly: imageUrl / imageUrlSmall are `dbimg://` addresses that
 // the app itself fetches once and keeps in a local cache (electron/lib/imageCache.ts).
 const API_URL = 'https://db.ygoprodeck.com/api/v7/cardinfo.php?misc=yes'
+const SETS_URL = 'https://db.ygoprodeck.com/api/v7/cardsets.php'
 const HEADERS = { 'User-Agent': 'Deckbuilder/1.0', Accept: 'application/json' }
 
 /** Format ids double as the `card.legality` keys. */
@@ -172,10 +173,34 @@ export function normalizeCard(raw: YgoCard): Card[] {
   })
 }
 
+/**
+ * Each set code's TCG release date, from YGOPRODeck's set list: a card's own date is its first printing's,
+ * so this is what puts sets in release order. A code listed more than once (a set and its sneak peek) gets
+ * the later date. Optional: without it, set lists fall back to the cards' dates (setOrder.ts).
+ */
+export async function fetchSetDates(): Promise<Map<string, string>> {
+  const dates = new Map<string, string>()
+  try {
+    const sets = await fetchJsonWithRetry<{ set_code?: string; tcg_date?: string }[]>(SETS_URL, { headers: HEADERS, attempts: 2 })
+    for (const set of Array.isArray(sets) ? sets : []) {
+      const date = toIsoDate(set.tcg_date)
+      if (!set.set_code || !date) continue
+      const known = dates.get(set.set_code)
+      if (!known || date > known) dates.set(set.set_code, date)
+    }
+  } catch {
+    // Set lists are ordered by the cards' own dates instead.
+  }
+  return dates
+}
+
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   onProgress({ loaded: 0, total: 0 })
-  const response = await fetchJsonWithRetry<{ data?: YgoCard[] }>(API_URL, { headers: HEADERS, timeoutMs: 120_000 })
-  const fromApi = (response.data ?? []).flatMap((raw) => normalizeCard(raw))
+  const [response, setDates] = await Promise.all([fetchJsonWithRetry<{ data?: YgoCard[] }>(API_URL, { headers: HEADERS, timeoutMs: 120_000 }), fetchSetDates()])
+  const fromApi = (response.data ?? []).flatMap((raw) => normalizeCard(raw)).map((card) => {
+    const setReleased = setDates.get(card.setId)
+    return setReleased ? { ...card, setReleased } : card
+  })
   if (fromApi.length === 0) throw new Error('YGOPRODeck returned no cards')
   // TCGplayer market prices per exact printing (code + rarity) from the published price file, where it
   // has one: YGOPRODeck's own per-printing prices are often missing or stale.

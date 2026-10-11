@@ -1103,6 +1103,7 @@ export const es: Messages = {
     addPair: 'Añadir pareja',
     legalSets: 'Expansiones legales',
     legalSetsHelp: '— las cartas de expansiones sin marcar son ilegales',
+    illegalSetsHelp: '— las expansiones sin marcar son ilegales; las nuevas empiezan siendo legales',
     saveFailed: (err) => `No se pudo guardar: ${err}`,
     saving: 'Guardando…',
     save: 'Guardar y marcar como revisada',

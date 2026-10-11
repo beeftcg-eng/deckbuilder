@@ -20,8 +20,8 @@ describe('isBlockOnePromo', () => {
 })
 
 describe('promo legality in Standard', () => {
-  it('allows Block 2+ promos without the promo set being listed, and not Block 1 ones', () => {
-    expect(standard.legalSetIds).not.toContain('P')
+  it('allows Block 2+ promos though the promo set is rotated out, and not Block 1 ones', () => {
+    expect(standard.illegalSetIds).toContain('P')
     expect(isCardLegalInFormat(promo('P-098'), standard).legal).toBe(true)
     expect(isCardLegalInFormat(promo('OP09-077'), standard).legal).toBe(true)
     expect(isCardLegalInFormat(promo('P-001'), standard).legal).toBe(false)

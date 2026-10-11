@@ -26,6 +26,21 @@ export interface RiftboundPrintingsFile {
   products: RiftboundExtra[]
 }
 
+/**
+ * One Piece sets' English release dates from TCGplayer (prices/onepiece-sets.json): the card source has
+ * none, and they put set lists in release order. Keyed by onepieceSetKey.
+ */
+export interface OnePieceSetsFile {
+  updatedAt: string
+  /** onepieceSetKey -> "YYYY-MM-DD" */
+  sets: Record<string, string>
+}
+
+/** One Piece set ids as TCGplayer abbreviates them and as the card data writes them, made the same: "OP01" / "OP-01" -> "OP01". */
+export function onepieceSetKey(id: string): string {
+  return id.toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
 /** A Riftbound printing as TCGplayer lists it. */
 export interface RiftboundExtra {
   productId: number

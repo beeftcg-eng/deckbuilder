@@ -3,6 +3,8 @@ import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
 import { t } from '../i18n'
 import { PROMO_SET_ID } from './onepiecePromos'
+import { loadOnePieceSetDates } from '../priceFiles'
+import { onepieceSetKey } from '../priceKeys'
 
 const API_BASE = 'https://www.optcgapi.com/api'
 
@@ -137,6 +139,8 @@ export function normalizeDon(raw: OnePieceDonCard): Card {
 }
 
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
+  // Each set's release date (OnePieceSetsFile), which the card source doesn't have: optional, never throws.
+  const setDatesLoading = loadOnePieceSetDates()
   const sets = await fetchJson<OnePieceSet[]>(`${API_BASE}/allSets/`)
 
   // Starter/structure decks (ST-01, ST-02, ...) live under a completely
@@ -206,7 +210,13 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
     })(),
   ])
 
-  return bySet.flat()
+  const setDates = await setDatesLoading
+  const cards = bySet.flat()
+  if (!setDates) return cards
+  return cards.map((card) => {
+    const setReleased = setDates[onepieceSetKey(card.setId)]
+    return setReleased ? { ...card, setReleased } : card
+  })
 }
 
 const deckRules: DeckRules = {
@@ -237,62 +247,36 @@ const deckRules: DeckRules = {
   ],
 }
 
+/**
+ * The sets Standard has rotated out. Listing what's gone rather than what's legal means a new set is
+ * legal the moment its cards are downloaded; only a rotation (each April) needs this list touched.
+ */
+export const ROTATED_OUT_SET_IDS = [
+  'OP-01',
+  'OP-02',
+  'OP-03',
+  'OP-04',
+  'ST-01',
+  'ST-02',
+  'ST-03',
+  'ST-04',
+  'ST-05',
+  'ST-06',
+  'ST-07',
+  'ST-08',
+  'ST-09',
+  // Every promo shares set P, but they rotate by their own block icon: a Block 2+ promo is legal anyway
+  // (isRotationLegalPromo), so listing P here rules out only the Block 1 ones.
+  PROMO_SET_ID,
+]
+
 const defaultFormats: Format[] = [
   {
     id: 'standard',
     label: 'Standard (current rotation + ban list)',
     description:
-      'Block 2 onward (OP-05 and later) as of the April 2026 rotation, which retired Block 1 (OP-01–OP-04 and starter decks ST-01–ST-09). Also applies the current official banned/restricted list as a snapshot from onepiece.gg. Bandai rotates the legal block window each April 1st (next: April 2027) — re-check onepiece.gg periodically, neither list is auto-updated.',
-    legalSetIds: [
-      'EB-01',
-      'EB-02',
-      'EB-03',
-      'OP-05',
-      'OP-06',
-      'OP-07',
-      'OP-08',
-      'OP-09',
-      'OP-10',
-      'OP-11',
-      'OP-12',
-      'OP-13',
-      'OP-16',
-      'OP-17',
-      'OP14-EB04',
-      'OP15-EB04',
-      'PRB-01',
-      'PRB-02',
-      // Starter/structure decks: ST-01–ST-09 were Block 1 and rotated out
-      // alongside OP-01–OP-04; ST-10 onward are Block 2+ and current.
-      'ST-10',
-      'ST-11',
-      'ST-12',
-      'ST-13',
-      'ST-14',
-      'ST-15',
-      'ST-16',
-      'ST-17',
-      'ST-18',
-      'ST-19',
-      'ST-20',
-      'ST-21',
-      'ST-22',
-      'ST-23',
-      'ST-24',
-      'ST-25',
-      'ST-26',
-      'ST-27',
-      'ST-28',
-      'ST-30',
-      'ST-31',
-      'ST-32',
-      'ST-33',
-      'ST-34',
-      'ST-35',
-      'ST-36',
-      // Promo cards (set P) aren't listed: they're legal from Block 2 on whatever this list says - see
-      // isRotationLegalPromo. Ticking P in the ban-list editor would also allow the Block 1 ones.
-    ],
+      "Block 2 onward (OP-05 and later) as of the April 2026 rotation, which retired Block 1 (OP-01–OP-04 and starter decks ST-01–ST-09). New sets count as legal as soon as they're downloaded. Also applies the current official banned/restricted list as a snapshot from onepiece.gg. Bandai rotates the legal block window each April 1st (next: April 2027) — the rotated-out sets and the ban list are kept by hand, so re-check onepiece.gg then.",
+    illegalSetIds: ROTATED_OUT_SET_IDS,
     bannedCardIds: ['onepiece:OP06-116', 'onepiece:ST10-001', 'onepiece:OP06-086', 'onepiece:OP03-040', 'onepiece:OP06-047'],
     restrictedCardIds: [],
     bannedPairs: [

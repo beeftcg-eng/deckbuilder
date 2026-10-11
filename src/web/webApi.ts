@@ -53,6 +53,7 @@ import { t } from '../shared/i18n'
 import { fetchSharedDeck } from '../shared/deckShare'
 import { applyPriceUpdate, fetchPriceUpdate } from '../shared/priceRefresh'
 import { deckUrlTarget } from '../shared/deckUrl'
+import { migrateFormats } from '../shared/formatMigration'
 
 const RELEASES_REPO = 'beeftcg-eng/deckbuilder-releases'
 
@@ -394,7 +395,11 @@ const wishlist = {
 const formats = {
   list: async (gameId: GameId): Promise<Format[]> => {
     const saved = await idbGet<Format[]>('formats', gameId)
-    return saved ?? getAdapter(gameId).defaultFormats
+    if (!saved) return getAdapter(gameId).defaultFormats
+    // Saved lists from older versions are brought up to date (formatMigration.ts) and saved once.
+    const migrated = migrateFormats(gameId, saved)
+    if (migrated) await idbSet('formats', gameId, migrated)
+    return migrated ?? saved
   },
   path: async (): Promise<string> => '(stored in this browser only)',
   save: async (gameId: GameId, list: Format[]): Promise<Format[]> => {

@@ -11,6 +11,9 @@
  * the ones riftcodex doesn't have (Nexus Night and tournament promos, Signature cards, most runes, a new
  * set's first cards) when they sync (src/shared/games/riftboundExtras.ts).
  *
+ * One Piece also gets <out>/onepiece-sets.json, each set's English release date: its card source has
+ * none, and the apps order set lists by release (src/shared/setOrder.ts).
+ *
  * One Piece and Magic already get prices from their own card sources (optcgapi, Scryfall); for them
  * this runs the app's own download code and publishes each card's price by card id, so the apps can
  * refresh prices daily without re-downloading those catalogs (priceRefresh.ts).
@@ -20,7 +23,7 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { pokemonKey, pokemonPromoKey, riftboundKey, splitYugiohCode, yugiohExactKey, yugiohKey, type PriceFile, type RiftboundExtra, type RiftboundPrintingsFile } from '../src/shared/priceKeys.ts'
+import { pokemonKey, pokemonPromoKey, riftboundKey, splitYugiohCode, yugiohExactKey, yugiohKey, onepieceSetKey, type OnePieceSetsFile, type PriceFile, type RiftboundExtra, type RiftboundPrintingsFile } from '../src/shared/priceKeys.ts'
 import { getAdapter } from '../src/shared/games/registry.ts'
 import { uniquifyCardIds } from '../src/shared/cardIds.ts'
 import { idKey } from '../src/shared/priceRefresh.ts'
@@ -28,7 +31,7 @@ import type { GameId } from '../src/shared/types.ts'
 import { HISTORY_SHARDS, addDay, emptyShard, historyUrl, parseShard, shardOf, type PriceHistoryShard } from '../src/shared/priceHistory.ts'
 
 const BASE = 'https://tcgcsv.com/tcgplayer'
-const CATEGORY = { riftbound: 89, pokemon: 3, yugioh: 2 } as const
+const CATEGORY = { riftbound: 89, pokemon: 3, yugioh: 2, onepiece: 68 } as const
 const CONCURRENCY = 6
 
 interface Group {
@@ -237,6 +240,20 @@ try {
   console.log(`rates: ${Object.keys(r).length} currencies`)
 } catch (err) {
   console.warn(`::warning::exchange rates skipped: ${err instanceof Error ? err.message : err}`)
+}
+// One Piece sets' release dates (OnePieceSetsFile). Pre-release, release-event and anniversary groups
+// ("OP02 PRE", "OP10 RE") are left out: their abbreviations have a space, the sets' own don't.
+try {
+  const sets: Record<string, string> = {}
+  for (const group of await groupsOf(CATEGORY.onepiece)) {
+    if (!group.abbreviation || /\s/.test(group.abbreviation.trim()) || !group.publishedOn) continue
+    sets[onepieceSetKey(group.abbreviation)] = group.publishedOn.slice(0, 10)
+  }
+  if (!Object.keys(sets).length) throw new Error('no sets')
+  await writeFile(join(out, 'onepiece-sets.json'), JSON.stringify({ updatedAt: new Date().toISOString(), sets } satisfies OnePieceSetsFile))
+  console.log(`onepiece sets: ${Object.keys(sets).length} release dates`)
+} catch (err) {
+  console.warn(`::warning::onepiece set dates skipped: ${err instanceof Error ? err.message : err}`)
 }
 const todaysPrices = new Map<string, Record<string, number>>()
 for (const [game, build] of Object.entries({ riftbound, pokemon, yugioh, onepiece: byCardId('onepiece'), mtg: byCardId('mtg') })) {

@@ -1103,6 +1103,7 @@ export const pt: Messages = {
     addPair: 'Adicionar par',
     legalSets: 'Coleções legais',
     legalSetsHelp: '— cartas de coleções desmarcadas são ilegais',
+    illegalSetsHelp: '— coleções desmarcadas são ilegais; as novas começam legais',
     saveFailed: (err) => `Não foi possível salvar: ${err}`,
     saving: 'Salvando…',
     save: 'Salvar e marcar como revisada',

@@ -1065,6 +1065,7 @@ export const en = {
     addPair: 'Add pair',
     legalSets: 'Legal sets',
     legalSetsHelp: '— cards from unchecked sets are illegal',
+    illegalSetsHelp: '— unchecked sets are illegal; new sets start out legal',
     saveFailed: (err: string) => `Couldn't save: ${err}`,
     saving: 'Saving…',
     save: 'Save & mark reviewed',

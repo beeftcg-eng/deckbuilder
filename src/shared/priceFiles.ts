@@ -5,7 +5,7 @@
  */
 import type { Card, GameId } from './types'
 import { fetchJson } from './games/fetchUtil'
-import { PRICE_FILES_URL, type PriceFile, type RiftboundExtra, type RiftboundPrintingsFile } from './priceKeys'
+import { PRICE_FILES_URL, type OnePieceSetsFile, type PriceFile, type RiftboundExtra, type RiftboundPrintingsFile } from './priceKeys'
 
 export type PriceMaps = Pick<PriceFile, 'prices' | 'foilPrices'>
 
@@ -23,6 +23,16 @@ export async function loadRiftboundPrintings(): Promise<RiftboundExtra[] | null>
   try {
     const file = await fetchJson<RiftboundPrintingsFile>(`${PRICE_FILES_URL}/riftbound-printings.json`, 3)
     return file && Array.isArray(file.products) ? file.products : null
+  } catch {
+    return null
+  }
+}
+
+/** One Piece sets' release dates (priceKeys.ts, OnePieceSetsFile), or null when the file can't be loaded. */
+export async function loadOnePieceSetDates(): Promise<Record<string, string> | null> {
+  try {
+    const file = await fetchJson<OnePieceSetsFile>(`${PRICE_FILES_URL}/onepiece-sets.json`, 3)
+    return file && typeof file.sets === 'object' ? file.sets : null
   } catch {
     return null
   }

@@ -37,6 +37,12 @@ function gameSourceKey(card: Card): string {
   return `${card.gameId}:${card.sourceId}`
 }
 
+/** Whether the format's set list (legalSetIds or illegalSetIds) lets in cards from this set. */
+export function isSetLegal(format: Format, setId: string): boolean {
+  if (format.legalSetIds && !format.legalSetIds.includes(setId)) return false
+  return !format.illegalSetIds?.includes(setId)
+}
+
 export function isCardLegalInFormat(card: Card, format: Format): { legal: boolean; reason?: string } {
   // Games whose source data carries per-format legality (Pokémon, Magic) use it as-is; the rest use the local ban list below.
   if (card.legality) {
@@ -45,7 +51,7 @@ export function isCardLegalInFormat(card: Card, format: Format): { legal: boolea
     return { legal: false, reason: status === 'banned' ? t.legality.isBannedIn(format.label) : t.legality.notLegalIn(format.label) }
   }
   // One Piece promos all share one set but rotate by their own block icon, so a Block 2+ promo passes here.
-  if (format.legalSetIds && !format.legalSetIds.includes(card.setId) && !isRotationLegalPromo(card)) {
+  if (!isSetLegal(format, card.setId) && !isRotationLegalPromo(card)) {
     return { legal: false, reason: t.legality.setNotLegalIn(format.label) }
   }
   if (format.bannedCardIds.includes(gameSourceKey(card))) {

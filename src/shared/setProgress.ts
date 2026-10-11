@@ -1,4 +1,5 @@
 import type { Card, Collection } from './types'
+import { setReleaseDates, sortSetsByRelease } from './setOrder'
 
 /** One expansion in a game's card data, and how much of it you own. */
 export interface SetSummary {
@@ -17,7 +18,7 @@ export function cardsInSet(cards: readonly Card[], setId: string): Card[] {
   return cards.filter((c) => c.setId === setId)
 }
 
-/** Every set in `cards`, A–Z by name, with your collection progress in each. */
+/** Every set in `cards`, newest first (setOrder.ts), with your collection progress in each. */
 export function summarizeSets(cards: readonly Card[], collection: Collection): SetSummary[] {
   const sets = new Map<string, SetSummary>()
   for (const card of cards) {
@@ -33,7 +34,7 @@ export function summarizeSets(cards: readonly Card[], collection: Collection): S
       summary.copies += copies
     }
   }
-  return [...sets.values()].sort((a, b) => a.setName.localeCompare(b.setName))
+  return sortSetsByRelease([...sets.values()], setReleaseDates(cards), (s) => s.setId, (s) => s.setName)
 }
 
 /**
