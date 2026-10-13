@@ -1,4 +1,5 @@
-import type { Card } from './types'
+import type { Card, Deck } from './types'
+import { chosenChampionId } from './games/riftbound'
 
 /**
  * Riftbound deck codes: the base32 string Riot's deck builders (and RiftAtlas) share a deck as. Like
@@ -24,6 +25,8 @@ export interface DecodedDeckCode {
   sideboard: DeckCodeEntry[]
   /** A second Legend, for the decks that may have one (version 6). */
   extraLegends: string[]
+  /** The chosen Champion (version 3+), which is in `main` too. */
+  champion?: string
 }
 
 class Reader {
@@ -121,21 +124,22 @@ export function decodeDeckCode(code: string): DecodedDeckCode {
     const prefixed = r.byte() === 1
     const main = readCounts(r, prefixed)
     const sideboard = readCounts(r, prefixed)
-    return { main, sideboard, extraLegends: readChampionAndLegends(r, version, prefixed) }
+    return { main, sideboard, ...readChampionAndLegends(r, version, prefixed) }
   }
   const prefixed = version >= 4
   const main = readByCount(r, 12, prefixed)
   const sideboard = version >= 2 ? readByCount(r, 3, prefixed) : []
-  return { main, sideboard, extraLegends: readChampionAndLegends(r, version, prefixed) }
+  return { main, sideboard, ...readChampionAndLegends(r, version, prefixed) }
 }
 
-/** Reads past the chosen Champion (version 3+; it's in the main deck too) and returns the extra Legends (version 6). */
-function readChampionAndLegends(r: Reader, version: number, prefixed: boolean): string[] {
+/** The chosen Champion (version 3+) and the extra Legends (version 6). */
+function readChampionAndLegends(r: Reader, version: number, prefixed: boolean): { extraLegends: string[]; champion?: string } {
   const extra: string[] = []
+  let champion: string | undefined
   if (version >= 3 && r.byte() === 1) {
     const set = r.byte()
     const variant = r.byte()
-    readCard(r, set, variant, prefixed, version >= 5)
+    champion = readCard(r, set, variant, prefixed, version >= 5)
   }
   if (version >= 6) {
     const n = r.varint()
@@ -145,7 +149,7 @@ function readChampionAndLegends(r: Reader, version: number, prefixed: boolean): 
       extra.push(readCard(r, set, variant, prefixed, true))
     }
   }
-  return extra
+  return { extraLegends: extra, ...(champion ? { champion } : {}) }
 }
 
 // ---------- into decklist text ----------
@@ -216,4 +220,186 @@ export function deckCodeToText(code: string, cards: Iterable<Card>): string {
     .filter(([, lines]) => lines.length > 0)
     .map(([heading, lines]) => [`${heading}:`, ...lines].join('\n'))
     .join('\n\n')
+}
+
+// ---------- out of a deck ----------
+
+/** Each Rune Deck domain as Origins' rune, the printing a code names it by. */
+const RUNE_CODES: Record<string, string> = { Fury: 'OGN-007', Calm: 'OGN-042', Mind: 'OGN-089', Body: 'OGN-126', Chaos: 'OGN-166', Order: 'OGN-214' }
+
+/** A card's code from its source id ("unl-229*-219" -> "UNL-229s", "ven-r01" -> "VEN-R01"), or null for a set or variant codes can't name. */
+export function cardCode(card: Card): string | null {
+  const m = /^([a-z]+)-((?:r|sp)?)(\d+)([a-z*]?)(?:-\d+)?$/i.exec(card.sourceId)
+  if (!m) return null
+  const set = m[1].toUpperCase()
+  const variant = m[4] === '*' ? 's' : m[4].toLowerCase()
+  if (!SETS.includes(set) || !VARIANTS.includes(variant)) return null
+  const prefix = m[2].toUpperCase()
+  const number = prefix === 'SP' ? `SP${Number(m[3])}` : prefix === 'R' ? `R${m[3].padStart(2, '0')}` : m[3].padStart(3, '0')
+  return `${set}-${number}${variant}`
+}
+
+class Writer {
+  readonly bytes: number[] = []
+  byte(b: number) {
+    this.bytes.push(b & 0xff)
+  }
+  varint(n: number) {
+    do {
+      let b = n & 0x7f
+      n = Math.floor(n / 128)
+      if (n > 0) b |= 0x80
+      this.byte(b)
+    } while (n > 0)
+  }
+}
+
+interface ParsedCode {
+  set: number
+  variant: number
+  prefix: '' | 'R' | 'SP'
+  n: number
+}
+
+function parseCode(code: string): ParsedCode {
+  const m = /^([A-Z]+)-(R|SP)?(\d+)([a-z]?)$/.exec(code)
+  const set = m ? SETS.indexOf(m[1]) : -1
+  const variant = m ? VARIANTS.indexOf(m[4]) : -1
+  if (!m || set < 0 || variant < 0) throw new Error(`Not a card code: ${code}`)
+  return { set, variant, prefix: (m[2] ?? '') as ParsedCode['prefix'], n: Number(m[3]) }
+}
+
+/** The entries with `count` copies, grouped by set and variant in code order, each group's numbers in order. */
+function groupsOf(entries: DeckCodeEntry[], count: number): { set: number; variant: number; cards: ParsedCode[] }[] {
+  const groups = new Map<string, { set: number; variant: number; cards: ParsedCode[] }>()
+  for (const e of entries) {
+    if (e.count !== count) continue
+    const p = parseCode(e.code)
+    const key = `${p.set}-${p.variant}`
+    const group = groups.get(key) ?? groups.set(key, { set: p.set, variant: p.variant, cards: [] }).get(key)!
+    group.cards.push(p)
+  }
+  const numberKey = (p: ParsedCode) => `${p.prefix}${p.n}`
+  return [...groups.values()]
+    .sort((a, b) => a.set - b.set || a.variant - b.variant)
+    .map((g) => ({ ...g, cards: g.cards.sort((a, b) => numberKey(a).localeCompare(numberKey(b), undefined, { numeric: true })) }))
+}
+
+function writeNumber(w: Writer, p: ParsedCode, flagged: boolean) {
+  if (flagged) w.byte(p.prefix === 'SP' ? 2 : p.prefix === 'R' ? 1 : 0)
+  w.varint(p.n)
+}
+
+/**
+ * A deck code for these cards, written the way RiftAtlas's encoder writes it: the oldest version that
+ * can hold the deck (3, or 4 with rune numbers, 5 for Spotlight cards or more than 12 copies of a card),
+ * then the chosen Champion if there is one.
+ */
+export function encodeDeckCode(main: DeckCodeEntry[], sideboard: DeckCodeEntry[] = [], champion?: string): string {
+  const all = [...main, ...sideboard, ...(champion ? [{ code: champion, count: 1 }] : [])]
+  const parsed = all.map((e) => parseCode(e.code))
+  const hasRune = parsed.some((p) => p.prefix === 'R')
+  const hasSpotlight = parsed.some((p) => p.prefix === 'SP')
+  const maxMain = Math.max(0, ...main.map((e) => e.count))
+  const maxSide = Math.max(0, ...sideboard.map((e) => e.count))
+  const version = maxMain > 12 || maxSide > 3 || hasSpotlight ? 5 : hasRune ? 4 : 3
+  const flagged = hasRune || hasSpotlight
+  const w = new Writer()
+  w.byte(0x10 | version)
+  if (version >= 5) {
+    w.byte(flagged ? 1 : 0)
+    for (const entries of [main, sideboard]) {
+      const counts = [...new Set(entries.map((e) => e.count))].sort((a, b) => b - a)
+      w.varint(counts.length)
+      for (const count of counts) {
+        w.varint(count)
+        const groups = groupsOf(entries, count)
+        w.varint(groups.length)
+        for (const g of groups) {
+          w.varint(g.cards.length)
+          w.byte(g.set)
+          w.byte(g.variant)
+          for (const p of g.cards) writeNumber(w, p, flagged)
+        }
+      }
+    }
+  } else {
+    for (const [entries, max] of [[main, 12], [sideboard, 3]] as const) {
+      for (let count = max; count >= 1; count--) {
+        const groups = groupsOf(entries, count)
+        w.varint(groups.length)
+        for (const g of groups) {
+          w.varint(g.cards.length)
+          w.byte(g.set)
+          w.byte(g.variant)
+          for (const p of g.cards) writeNumber(w, p, version >= 4)
+        }
+      }
+    }
+  }
+  // The chosen Champion, which is in the main deck too.
+  if (champion) {
+    const p = parseCode(champion)
+    w.byte(1)
+    w.byte(p.set)
+    w.byte(p.variant)
+    writeNumber(w, p, flagged)
+  } else w.byte(0)
+  let out = ''
+  let buffer = 0
+  let bits = 0
+  for (const b of w.bytes) {
+    buffer = ((buffer << 8) | b) & 0xffff
+    bits += 8
+    while (bits >= 5) {
+      bits -= 5
+      out += BASE32[(buffer >> bits) & 31]
+    }
+  }
+  if (bits > 0) out += BASE32[(buffer << (5 - bits)) & 31]
+  return out
+}
+
+/** A card's name without the printing note ("Teemo - Strategist (Alternate Art)" -> "teemo - strategist"). */
+const baseName = (card: Card) => card.name.replace(/\s*\([^)]*\)\s*$/, '').toLowerCase()
+
+/**
+ * A Riftbound deck as a deck code. A printing a code can't name (a promo set, an Organized Play
+ * printing) is written as a printing of the same card it can; runes as Origins' rune of their domain.
+ * Throws, naming them, if some cards have no printing a code can name.
+ */
+export function deckToCode(deck: Pick<Deck, 'zones' | 'freeTextZones'>, cardsById: Map<string, Card>): string {
+  const byName = new Map<string, Card[]>()
+  for (const card of cardsById.values()) {
+    if (card.gameId !== 'riftbound' || !cardCode(card)) continue
+    const list = byName.get(baseName(card)) ?? byName.set(baseName(card), []).get(baseName(card))!
+    list.push(card)
+  }
+  const unnamed: string[] = []
+  const codeFor = (card: Card): string | null => {
+    const own = cardCode(card)
+    if (own) return own
+    // Another printing of the same card, the regular one first.
+    const other = (byName.get(baseName(card)) ?? []).map(cardCode).filter((c): c is string => !!c)
+    return other.find((c) => /\d$/.test(c)) ?? other[0] ?? null
+  }
+  const add = (target: Map<string, number>, code: string, quantity: number) => target.set(code, (target.get(code) ?? 0) + quantity)
+  const main = new Map<string, number>()
+  const sideboard = new Map<string, number>()
+  for (const [zoneId, entries] of Object.entries(deck.zones)) {
+    for (const { cardId, quantity } of entries) {
+      const card = cardsById.get(cardId)
+      if (!card || quantity <= 0) continue
+      const code = codeFor(card)
+      if (!code) unnamed.push(card.name)
+      else add(zoneId === 'sideboard' ? sideboard : main, code, quantity)
+    }
+  }
+  for (const { label, quantity } of deck.freeTextZones.runes ?? []) if (quantity > 0 && RUNE_CODES[label]) add(main, RUNE_CODES[label], quantity)
+  if (unnamed.length) throw new Error(`No deck code for ${[...new Set(unnamed)].join(', ')}`)
+  const entries = (m: Map<string, number>) => [...m].map(([code, count]) => ({ code, count }))
+  const legend = cardsById.get(deck.zones.legend?.[0]?.cardId ?? '')
+  const championId = chosenChampionId(deck as Deck, cardsById, legend)
+  const champion = championId ? cardsById.get(championId) : undefined
+  return encodeDeckCode(entries(main), entries(sideboard), (champion && codeFor(champion)) ?? undefined)
 }

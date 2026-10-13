@@ -1,4 +1,5 @@
 import { jsonValueAt, nextFlightData } from './deckUrl'
+import { t } from './i18n'
 
 /**
  * Community lists: recent tournament decklists to look through and import. Riftbound's come from
@@ -45,15 +46,24 @@ function objectAfter(data: string, key: string): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 }
 
-/** The finishes with a deck on RiftAtlas's Decks page, newest event first and best placing first within one. */
+/**
+ * The finishes with a deck on RiftAtlas's Decks page, newest event first and best placing first within one.
+ * Throws if the page no longer carries them where it did, so a redesign there says so instead of
+ * looking like a quiet week.
+ */
 export function fromRiftAtlas(html: string): CommunityList[] {
   const data = nextFlightData(html)
+  if (!data.includes('"details":{')) throw new Error(t.communityLists.layoutChanged)
   const labels = objectAfter(data, 'labels') as Record<string, { name?: string } | undefined>
   const details = objectAfter(data, 'details') as Record<string, { finishes?: RiftAtlasFinish[] } | undefined>
   const seen = new Set<string>()
   const lists: CommunityList[] = []
+  let finishes = 0
+  let readable = 0
   for (const legend of Object.values(details)) {
     for (const f of legend?.finishes ?? []) {
+      finishes++
+      if (typeof f.legendId === 'string') readable++
       if (!f.hasDeck || !f.deckCode || !f.legendId) continue
       const id = `${f.eventId ?? ''}|${f.rank ?? ''}|${f.player ?? ''}|${f.deckCode}`
       if (seen.has(id)) continue
@@ -71,5 +81,7 @@ export function fromRiftAtlas(html: string): CommunityList[] {
       })
     }
   }
+  // Finishes, but none with the fields this reads: they've changed.
+  if (finishes > 0 && readable === 0) throw new Error(t.communityLists.layoutChanged)
   return lists.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || a.eventName.localeCompare(b.eventName) || (a.rank ?? 999) - (b.rank ?? 999))
 }

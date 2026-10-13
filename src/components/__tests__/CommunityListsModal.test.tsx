@@ -26,7 +26,7 @@ describe('Community lists', () => {
     ]
     useAppStore.setState({ catalogs: { riftbound: { cards, byId: new Map(cards.map((c) => [c.id, c])) } } } as never)
     const onImport = vi.fn()
-    render(<CommunityListsModal onImport={onImport} onClose={() => {}} />)
+    render(<CommunityListsModal onImport={onImport} onCompare={() => {}} onClose={() => {}} />)
     const legend = await screen.findByText('Kennen, Heart of the Tempest')
     expect(screen.getByText('Challenger #5')).toBeTruthy()
     expect(document.querySelector('.community-rank.gold')?.textContent).toBe('1')
@@ -35,5 +35,14 @@ describe('Community lists', () => {
     expect(screen.getByText('Sett, Brawler')).toBeTruthy()
     fireEvent.click(screen.getByText(t.communityLists.import))
     expect(onImport).toHaveBeenCalledWith('MainDeck:\n3 ven-sp1-006 Sett, Brawler\n\nRunes:\n3 Fury Rune', 'Kennen, Heart of the Tempest – flolcsc #1')
+  })
+
+  it('shows each Legend in the Meta tab, with the cards its lists play', async () => {
+    render(<CommunityListsModal onImport={() => {}} onCompare={() => {}} onClose={() => {}} />)
+    fireEvent.click(await screen.findByText(t.communityLists.tabMeta))
+    fireEvent.click(screen.getByText('Kennen, Heart of the Tempest').closest('button')!)
+    expect(screen.getByText('Sett, Brawler')).toBeTruthy()
+    expect(screen.getByText(t.communityLists.playedIn(1, 1))).toBeTruthy()
+    expect(screen.getByText(t.communityLists.startFromCore)).toBeTruthy()
   })
 })

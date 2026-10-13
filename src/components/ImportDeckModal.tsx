@@ -10,6 +10,7 @@ import { t } from '../shared/i18n'
 import { formatLabel } from '../shared/formatText'
 import { parseShareToken } from '../shared/deckShare'
 import { applySiteExtras, deckFromSite, deckUrlTarget, type DeckFromSite } from '../shared/deckUrl'
+import { deckCodeToText } from '../shared/riftboundDeckCode'
 import { Rich } from './Rich'
 
 const MAX_UNMATCHED_SHOWN = 8
@@ -56,6 +57,18 @@ export function ImportDeckModal({ gameId, onClose, initialText = '', initialName
 
   // A pasted link to a deck site (deckUrl.ts) is fetched instead of parsed.
   const siteTarget = shareToken ? null : deckUrlTarget(text)
+  // A Riftbound deck code (riftboundDeckCode.ts) is read into a list.
+  const deckCode = gameId === 'riftbound' && !shareToken && !siteTarget && /^[A-Z2-7]{16,}$/.test(text.trim()) ? text.trim() : null
+
+  function readDeckCode() {
+    if (!deckCode) return
+    try {
+      setText(deckCodeToText(deckCode, cardsById.values()))
+      setError(null)
+    } catch (err) {
+      setError(t.importDeck.deckCodeBad(err instanceof Error ? err.message : String(err)))
+    }
+  }
 
   async function fetchFromSite() {
     if (!siteTarget) return
@@ -132,6 +145,13 @@ export function ImportDeckModal({ gameId, onClose, initialText = '', initialName
               <div className="import-summary">
                 <button className="btn btn-primary" onClick={openShareLink}>
                   {t.share.openLink}
+                </button>
+              </div>
+            ) : deckCode ? (
+              <div className="import-summary">
+                <span>{t.importDeck.deckCodeFound} </span>
+                <button className="btn btn-primary" onClick={readDeckCode}>
+                  {t.importDeck.readDeckCode}
                 </button>
               </div>
             ) : text.trim() && (

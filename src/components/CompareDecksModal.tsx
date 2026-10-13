@@ -13,15 +13,27 @@ type Source = 'deck' | 'paste'
 
 /**
  * What changes between this deck and another of the same game - one of yours, or a list pasted in
- * (a tournament winner's, a friend's) without importing it.
+ * (a tournament winner's, a friend's) without importing it. `initialText` starts it on that list (a community list).
  */
-export function CompareDecksModal({ deck, cardsById, onClose }: { deck: Deck; cardsById: Map<string, Card>; onClose: () => void }) {
+export function CompareDecksModal({
+  deck,
+  cardsById,
+  onClose,
+  initialText,
+  initialName,
+}: {
+  deck: Deck
+  cardsById: Map<string, Card>
+  onClose: () => void
+  initialText?: string
+  initialName?: string
+}) {
   const adapter = getAdapter(deck.gameId)
   const decks = useAppStore((s) => s.decks)
   const others = useMemo(() => decks.filter((d) => d.gameId === deck.gameId && d.id !== deck.id).sort((a, b) => a.name.localeCompare(b.name)), [decks, deck])
-  const [source, setSource] = useState<Source>(others.length ? 'deck' : 'paste')
+  const [source, setSource] = useState<Source>(others.length && !initialText ? 'deck' : 'paste')
   const [otherId, setOtherId] = useState(others[0]?.id ?? '')
-  const [text, setText] = useState('')
+  const [text, setText] = useState(initialText ?? '')
   const [reversed, setReversed] = useState(false)
   const [copied, setCopied] = useState(false)
   const rules = rulesForFormat(adapter, deck.formatId)
@@ -33,8 +45,8 @@ export function CompareDecksModal({ deck, cardsById, onClose }: { deck: Deck; ca
     }
     if (!text.trim()) return null
     const parsed = parseDecklistText(text, adapter, cardsById, deck.formatId)
-    return parsed.matchedCopies ? { name: parsed.name ?? t.compare.pastedList, zones: parsed.zones, freeTextZones: parsed.freeTextZones } : null
-  }, [source, others, otherId, text, adapter, cardsById, deck.formatId])
+    return parsed.matchedCopies ? { name: parsed.name ?? (text === initialText ? initialName : undefined) ?? t.compare.pastedList, zones: parsed.zones, freeTextZones: parsed.freeTextZones } : null
+  }, [source, others, otherId, text, adapter, cardsById, deck.formatId, initialText, initialName])
 
   const [fromName, toName] = reversed ? [other?.name ?? '', deck.name] : [deck.name, other?.name ?? '']
   const diff = useMemo(() => (other ? (reversed ? compareDecks(other, deck, rules, cardsById) : compareDecks(deck, other, rules, cardsById)) : null), [other, reversed, deck, rules, cardsById])

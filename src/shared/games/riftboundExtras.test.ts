@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extraCards, keepExtrasWhenMissing, missingPrintings, onlyOriginsRegularRunes, withOvernumberedKind, withPromoRuneArt } from './riftboundExtras'
+import { extraCards, keepExtrasWhenMissing, missingPrintings, onlyOriginsRegularRunes, withOvernumberedKind, withFixedLegendNames, withPromoRuneArt } from './riftboundExtras'
 import type { RiftboundExtra } from '../priceKeys'
 import { makeCard } from '../testFixtures'
 
@@ -140,5 +140,27 @@ describe('withOvernumberedKind', () => {
     const [tagged, untouched] = withOvernumberedKind([over, alt])
     expect(tagged.subtypes).toEqual(['Champion', 'Overnumbered'])
     expect(untouched).toBe(alt)
+  })
+})
+
+describe('withFixedLegendNames', () => {
+  it("fixes riftcodex's garbled Legend names and leaves the rest", () => {
+    const legend = (name: string, sourceId: string) => makeCard('riftbound', { name, sourceId, category: 'Legend', setId: 'VEN' })
+    const cards = [
+      legend('Yordle, Kennen - Heart of the Tempest', 'ven-155-166'),
+      legend('Yordle, Kennen - Heart of the Tempest (Overnumbered)', 'ven-197-166'),
+      legend('Defender of Tomorrow', 'ven-194-166'),
+      legend('Jayce - Defender of Tomorrow (Signature)', 'ven-194*-166'),
+      legend('Ziggs, Hexplosives Expert', 'rad-141-167'),
+      makeCard('riftbound', { name: "Kai'Sa, Rebel", sourceId: 'rad-063-167', category: 'Unit' }),
+    ]
+    expect(withFixedLegendNames(cards).map((c) => c.name)).toEqual([
+      'Kennen - Heart of the Tempest',
+      'Kennen - Heart of the Tempest (Overnumbered)',
+      'Jayce - Defender of Tomorrow',
+      'Jayce - Defender of Tomorrow (Signature)',
+      'Ziggs, Hexplosives Expert',
+      "Kai'Sa, Rebel",
+    ])
   })
 })

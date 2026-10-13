@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeDeckCode, deckCodeToText } from './riftboundDeckCode'
+import { cardCode, decodeDeckCode, deckCodeToText, deckToCode, encodeDeckCode } from './riftboundDeckCode'
 import { makeCard } from './testFixtures'
 
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
@@ -60,5 +60,47 @@ describe('Riftbound deck codes', () => {
     ]
     const code = base32([0x15, 1, 1, 3, 1, 2, 5, 0, 2, 1, 1, 1, 1, 1, 1, 1, 4, 2, 0, 229, 1, 0])
     expect(deckCodeToText(code, cards)).toBe(['MainDeck:', '3 ven-sp1-006 Sett, Brawler', '', 'Runes:', '3 Fury Rune', '', 'Sideboard:', '1 unl-229*-219 Vi - Piltover Enforcer (Signature)'].join('\n'))
+  })
+
+  it('writes a code back exactly as RiftAtlas wrote it', () => {
+    const deck = decodeDeckCode(KENNEN)
+    expect(deck.champion).toBe('VEN-135')
+    expect(encodeDeckCode(deck.main, deck.sideboard, deck.champion)).toBe(KENNEN)
+    const v5 = base32([0x15, 1, 1, 3, 1, 2, 5, 0, 1, 1, 2, 1, 1, 1, 1, 1, 4, 2, 0, 229, 1, 0])
+    const read = decodeDeckCode(v5)
+    expect(encodeDeckCode(read.main, read.sideboard)).toBe(v5)
+  })
+
+  it('names cards by their code', () => {
+    const code = (sourceId: string) => cardCode(makeCard('riftbound', { name: 'x', sourceId }))
+    expect(code('ogn-066-298')).toBe('OGN-066')
+    expect(code('ogn-066a-298')).toBe('OGN-066a')
+    expect(code('unl-229*-219')).toBe('UNL-229s')
+    expect(code('ven-r01')).toBe('VEN-R01')
+    expect(code('ven-sp1-006')).toBe('VEN-SP1')
+    expect(code('pr-246a-298')).toBeNull()
+  })
+
+  it('writes a deck as a code, with printings it can name and runes by domain', () => {
+    const legend = makeCard('riftbound', { name: 'Teemo - Swift Scout', sourceId: 'ogn-263-298', category: 'Legend' })
+    const regular = makeCard('riftbound', { name: 'Viktor - Leader', sourceId: 'ogn-246-298', subtypes: ['Champion'] })
+    const promo = makeCard('riftbound', { name: 'Viktor - Leader', sourceId: 'pr-246a-298', subtypes: ['Champion'] })
+    const cardsById = new Map([legend, regular, promo].map((c) => [c.id, c]))
+    const code = deckToCode(
+      { zones: { legend: [{ cardId: legend.id, quantity: 1 }], main: [{ cardId: promo.id, quantity: 3 }] }, freeTextZones: { runes: [{ label: 'Mind', quantity: 12 }] } },
+      cardsById,
+    )
+    expect(decodeDeckCode(code)).toEqual({
+      main: [
+        { code: 'OGN-089', count: 12 },
+        { code: 'OGN-246', count: 3 },
+        { code: 'OGN-263', count: 1 },
+      ],
+      sideboard: [],
+      extraLegends: [],
+      champion: 'OGN-246',
+    })
+    const lone = makeCard('riftbound', { name: 'Arena Promo', sourceId: 'pr-001-298' })
+    expect(() => deckToCode({ zones: { main: [{ cardId: lone.id, quantity: 1 }] }, freeTextZones: {} }, new Map([[lone.id, lone]]))).toThrow(/Arena Promo/)
   })
 })

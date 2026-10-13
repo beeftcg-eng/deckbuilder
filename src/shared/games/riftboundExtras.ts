@@ -242,3 +242,23 @@ export function keepExtrasWhenMissing(fresh: Card[], previous: readonly Card[]):
   const kept = previous.filter((c) => c.id.startsWith(EXTRA_ID_PREFIX) && !ids.has(c.id) && !products.has(c.tcgplayerId ?? ''))
   return kept.length ? [...fresh, ...kept] : fresh
 }
+
+/**
+ * Legend names riftcodex has garbled: a region tag in front ("Yordle, Kennen - Heart of the Tempest")
+ * or the champion left off ("Defender of Tomorrow", whose other printings say "Jayce - Defender of
+ * Tomorrow"). Fixed so the card reads, searches and matches its Champion like every other Legend.
+ */
+export function withFixedLegendNames(cards: Card[]): Card[] {
+  const legends = cards.filter((c) => c.category === 'Legend')
+  const note = (name: string) => /\s*\([^)]*\)\s*$/.exec(name)?.[0] ?? ''
+  const base = (name: string) => name.slice(0, name.length - note(name).length)
+  return cards.map((card) => {
+    if (card.category !== 'Legend') return card
+    const tagged = /^[A-Z][\w'-]*, ([^,]+ - .+)$/.exec(card.name)
+    if (tagged) return { ...card, name: tagged[1] }
+    const title = base(card.name)
+    if (/, | - /.test(title)) return card
+    const named = legends.find((l) => l.setId === card.setId && base(l.name).endsWith(` - ${title}`))
+    return named ? { ...card, name: `${base(named.name).replace(/^[A-Z][\w'-]*, (?=[^,]+ - )/, '')}${note(card.name)}` } : card
+  })
+}

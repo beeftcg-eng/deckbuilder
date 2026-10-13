@@ -6,6 +6,7 @@ import { buildExportText } from '../shared/export'
 import { renderDeckImage } from '../lib/deckImage'
 import { dataUrlBytes, imageExtension } from '../shared/exportImage'
 import { t } from '../shared/i18n'
+import { deckToCode } from '../shared/riftboundDeckCode'
 
 interface Props {
   deck: Deck
@@ -30,6 +31,20 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
   const [imageError, setImageError] = useState<string | null>(null)
   const [imageNote, setImageNote] = useState<string | null>(null)
   const [generatingImage, setGeneratingImage] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
+
+  /** Riftbound: the deck as a deck code (riftboundDeckCode.ts), for other deck builders and simulators. */
+  async function handleCopyCode() {
+    try {
+      await window.api.clipboard.writeText(deckToCode(deck, cardsById))
+      setCodeError(null)
+      setCodeCopied(true)
+      setTimeout(() => setCodeCopied(false), 1500)
+    } catch (err) {
+      setCodeError(err instanceof Error ? err.message : String(err))
+    }
+  }
 
   async function handleCopy() {
     window.api.clipboard.writeText(text)
@@ -101,6 +116,11 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
           <button className="btn" onClick={handleGenerateImage} disabled={generatingImage}>
             {generatingImage ? t.exportCommon.rendering : t.exportCommon.exportImage}
           </button>
+          {deck.gameId === 'riftbound' && (
+            <button className="btn" onClick={() => void handleCopyCode()} title={t.exportDeck.deckCodeTitle}>
+              {codeCopied ? t.exportDeck.deckCodeCopied : t.exportDeck.copyDeckCode}
+            </button>
+          )}
         </div>
         {pasteUrl && (
           <div className="paste-result">
@@ -113,6 +133,7 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
             </button>
           </div>
         )}
+        {codeError && <div className="sync-error">{t.exportDeck.deckCodeFailed(codeError)}</div>}
         {pasteError && <div className="sync-error">{t.exportCommon.uploadFailed(pasteError)}</div>}
         {imageError && <div className="sync-error">{t.exportCommon.imageFailed(imageError)}</div>}
         {imageNote && <div className="text-dim">{imageNote}</div>}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fromRiftAtlas } from './communityLists'
+import { t } from './i18n'
 
 /** RiftAtlas's Decks page the way Next.js streams it, split over push() chunks. */
 function page(data: object): string {
@@ -28,7 +29,8 @@ describe('RiftAtlas community lists', () => {
     expect(lists[0]).toMatchObject({ eventName: 'Challenger #5', players: 46, player: 'a', date: '2026-10-11T16:00:00.000Z' })
   })
 
-  it('finds nothing on a page without the data', () => {
-    expect(fromRiftAtlas('<html></html>')).toEqual([])
+  it('says so when the page no longer has the data', () => {
+    expect(() => fromRiftAtlas('<html></html>')).toThrow(t.communityLists.layoutChanged)
+    expect(fromRiftAtlas(page({ labels: {}, details: {} }))).toEqual([])
   })
 })

@@ -17,6 +17,7 @@ const BugReportModal = lazyModal(() => import('./BugReportModal'), 'BugReportMod
 const PatchNotesModal = lazyModal(() => import('./PatchNotesModal'), 'PatchNotesModal')
 const ImportDeckModal = lazyModal(() => import('./ImportDeckModal'), 'ImportDeckModal')
 const CommunityListsModal = lazyModal(() => import('./CommunityListsModal'), 'CommunityListsModal')
+const CompareDecksModal = lazyModal(() => import('./CompareDecksModal'), 'CompareDecksModal')
 const PairingsAccountModal = lazyModal(() => import('./PairingsAccountModal'), 'PairingsAccountModal')
 const PawmodoroAccountModal = lazyModal(() => import('./PawmodoroAccountModal'), 'PawmodoroAccountModal')
 const ShareAppModal = lazyModal(() => import('./ShareAppModal'), 'ShareAppModal')
@@ -95,6 +96,10 @@ export function Sidebar() {
   // A community list (Riftbound, from RiftAtlas) to start the import window with.
   const [showCommunity, setShowCommunity] = useState(false)
   const [importStart, setImportStart] = useState<{ text: string; name: string } | null>(null)
+  // A community list to compare with one of your decks.
+  const [compareStart, setCompareStart] = useState<{ deckId: string; text: string; name: string } | null>(null)
+  const riftboundCards = useCardsById('riftbound')
+  const compareDeck = compareStart ? decks.find((d) => d.id === compareStart.deckId) : undefined
   const [showPatchNotes, setShowPatchNotes] = useState(false)
   const [showBugReport, setShowBugReport] = useState(false)
   const [showShareApp, setShowShareApp] = useState(false)
@@ -605,6 +610,19 @@ export function Sidebar() {
             setImportStart({ text, name })
             setShowImport(true)
           }}
+          onCompare={(deckId, text, name) => {
+            setShowCommunity(false)
+            setCompareStart({ deckId, text, name })
+          }}
+        />
+      )}
+      {compareStart && compareDeck && (
+        <CompareDecksModal
+          deck={compareDeck}
+          cardsById={riftboundCards}
+          initialText={compareStart.text}
+          initialName={compareStart.name}
+          onClose={() => setCompareStart(null)}
         />
       )}
       {showPatchNotes && <PatchNotesModal onClose={() => setShowPatchNotes(false)} />}

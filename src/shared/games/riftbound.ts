@@ -5,7 +5,7 @@ import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
 import { toIsoDate } from '../cardSort'
 import { t } from '../i18n'
-import { extraCards, missingPrintings, onlyOriginsRegularRunes, withOvernumberedKind, withPromoRuneArt } from './riftboundExtras'
+import { extraCards, missingPrintings, onlyOriginsRegularRunes, withFixedLegendNames, withOvernumberedKind, withPromoRuneArt } from './riftboundExtras'
 
 const API_BASE = 'https://api.riftcodex.com/cards'
 const SETS_URL = 'https://api.riftcodex.com/sets'
@@ -126,7 +126,7 @@ async function fetchRiftcodexCards(onProgress: (p: FetchProgress) => void = () =
 }
 
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
-  const cards = await fetchRiftcodexCards(onProgress)
+  const cards = withFixedLegendNames(await fetchRiftcodexCards(onProgress))
   // Published with the phone app: TCGplayer market prices, and TCGplayer's printings to add the ones riftcodex lacks.
   const [file, printings] = await Promise.all([loadPriceFile('riftbound'), loadRiftboundPrintings()])
   const all = withOvernumberedKind(onlyOriginsRegularRunes(withPromoRuneArt([...cards, ...extraCards(missingPrintings(printings ?? [], cards), cards)])))
@@ -207,7 +207,7 @@ function baseChampionName(name: string): string {
  * one listed under its own "Champion:" heading: the one matching the Legend if there is one, else
  * the first Champion in the Main Deck.
  */
-function chosenChampionId(deck: Deck, cardsById: Map<string, Card>, legendCard: Card | undefined): string | null {
+export function chosenChampionId(deck: Deck, cardsById: Map<string, Card>, legendCard: Card | undefined): string | null {
   const champions = (deck.zones.main ?? []).map((e) => cardsById.get(e.cardId)).filter((c): c is Card => !!c && c.subtypes.includes('Champion'))
   if (champions.length === 0) return null
   const legendBase = legendCard ? baseChampionName(legendCard.name) : null

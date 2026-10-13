@@ -50,4 +50,14 @@ describe('Import deck from a link', () => {
     fireEvent.change(document.querySelector('textarea')!, { target: { value: 'https://archidekt.com/decks/42' } })
     expect(screen.getByText(t.importDeck.linkOtherGame('Magic'))).toBeTruthy()
   })
+
+  it('reads a pasted Riftbound deck code into a list', () => {
+    const kennen = makeCard('riftbound', { name: 'Kennen - Heart of the Tempest', sourceId: 'ven-155-166', category: 'Legend' })
+    const sett = makeCard('riftbound', { name: 'Sett, Brawler', sourceId: 'ven-sp1-006' })
+    useAppStore.setState({ catalogs: { riftbound: { cards: [kennen, sett], byId: new Map([kennen, sett].map((c) => [c.id, c])) } } })
+    render(<ImportDeckModal gameId="riftbound" onClose={() => {}} />)
+    fireEvent.change(document.querySelector('textarea')!, { target: { value: 'CUAQEAYBAECQAAQBAEAQCBIAACNQCAAA' } })
+    fireEvent.click(screen.getByText(t.importDeck.readDeckCode))
+    expect((document.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Legend:\n1 ven-155-166 Kennen - Heart of the Tempest\n\nMainDeck:\n3 ven-sp1-006 Sett, Brawler')
+  })
 })

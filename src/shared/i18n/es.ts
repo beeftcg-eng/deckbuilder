@@ -434,6 +434,9 @@ export const es: Messages = {
     importing: 'Importando…',
     import: 'Importar mazo',
     failed: (err) => `No se pudo importar: ${err}`,
+    deckCodeFound: 'Parece un código de mazo de Riftbound.',
+    readDeckCode: '⇩ Leer el código de mazo',
+    deckCodeBad: (err: string) => `No se pudo leer el código de mazo: ${err}`,
   },
 
   communityLists: {
@@ -454,6 +457,31 @@ export const es: Messages = {
     copy: 'Copiar lista',
     copied: 'Copiada ✓',
     showMore: (n: number) => `Ver ${n} más`,
+    layoutChanged: 'La página de RiftAtlas ha cambiado y ya no se pueden leer las listas. Repórtalo (🐞 Reportar un error) para que la app se ponga al día.',
+    tabLists: 'Listas',
+    tabMeta: 'Meta',
+    ownAll: '✓ Tienes todas las cartas',
+    own: (owned: number, needed: number) => `Tienes ${owned}/${needed}`,
+    toFinish: (price: string) => `${price} para completarlo`,
+    compare: '⇄ Comparar con…',
+    compareWith: 'Elige uno de tus mazos',
+    noDecks: 'Aún no tienes mazos de Riftbound con los que compararla.',
+    metaIntro: (n: number) => `Según las ${n} listas más recientes de RiftAtlas. Con tan pocas listas los números varían mucho: tómalo como un esbozo.`,
+    metaLists: (n: number) => `${n} ${plural(n, 'lista', 'listas')}`,
+    metaWins: (n: number) => `${n} ${plural(n, 'victoria', 'victorias')}`,
+    metaTop4: (n: number) => `${n} en top 4`,
+    playedIn: (n: number, total: number) => `${n}/${total}`,
+    playedInTitle: (n: number, total: number, copies: number) => `En ${n} de ${total} listas, normalmente ${copies} ${plural(copies, 'copia', 'copias')}`,
+    newestList: 'Importar la lista más reciente',
+    startFromCore: 'Empezar un mazo con el núcleo',
+    coreTitle: 'Las cartas que están en al menos la mitad de las listas, con su número habitual de copias, y el Mazo de Runas repartido como suele estar. Suele quedarse corto de 40: el resto lo eliges tú.',
+    coreName: (legend: string) => `${legend} (núcleo)`,
+    back: '← Todas las Leyendas',
+    hintTitle: (legend: string) => `¿Empezar con lo que gana con ${legend}?`,
+    hintBody: (n: number) => `RiftAtlas tiene ${n} ${plural(n, 'lista reciente', 'listas recientes')} con esta Leyenda.`,
+    hintNewest: 'Usar la lista más reciente',
+    hintCore: 'Usar el núcleo',
+    hintDismiss: 'No, gracias',
   },
 
   pairingsAccount: {
@@ -479,6 +507,10 @@ export const es: Messages = {
   },
 
   exportDeck: {
+    copyDeckCode: 'Copiar código de mazo',
+    deckCodeCopied: 'Código copiado ✓',
+    deckCodeTitle: 'El código con el que los constructores de mazos y simuladores de Riftbound comparten mazos (TCG Arena, RiftAtlas, Piltover Archive)',
+    deckCodeFailed: (err: string) => `No se pudo crear el código de mazo: ${err}`,
     title: (name) => `Exportar "${name}"`,
     missingImages: (n) =>
       n === 1

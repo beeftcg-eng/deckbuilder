@@ -10,6 +10,7 @@ import { DeckStats } from './DeckStats'
 import { FolderPicker } from './FolderPicker'
 import { DeckLockButton } from './DeckLockButton'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
+import { CommunityStartHint } from './CommunityStartHint'
 import { DeckIcon } from './DeckIcon'
 import { currentDeckFor } from '../shared/decks'
 import { resolveDeckIcon } from '../shared/deckIcon'
@@ -221,6 +222,8 @@ function DeckEditor({ deck }: { deck: Deck }) {
       {message && <div className="text-dim">{message}</div>}
 
       {format?.description && <div className="format-description text-dim">{formatDescription(deck.gameId, format)}</div>}
+
+      <CommunityStartHint deck={deck} />
 
       {result && (
         <LegalityPanel

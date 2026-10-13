@@ -2,6 +2,7 @@ import { staleIdRepairs, storedCardIds } from '../../shared/cardIdRepair'
 import { applyArtChoices, printingKey, withArtwork } from '../../shared/artChoice'
 import { t } from '../../shared/i18n'
 import { getAdapter } from '../../shared/games/registry'
+import { withFixedLegendNames } from '../../shared/games/riftboundExtras'
 import { errorMessage, type AppState } from '../storeUtils'
 import type { StoreContext } from '../storeContext'
 
@@ -35,7 +36,9 @@ export function createCatalogSlice(ctx: StoreContext) {
     },
 
     loadCatalog: async (gameId) => {
-      const cards = applyArtChoices(await window.api.cards.load(gameId), get().settings.artChoices)
+      const loaded = await window.api.cards.load(gameId)
+      // Card data saved before a fix to riftcodex's names gets it now, not at the next sync.
+      const cards = applyArtChoices(gameId === 'riftbound' ? withFixedLegendNames(loaded) : loaded, get().settings.artChoices)
       const byId = new Map(cards.map((c) => [c.id, c]))
       set((s) => ({ catalogs: { ...s.catalogs, [gameId]: { cards, byId } } }))
       // Card ids saved against older card data (Yu-Gi-Oh's changed in v0.12.0; Riftbound merged riftcodex's

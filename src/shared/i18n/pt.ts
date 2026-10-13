@@ -434,6 +434,9 @@ export const pt: Messages = {
     importing: 'Importando…',
     import: 'Importar deck',
     failed: (err) => `Não foi possível importar: ${err}`,
+    deckCodeFound: 'Parece um código de deck de Riftbound.',
+    readDeckCode: '⇩ Ler o código do deck',
+    deckCodeBad: (err: string) => `Não foi possível ler o código do deck: ${err}`,
   },
 
   communityLists: {
@@ -454,6 +457,31 @@ export const pt: Messages = {
     copy: 'Copiar lista',
     copied: 'Copiada ✓',
     showMore: (n: number) => `Ver mais ${n}`,
+    layoutChanged: 'A página do RiftAtlas mudou e as listas não podem mais ser lidas. Avise (🐞 Relatar um erro) para o app se atualizar.',
+    tabLists: 'Listas',
+    tabMeta: 'Meta',
+    ownAll: '✓ Você tem todas as cartas',
+    own: (owned: number, needed: number) => `Você tem ${owned}/${needed}`,
+    toFinish: (price: string) => `${price} para completar`,
+    compare: '⇄ Comparar com…',
+    compareWith: 'Escolha um dos seus decks',
+    noDecks: 'Você ainda não tem decks de Riftbound para comparar.',
+    metaIntro: (n: number) => `Com base nas ${n} listas mais recentes do RiftAtlas. Com tão poucas listas os números variam muito: veja como um esboço.`,
+    metaLists: (n: number) => `${n} ${plural(n, 'lista', 'listas')}`,
+    metaWins: (n: number) => `${n} ${plural(n, 'vitória', 'vitórias')}`,
+    metaTop4: (n: number) => `${n} no top 4`,
+    playedIn: (n: number, total: number) => `${n}/${total}`,
+    playedInTitle: (n: number, total: number, copies: number) => `Em ${n} de ${total} listas, normalmente ${copies} ${plural(copies, 'cópia', 'cópias')}`,
+    newestList: 'Importar a lista mais recente',
+    startFromCore: 'Começar um deck com o núcleo',
+    coreTitle: 'As cartas que estão em pelo menos metade das listas, no número de cópias de costume, e o Deck de Runas dividido como de costume. Costuma ficar abaixo de 40: o resto é com você.',
+    coreName: (legend: string) => `${legend} (núcleo)`,
+    back: '← Todas as Lendas',
+    hintTitle: (legend: string) => `Começar com o que está vencendo com ${legend}?`,
+    hintBody: (n: number) => `O RiftAtlas tem ${n} ${plural(n, 'lista recente', 'listas recentes')} com esta Lenda.`,
+    hintNewest: 'Usar a lista mais recente',
+    hintCore: 'Usar o núcleo',
+    hintDismiss: 'Não, obrigado',
   },
 
   pairingsAccount: {
@@ -479,6 +507,10 @@ export const pt: Messages = {
   },
 
   exportDeck: {
+    copyDeckCode: 'Copiar código do deck',
+    deckCodeCopied: 'Código copiado ✓',
+    deckCodeTitle: 'O código com que os construtores de deck e simuladores de Riftbound compartilham decks (TCG Arena, RiftAtlas, Piltover Archive)',
+    deckCodeFailed: (err: string) => `Não foi possível criar o código do deck: ${err}`,
     title: (name) => `Exportar "${name}"`,
     missingImages: (n) =>
       n === 1

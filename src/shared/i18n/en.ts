@@ -444,6 +444,9 @@ export const en = {
     importing: 'Importing…',
     import: 'Import deck',
     failed: (err: string) => `Couldn't import: ${err}`,
+    deckCodeFound: 'That looks like a Riftbound deck code.',
+    readDeckCode: '⇩ Read the deck code',
+    deckCodeBad: (err: string) => `Couldn't read the deck code: ${err}`,
   },
 
   communityLists: {
@@ -464,6 +467,31 @@ export const en = {
     copy: 'Copy list',
     copied: 'Copied ✓',
     showMore: (n: number) => `Show ${n} more`,
+    layoutChanged: "RiftAtlas's page has changed and the lists can't be read from it any more. Please report it (🐞 Report a bug) so the app can catch up.",
+    tabLists: 'Lists',
+    tabMeta: 'Meta',
+    ownAll: '✓ You own every card',
+    own: (owned: number, needed: number) => `Own ${owned}/${needed}`,
+    toFinish: (price: string) => `${price} to finish`,
+    compare: '⇄ Compare with…',
+    compareWith: 'Pick one of your decks',
+    noDecks: 'You have no Riftbound decks to compare it with yet.',
+    metaIntro: (n: number) => `From the ${n} most recent lists on RiftAtlas. Small samples swing a lot, so treat it as a sketch of the field.`,
+    metaLists: (n: number) => `${n} ${plural(n, 'list', 'lists')}`,
+    metaWins: (n: number) => `${n} ${plural(n, 'win', 'wins')}`,
+    metaTop4: (n: number) => `${n} top 4`,
+    playedIn: (n: number, total: number) => `${n}/${total}`,
+    playedInTitle: (n: number, total: number, copies: number) => `In ${n} of ${total} lists, usually ${copies} ${plural(copies, 'copy', 'copies')}`,
+    newestList: 'Import the newest list',
+    startFromCore: 'Start a deck from the core',
+    coreTitle: 'Cards in at least half the lists, at their usual number of copies, with the Rune Deck split the usual way. Usually short of 40: the rest is yours to pick.',
+    coreName: (legend: string) => `${legend} (core)`,
+    back: '← All Legends',
+    hintTitle: (legend: string) => `Start from what's winning with ${legend}?`,
+    hintBody: (n: number) => `RiftAtlas has ${n} recent ${plural(n, 'list', 'lists')} with this Legend.`,
+    hintNewest: 'Use the newest list',
+    hintCore: 'Use the core',
+    hintDismiss: 'No thanks',
   },
 
   pairingsAccount: {
@@ -489,6 +517,10 @@ export const en = {
   },
 
   exportDeck: {
+    copyDeckCode: 'Copy deck code',
+    deckCodeCopied: 'Deck code copied ✓',
+    deckCodeTitle: 'The code Riftbound deck builders and simulators share decks by (TCG Arena, RiftAtlas, Piltover Archive)',
+    deckCodeFailed: (err: string) => `Couldn't make a deck code: ${err}`,
     title: (name: string) => `Export "${name}"`,
     missingImages: (n: number) =>
       n === 1
