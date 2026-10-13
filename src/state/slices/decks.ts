@@ -200,6 +200,14 @@ export function createDecksSlice(ctx: StoreContext) {
       set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? next : d)) }))
       await persistDeck(next, { keepUpdatedAt: true })
     },
+    setMatchupPlans: async (deckId, plans) => {
+      const deck = get().decks.find((d) => d.id === deckId)
+      if (!deck) return
+      const { matchupPlans: _previous, ...rest } = deck
+      const next: Deck = plans.length ? { ...rest, matchupPlans: plans } : rest
+      set((s) => ({ decks: s.decks.map((d) => (d.id === deckId ? next : d)) }))
+      await persistDeck(next, { keepUpdatedAt: true })
+    },
     setDeckFolder: async (deckId, folder) => {
       const deck = get().decks.find((d) => d.id === deckId)
       const name = folder.trim().slice(0, 60)

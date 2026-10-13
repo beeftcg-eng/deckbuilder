@@ -17,9 +17,9 @@ export function LegendWash({ card }: { card: Card | undefined }) {
 export function DomainPips({ domains }: { domains: string[] }) {
   if (!domains.length) return null
   return (
-    <span className="community-domains" aria-label={domains.join(', ')}>
+    <span className="community-domains" role="img" aria-label={t.communityLists.domainsLabel(domains.join(', '))}>
       {domains.map((d) => (
-        <span key={d} className="community-domain" style={{ background: DOMAIN_COLORS[d] }} title={d} />
+        <span key={d} className="community-domain" style={{ background: DOMAIN_COLORS[d] }} title={d} aria-hidden />
       ))}
     </span>
   )

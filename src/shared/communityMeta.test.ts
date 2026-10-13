@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cardPlayRates, cardTrends, checkListWatches, compareToMeta, coreDeck, legendMeta, listOwnership, newListsFor, recordsVsLegends, sanitizeListAlerts, sanitizeListWatches, tradeOffersFor } from './communityMeta'
+import { cardPlayRates, cardTrends, localMeta, checkListWatches, compareToMeta, coreDeck, legendMeta, listOwnership, newListsFor, recordsVsLegends, sanitizeListAlerts, sanitizeListWatches, tradeOffersFor } from './communityMeta'
 import { codeIndex } from './riftboundDeckCode'
 import type { PairingsResult } from './types'
 import type { CommunityList } from './communityLists'
@@ -153,5 +153,20 @@ describe('community meta', () => {
     expect(found).toEqual([{ legendId: 'K', legendName: 'K', count: 3, eventNames: ['e2', 'e3'] }])
     expect(next).toEqual({ legends: ['K'], seenEvents: ['e1', 'e2', 'e3'] })
     expect(newListsFor(next!, [l('K', 'e2')]).found).toEqual([])
+  })
+
+  it('groups the opponents you faced by Legend, and keeps the rest by name', () => {
+    const result = (...matches: [string, 'W' | 'L' | 'D'][]): PairingsResult => ({
+      event: '', date: '', game: '', format: '', store: '', placement: '', record: '', inProgress: false, deckVersion: null,
+      matches: matches.map(([opponent, outcome]) => ({ opponent, outcome, wentFirst: '' })),
+    })
+    const legends = [{ legendId: 'K', legendName: 'Kennen, Heart of the Tempest' }, { legendId: 'J', legendName: 'Jinx, Loose Cannon' }]
+    const local = localMeta(legends, [result(['kennen', 'L'], ['Kennen OC', 'W'], ['Jinx', 'W'], ['some guy', 'D'])])
+    expect(local.games).toBe(4)
+    expect(local.legends).toEqual([
+      { legendId: 'K', legendName: 'Kennen, Heart of the Tempest', games: 2, wins: 1, losses: 1, draws: 0 },
+      { legendId: 'J', legendName: 'Jinx, Loose Cannon', games: 1, wins: 1, losses: 0, draws: 0 },
+    ])
+    expect(local.other.map((m) => m.opponent)).toEqual(['some guy'])
   })
 })

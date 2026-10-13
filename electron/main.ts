@@ -1,4 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron'
+// First: in a smoke test it points the data folder somewhere empty before anything reads it.
+import { watchSmokeTest } from './lib/smokeTest'
+import '../src/shared/i18n/all'
 import { fileURLToPath } from 'node:url'
 import { join, dirname } from 'node:path'
 import { registerCardDataIpc } from './ipc/cardData'
@@ -64,6 +67,8 @@ function createWindow() {
     event.preventDefault()
     if (isWebUrl(url)) void shell.openExternal(url)
   })
+
+  watchSmokeTest(win)
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)

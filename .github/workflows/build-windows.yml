@@ -26,6 +26,17 @@ jobs:
       - run: npx vitest run
       - run: npx vite build
       - run: npx electron-builder --win --publish never
+      # The built app has to open: started on an empty data folder, it exits 1 if the window crashes,
+      # the page throws, a panel shows "Something went wrong", or its screen doesn't appear
+      # (electron/lib/smokeTest.ts). A failure here stops the installer from being published.
+      - name: Launch smoke test
+        shell: pwsh
+        env:
+          DECKBUILDER_SMOKE_TEST: "1"
+          DECKBUILDER_DISABLE_UPDATES: "1"
+        run: |
+          $p = Start-Process -FilePath "release/win-unpacked/Deckbuilder.exe" -PassThru -Wait -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "The app didn't open (exit code $($p.ExitCode))" }
       # latest.yml is the update manifest the installed app reads (version, file hash); the
       # blockmap lets it download only what changed. Both must be published with the installer.
       - uses: actions/upload-artifact@v4

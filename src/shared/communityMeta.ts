@@ -1,7 +1,7 @@
 import type { Card, Deck, DeckCardEntry, DeckFreeTextEntry, ListWatch, PairingsResult, TraderProfile } from './types'
 import type { CommunityList } from './communityLists'
 import { deckCodeToCards } from './riftboundDeckCode'
-import { matchupsOf } from './pairingsRecord'
+import { matchupsOf, type Matchup } from './pairingsRecord'
 import { getAdapter } from './games/registry'
 import { missingForDeck, neededByPool, normalizeName } from './collection'
 import { buyList } from './buyList'
@@ -176,17 +176,45 @@ const hasWord = (text: string, word: string) => new RegExp(`(^|[^\\p{L}])${word.
  */
 export function recordsVsLegends(legends: readonly Pick<LegendMeta, 'legendId' | 'legendName'>[], results: readonly PairingsResult[]): Map<string, VsRecord> {
   const out = new Map<string, VsRecord>()
-  for (const m of matchupsOf([...results])) {
-    const opponent = m.opponent.toLowerCase()
-    let matches = legends.filter((l) => hasWord(opponent, champion(l.legendName)))
-    // Words of the title that aren't in the champion's name ("Wuju Master" -> "wuju": "master" is Master Yi's own).
-    const titleWords = (l: Pick<LegendMeta, 'legendName'>) => titleOf(l.legendName).split(/\s+/).filter((w) => w.length > 3 && !champion(l.legendName).split(/\s+/).includes(w))
-    if (matches.length > 1) matches = matches.filter((l) => titleWords(l).some((w) => opponent.includes(w)))
-    if (matches.length !== 1) continue
-    const r = out.get(matches[0].legendId) ?? { wins: 0, losses: 0, draws: 0 }
-    out.set(matches[0].legendId, { wins: r.wins + m.wins, losses: r.losses + m.losses, draws: r.draws + m.draws })
-  }
+  for (const row of localMeta(legends, results).legends) out.set(row.legendId, { wins: row.wins, losses: row.losses, draws: row.draws })
   return out
+}
+
+/** The one Legend a typed opponent names, or null (none, or two it can't tell apart). */
+function legendForOpponent<L extends Pick<LegendMeta, 'legendId' | 'legendName'>>(legends: readonly L[], opponentName: string): L | null {
+  const opponent = opponentName.toLowerCase()
+  let matches = legends.filter((l) => hasWord(opponent, champion(l.legendName)))
+  // Words of the title that aren't in the champion's name ("Wuju Master" -> "wuju": "master" is Master Yi's own).
+  const titleWords = (l: Pick<LegendMeta, 'legendName'>) => titleOf(l.legendName).split(/\s+/).filter((w) => w.length > 3 && !champion(l.legendName).split(/\s+/).includes(w))
+  if (matches.length > 1) matches = matches.filter((l) => titleWords(l).some((w) => opponent.includes(w)))
+  return matches.length === 1 ? matches[0] : null
+}
+
+export interface LocalMetaRow extends VsRecord {
+  legendId: string
+  legendName: string
+  games: number
+}
+
+/**
+ * Who you actually face: your Pairings matches grouped by the Legend each opponent names, most
+ * played first, and the opponents that don't name one (by their typed name).
+ */
+export function localMeta(legends: readonly Pick<LegendMeta, 'legendId' | 'legendName'>[], results: readonly PairingsResult[]): { legends: LocalMetaRow[]; other: Matchup[]; games: number } {
+  const rows = new Map<string, LocalMetaRow>()
+  const other: Matchup[] = []
+  let games = 0
+  for (const m of matchupsOf([...results])) {
+    games += m.games
+    const legend = legendForOpponent(legends, m.opponent)
+    if (!legend) {
+      other.push(m)
+      continue
+    }
+    const r = rows.get(legend.legendId) ?? { legendId: legend.legendId, legendName: legend.legendName, games: 0, wins: 0, losses: 0, draws: 0 }
+    rows.set(legend.legendId, { ...r, games: r.games + m.games, wins: r.wins + m.wins, losses: r.losses + m.losses, draws: r.draws + m.draws })
+  }
+  return { legends: [...rows.values()].sort((a, b) => b.games - a.games || a.legendName.localeCompare(b.legendName)), other, games }
 }
 
 // ---------- watching a list's price ----------

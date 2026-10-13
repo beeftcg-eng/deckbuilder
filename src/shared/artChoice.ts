@@ -1,6 +1,5 @@
 import type { Card } from './types'
 import { resolveDbImgUrl } from './dbImgUrl'
-import { YGO_ART_MAP } from './games/yugiohArtMap'
 
 /**
  * Picking which artwork a Yu-Gi-Oh printing shows. YGOPRODeck lists every official artwork of a card
@@ -30,6 +29,14 @@ function artIdOf(url: string | null | undefined): string | null {
   return url ? (ART_URL.exec(url)?.[1] ?? null) : null
 }
 
+/** yugiohArtMap.ts (Yu-Gi-Oh! only, and big), loaded with Yu-Gi-Oh!'s card data rather than with the app. */
+let artMap: Record<string, number[]> | null = null
+
+/** Loads the Yu-Gi-Oh! artwork map, once; until then printings offer every artwork, as when one isn't in it. */
+export async function loadArtMap(): Promise<void> {
+  artMap ??= (await import('./games/yugiohArtMap')).YGO_ART_MAP
+}
+
 /**
  * The artwork(s) this exact printing is known to have (yugiohArtMap.ts, built from Yugipedia's printing
  * photos), or null when unknown - then every artwork of the card is offered, as before.
@@ -38,7 +45,7 @@ export function knownArtIds(card: Card): string[] | null {
   if (card.gameId !== 'yugioh') return null
   // Keyed by printed code + rarity (see the map's generator): the passcode can differ between YGOPRODeck's
   // endpoints, the printing can't. Only ids this card actually has are used (artworkIds filters).
-  const ids = YGO_ART_MAP[`${card.setCode}-${card.number}|${card.rarity ?? ''}`]
+  const ids = artMap?.[`${card.setCode}-${card.number}|${card.rarity ?? ''}`]
   return ids?.length ? ids.map(String) : null
 }
 

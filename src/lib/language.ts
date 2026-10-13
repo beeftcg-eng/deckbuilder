@@ -1,9 +1,10 @@
-import { isLanguage, languageFromLocale, setLanguage, type Language } from '../shared/i18n'
+import { isLanguage, languageFromLocale, loadLanguage, setLanguage, type Language } from '../shared/i18n'
 
 const STORAGE_KEY = 'deckbuilder-language'
 
-/** Switches the app's text to `language` and remembers it locally for the next launch's first paint. */
-export function applyLanguage(language: Language): void {
+/** Switches the app's text to `language` (loading it first, if it's one of the ones that load on use) and remembers it locally for the next launch's first paint. */
+export async function applyLanguage(language: Language): Promise<void> {
+  await loadLanguage(language).catch(() => undefined)
   setLanguage(language)
   document.documentElement.lang = language
   try {
@@ -17,12 +18,12 @@ export function applyLanguage(language: Language): void {
  * Applied before the first render, like the theme: the local copy of the last choice, or on a first
  * launch the system's language (Spanish for any "es-*" locale, else English).
  */
-export function applyCachedLanguage(): void {
+export function applyCachedLanguage(): Promise<void> {
   let cached: string | null = null
   try {
     cached = localStorage.getItem(STORAGE_KEY)
   } catch {
     cached = null
   }
-  applyLanguage(isLanguage(cached) ? cached : languageFromLocale(typeof navigator === 'undefined' ? null : navigator.language))
+  return applyLanguage(isLanguage(cached) ? cached : languageFromLocale(typeof navigator === 'undefined' ? null : navigator.language))
 }

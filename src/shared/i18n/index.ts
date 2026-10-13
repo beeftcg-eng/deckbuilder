@@ -5,10 +5,12 @@
  *
  * `t` is a live binding: setLanguage() swaps it, and the app re-mounts its screens on a language change
  * (App.tsx keys them on the language) so everything picks the new one up.
+ *
+ * English is built in; Spanish and Portuguese load when first used (loadLanguage), so the phone app
+ * doesn't download languages nobody on that device reads. The desktop app's main process imports
+ * ./all, which has them all.
  */
 import { en, type Messages } from './en'
-import { es } from './es'
-import { pt } from './pt'
 
 export type Language = 'en' | 'es' | 'pt'
 
@@ -18,7 +20,19 @@ export const LANGUAGES: readonly { id: Language; label: string }[] = [
   { id: 'pt', label: 'Português' },
 ]
 
-const MESSAGES: Record<Language, Messages> = { en, es, pt }
+const MESSAGES: Partial<Record<Language, Messages>> = { en }
+
+/** Makes a language's text available (./all does it for every language at once). */
+export function registerMessages(language: Language, messages: Messages): void {
+  MESSAGES[language] = messages
+}
+
+/** Loads a language's text if it isn't yet; setLanguage then switches to it straight away. */
+export async function loadLanguage(language: Language): Promise<void> {
+  if (MESSAGES[language]) return
+  if (language === 'es') registerMessages('es', (await import('./es')).es)
+  else if (language === 'pt') registerMessages('pt', (await import('./pt')).pt)
+}
 
 export function isLanguage(value: unknown): value is Language {
   return value === 'en' || value === 'es' || value === 'pt'
@@ -28,9 +42,10 @@ let current: Language = 'en'
 
 export let t: Messages = en
 
+/** Switches to `language`, if its text is loaded (loadLanguage); English otherwise. */
 export function setLanguage(language: Language): void {
-  current = language
-  t = MESSAGES[language]
+  current = MESSAGES[language] ? language : 'en'
+  t = MESSAGES[current]!
 }
 
 export function getLanguage(): Language {

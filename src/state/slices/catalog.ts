@@ -1,5 +1,5 @@
 import { staleIdRepairs, storedCardIds } from '../../shared/cardIdRepair'
-import { applyArtChoices, printingKey, withArtwork } from '../../shared/artChoice'
+import { applyArtChoices, loadArtMap, printingKey, withArtwork } from '../../shared/artChoice'
 import { t } from '../../shared/i18n'
 import { getAdapter } from '../../shared/games/registry'
 import { withFixedLegendNames } from '../../shared/games/riftboundExtras'
@@ -37,6 +37,7 @@ export function createCatalogSlice(ctx: StoreContext) {
 
     loadCatalog: async (gameId) => {
       const loaded = await window.api.cards.load(gameId)
+      if (gameId === 'yugioh') await loadArtMap().catch(() => undefined)
       // Card data saved before a fix to riftcodex's names gets it now, not at the next sync.
       const cards = applyArtChoices(gameId === 'riftbound' ? withFixedLegendNames(loaded) : loaded, get().settings.artChoices)
       const byId = new Map(cards.map((c) => [c.id, c]))

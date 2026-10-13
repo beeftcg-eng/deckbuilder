@@ -21,3 +21,12 @@ jobs:
       - run: npx tsc -b
       - run: npx oxlint
       - run: npx vitest run
+      # The desktop app has to open (electron/lib/smokeTest.ts): built, then started on an empty data
+      # folder under a virtual display; it exits 1 if the window crashes, the page throws, a panel
+      # shows "Something went wrong", or its screen doesn't appear.
+      - run: npx vite build
+      - name: Launch smoke test
+        env:
+          DECKBUILDER_SMOKE_TEST: "1"
+          DECKBUILDER_DISABLE_UPDATES: "1"
+        run: xvfb-run -a npx electron . --no-sandbox

@@ -12,7 +12,7 @@ import { CardDetailModal } from './CardDetailModal'
 import { DeckLockButton } from './DeckLockButton'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
 import { DeckNotes } from './DeckNotes'
-import { DeckMetaCompare } from './DeckMetaCompare'
+import { MatchupPlans } from './MatchupPlans'
 import { RotationBadge } from './RotationBadge'
 import { FolderPicker } from './FolderPicker'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
@@ -23,6 +23,8 @@ import { lazyModal } from './lazyModal'
 const ExportModal = lazyModal(() => import('./ExportModal'), 'ExportModal')
 const ShareDeckModal = lazyModal(() => import('./ShareDeckModal'), 'ShareDeckModal')
 const CompareDecksModal = lazyModal(() => import('./CompareDecksModal'), 'CompareDecksModal')
+// Riftbound's community-list code loads only for a Riftbound deck.
+const DeckMetaCompare = lazyModal(() => import('./DeckMetaCompare'), 'DeckMetaCompare')
 const DeckHistoryModal = lazyModal(() => import('./DeckHistoryModal'), 'DeckHistoryModal')
 const ProxyPrintModal = lazyModal(() => import('./ProxyPrintModal'), 'ProxyPrintModal')
 const BuyListModal = lazyModal(() => import('./BuyListModal'), 'BuyListModal')
@@ -334,7 +336,8 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
       {!readOnly && <PairingsRecordStrip deck={deck} />}
       {!readOnly && <PairingsSyncReminder deck={deck} inset />}
       {!readOnly && <DeckNotes deck={deck} />}
-      {!readOnly && <DeckMetaCompare deck={deck} />}
+      {!readOnly && <MatchupPlans deck={deck} cardsById={cardsById} />}
+      {!readOnly && deck.gameId === 'riftbound' && <DeckMetaCompare deck={deck} />}
 
       <div className="fv-body">
         {sections.length === 0 ? (

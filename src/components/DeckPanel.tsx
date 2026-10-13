@@ -10,7 +10,6 @@ import { DeckStats } from './DeckStats'
 import { FolderPicker } from './FolderPicker'
 import { DeckLockButton } from './DeckLockButton'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
-import { CommunityStartHint } from './CommunityStartHint'
 import { DeckIcon } from './DeckIcon'
 import { currentDeckFor } from '../shared/decks'
 import { resolveDeckIcon } from '../shared/deckIcon'
@@ -26,6 +25,8 @@ const BuyListModal = lazyModal(() => import('./BuyListModal'), 'BuyListModal')
 const SampleHandModal = lazyModal(() => import('./SampleHandModal'), 'SampleHandModal')
 const BanListEditor = lazyModal(() => import('./BanListEditor'), 'BanListEditor')
 const MoveCardsModal = lazyModal(() => import('./MoveCardsModal'), 'MoveCardsModal')
+// Riftbound's community-list code loads only for a Riftbound deck.
+const CommunityStartHint = lazyModal(() => import('./CommunityStartHint'), 'CommunityStartHint')
 
 /** What a zone's header says about its size, e.g. "/40", ", at least 60", ", up to 15". */
 function zoneCountHint(zone: DeckZoneRule): string {
@@ -223,7 +224,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
 
       {format?.description && <div className="format-description text-dim">{formatDescription(deck.gameId, format)}</div>}
 
-      <CommunityStartHint deck={deck} />
+      {deck.gameId === 'riftbound' && <CommunityStartHint deck={deck} />}
 
       {result && (
         <LegalityPanel

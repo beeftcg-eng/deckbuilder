@@ -4,8 +4,6 @@ import { cardIdsOfGame, newBatch, removalItems, undoItems, withBatch } from '../
 import { fitDetails, normalizeDetails, withDetail, type CollectionDetails } from '../../shared/copyDetails'
 import { ownedIndexOf, wishlistIndexOf, type AppState } from '../storeUtils'
 import type { StoreContext } from '../storeContext'
-import { communityListsNow, refreshCommunityLists } from '../communityLists'
-import { newListsFor } from '../../shared/communityMeta'
 import { askToNotify, notify } from '../../lib/notify'
 import { t } from '../../shared/i18n'
 
@@ -62,7 +60,8 @@ export function createCollectionSlice(ctx: StoreContext) {
       checkAlerts()
     },
 
-    setLegendAlert: (legendId, on) => {
+    setLegendAlert: async (legendId, on) => {
+      const { communityListsNow } = await import('../communityLists')
       const current = get().settings.listAlerts ?? { legends: [], seenEvents: [] }
       const legends = on ? [...new Set([...current.legends, legendId])] : current.legends.filter((l) => l !== legendId)
       // Opting in hears about events from now on, not the ones already there.
@@ -75,6 +74,8 @@ export function createCollectionSlice(ctx: StoreContext) {
 
     checkListAlerts: async () => {
       if (!get().settings.listAlerts?.legends.length) return
+      // Loaded only for someone who opted in.
+      const [{ communityListsNow, refreshCommunityLists }, { newListsFor }] = await Promise.all([import('../communityLists'), import('../../shared/communityMeta')])
       await refreshCommunityLists()
       const lists = communityListsNow()
       if (!lists) return

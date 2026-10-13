@@ -9,6 +9,7 @@ import type {
   DeckViewMode,
   Format,
   GameId,
+  MatchupPlan,
   PairingsConfig,
   PairingsLink,
   PairingsResult,
@@ -178,6 +179,8 @@ export interface AppState {
   setDeckShareToken: (deckId: string, token: string | null) => Promise<void>
   /** Saves a deck's notes. Works on a locked deck too: notes aren't the list. */
   setDeckNotes: (deckId: string, notes: string) => Promise<void>
+  /** Replaces a deck's sideboard plans (MatchupPlans.tsx); works on locked decks, like notes. */
+  setMatchupPlans: (deckId: string, plans: MatchupPlan[]) => Promise<void>
   /** Files a deck under a folder ('' takes it out). Works on a locked deck: it's filing, not the list. */
   setDeckFolder: (deckId: string, folder: string) => Promise<void>
   /** Saves the open deck's list as a named version (deckHistory.ts). Works on a locked deck: the list doesn't change. */
@@ -231,7 +234,7 @@ export interface AppState {
   /** Watches a community list's cost to finish (communityMeta.ts), or stops with null. */
   setListWatch: (listId: string, watch: { name: string; deckCode: string; target: number } | null) => void
   /** Opts in to (or out of) hearing about new community lists with a Legend; off until you do. */
-  setLegendAlert: (legendId: string, on: boolean) => void
+  setLegendAlert: (legendId: string, on: boolean) => Promise<void>
   /** Announces new community lists for the opted-in Legends (communityMeta.ts newListsFor). */
   checkListAlerts: () => Promise<void>
   /** Changes whenever the currency or its rate does, so price text re-renders (App.tsx keys on it). */

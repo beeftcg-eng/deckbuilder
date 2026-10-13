@@ -3,8 +3,6 @@ import { GAME_LIST, getAdapter } from '../shared/games/registry'
 import { gameIdOfCardId, totalPrice } from '../shared/collection'
 import { localDay, recordValue, type ValueHistory } from '../shared/valueHistory'
 import { checkPriceAlerts } from '../shared/priceAlerts'
-import { checkListWatches } from '../shared/communityMeta'
-import { codeIndex } from '../shared/riftboundDeckCode'
 import { isCatalogStale } from '../shared/catalogAge'
 import { notify } from '../lib/notify'
 import { freshTradeMatches } from '../shared/tradeAlerts'
@@ -87,15 +85,17 @@ export function createStoreContext(set: SetState, get: GetState) {
       set({ notice: text })
       void notify(t.priceAlerts.notifyTitle, text)
     }
-    checkWatches()
+    void checkWatches()
   }
 
-  /** Watched community lists (communityMeta.ts) against the Riftbound prices and the collection now. */
-  function checkWatches() {
-    const { catalogs, collection, settings } = get()
-    const catalog = catalogs.riftbound
-    if (!catalog || !settings.listWatches || !Object.keys(settings.listWatches).length) return
-    const { hits, next } = checkListWatches(settings.listWatches, codeIndex(catalog.cards), catalog.byId, catalog.cards, ownedIndexOf(collection, catalogs))
+  /** Watched community lists (communityMeta.ts) against the Riftbound prices and the collection now. Its code loads only when there are any. */
+  async function checkWatches() {
+    const { catalogs, settings } = get()
+    if (!catalogs.riftbound || !settings.listWatches || !Object.keys(settings.listWatches).length) return
+    const [{ checkListWatches }, { codeIndex }] = await Promise.all([import('../shared/communityMeta'), import('../shared/riftboundDeckCode')])
+    const { collection } = get()
+    const catalog = get().catalogs.riftbound!
+    const { hits, next } = checkListWatches(get().settings.listWatches, codeIndex(catalog.cards), catalog.byId, catalog.cards, ownedIndexOf(collection, get().catalogs))
     if (next) {
       set((s) => ({ settings: { ...s.settings, listWatches: next } }))
       persistSettings({ listWatches: next })

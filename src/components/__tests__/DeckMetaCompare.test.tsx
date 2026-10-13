@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { Deck } from '../../shared/types'
 import type { CommunityList } from '../../shared/communityLists'
 import { makeCard } from '../../shared/testFixtures'
@@ -43,7 +43,7 @@ describe('Against the meta', () => {
     const toggle = screen.getByText(t.communityLists.alertOff)
     expect(toggle.getAttribute('aria-pressed')).toBe('false') // off until you opt in
     fireEvent.click(toggle)
-    expect(useAppStore.getState().settings.listAlerts).toEqual({ legends: ['VEN-155'], seenEvents: ['e0', 'e1'] })
-    expect(screen.getByText(t.communityLists.alertOn)).toBeTruthy()
+    await waitFor(() => expect(useAppStore.getState().settings.listAlerts).toEqual({ legends: ['VEN-155'], seenEvents: ['e0', 'e1'] }))
+    expect(await screen.findByText(t.communityLists.alertOn)).toBeTruthy()
   })
 })

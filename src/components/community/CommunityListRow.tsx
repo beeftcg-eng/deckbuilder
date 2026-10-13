@@ -35,7 +35,10 @@ export function CommunityListRow({ list, deck, legendCard, ownership, cardsById,
     <li className={`community-entry ${open ? 'open' : ''}`} style={style}>
       <LegendWash card={legendCard} />
       <button className="community-row" aria-expanded={open} onClick={onToggle}>
-        <span className={`community-rank ${medal(list.rank)}`}>{list.rank ?? '–'}</span>
+        <span className={`community-rank ${medal(list.rank)}`} aria-hidden>
+          {list.rank ?? '–'}
+        </span>
+        {list.rank != null && <span className="sr-only">{t.communityLists.placeLabel(list.rank)}</span>}
         <LegendArt card={legendCard} name={list.legendName} />
         <span className="community-main">
           <span className="community-legend-name">{list.legendName}</span>

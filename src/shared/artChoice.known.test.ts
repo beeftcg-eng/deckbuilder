@@ -12,7 +12,9 @@ vi.mock('./games/yugiohArtMap', () => ({
   YGO_ART_MAP_DATE: 'test',
 }))
 
-const { applyArtChoices, artworkIds, knownArtIds, withArtwork } = await import('./artChoice')
+const { applyArtChoices, artworkIds, knownArtIds, loadArtMap, withArtwork } = await import('./artChoice')
+// Loaded with Yu-Gi-Oh!'s card data in the app (catalog.ts).
+await loadArtMap()
 
 const dm = (setCode: string, number: string, rarity: string) =>
   makeCard('yugioh', {

@@ -19,12 +19,13 @@ installWebApiIfNeeded()
 if (__WEB__) void import('./web/pwaUpdate').then((m) => m.keepPwaUpdated())
 
 applyCachedTheme()
-applyCachedLanguage()
-// The store was created (on import) before the language above was picked.
-useAppStore.setState({ language: getLanguage() })
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// The language loads (when it isn't English) before the first paint, so the app never flashes English first.
+void applyCachedLanguage().then(() => {
+  // The store was created (on import) before the language above was picked.
+  useAppStore.setState({ language: getLanguage() })
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+})

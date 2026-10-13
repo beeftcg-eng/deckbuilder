@@ -1605,6 +1605,12 @@
   gap: 6px;
 }
 
+.community-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
 .community-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -1759,6 +1765,12 @@
 .community-trades:has(.community-trade-list) {
   flex-basis: 100%;
 }
+.community-other {
+  font-size: 12px;
+}
+.community-other p {
+  margin: 2px 0 4px;
+}
 .community-trade-list {
   margin: 4px 0 0;
   padding-left: 0;
@@ -1807,6 +1819,95 @@
   height: auto;
   background: #fff;
   border-radius: 6px;
+}
+
+/* Read by screen readers, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.matchup-plan {
+  border-top: 1px solid var(--border-strong);
+  padding-top: 6px;
+  font-size: 13px;
+}
+.matchup-plan-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.matchup-plan-line {
+  line-height: 1.6;
+}
+.matchup-in,
+.matchup-out {
+  display: inline-block;
+  min-width: 2.6em;
+  font-weight: 700;
+}
+.matchup-in {
+  color: var(--success);
+}
+.matchup-out {
+  color: var(--danger);
+}
+.matchup-plan-note {
+  white-space: pre-wrap;
+}
+.matchup-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.matchup-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.matchup-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px 16px;
+}
+.matchup-picker {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.matchup-picker li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0;
+}
+.matchup-picker li.picked .matchup-name {
+  font-weight: 700;
+}
+.matchup-picker .btn {
+  padding: 0 8px;
+  min-width: 26px;
+}
+.matchup-count {
+  min-width: 2.6em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+.matchup-warning {
+  color: var(--warning);
 }
 
 .proxy-modal {

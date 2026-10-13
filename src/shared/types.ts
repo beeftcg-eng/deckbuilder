@@ -144,6 +144,16 @@ export interface DeckFreeTextEntry {
   quantity: number
 }
 
+/** Sideboarding against one opponent: the copies to bring in from the sideboard and take out of the deck. */
+export interface MatchupPlan {
+  id: string
+  /** Who it's against, as you name them (a Legend, a deck, "Kennen OC"). */
+  opponent: string
+  in: DeckCardEntry[]
+  out: DeckCardEntry[]
+  note?: string
+}
+
 export interface Deck {
   id: string
   gameId: GameId
@@ -157,6 +167,8 @@ export interface Deck {
   shareToken?: string
   /** Your own notes on the deck (sideboard plan, mulligans, matchups). Synced, never shown on a share link. */
   notes?: string
+  /** What to side in and out against each opponent (MatchupPlans.tsx). Synced, never shown on a share link. */
+  matchupPlans?: MatchupPlan[]
   /** The folder it's filed under in the deck lists (deckFolders.ts); unset = not in one. Synced with the deck. */
   folder?: string
   /** zoneId -> entries. Most zones use DeckCardEntry[]; freeText zones use DeckFreeTextEntry[]. */

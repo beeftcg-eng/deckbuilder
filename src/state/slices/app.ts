@@ -68,7 +68,7 @@ export function createAppSlice(ctx: StoreContext) {
           set({ announcement })
         })
         if (isLanguage(settings.language) && settings.language !== get().language) {
-          applyLanguage(settings.language)
+          await applyLanguage(settings.language)
           set({ language: settings.language })
         }
         // Open the deck a link names (Pairings' "Open in Brewhouse" goes to the phone app with ?deck=<id>),
@@ -176,9 +176,8 @@ export function createAppSlice(ctx: StoreContext) {
     },
 
     setLanguage: (language) => {
-      applyLanguage(language)
-      set({ language })
       persistSettings({ language })
+      void applyLanguage(language).then(() => set({ language }))
     },
 
     setShowWishlist: (show) =>
