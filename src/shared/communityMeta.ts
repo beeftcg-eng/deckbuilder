@@ -1,7 +1,7 @@
-import type { Card, Deck, DeckCardEntry, DeckFreeTextEntry } from './types'
+import type { Card, Deck, DeckCardEntry, DeckFreeTextEntry, ListWatch, PairingsResult, TraderProfile } from './types'
 import type { CommunityList } from './communityLists'
-import { deckCodeToText } from './riftboundDeckCode'
-import { parseDecklistText } from './importDeck'
+import { deckCodeToCards } from './riftboundDeckCode'
+import { matchupsOf } from './pairingsRecord'
 import { getAdapter } from './games/registry'
 import { missingForDeck, neededByPool, normalizeName } from './collection'
 import { buyList } from './buyList'
@@ -17,11 +17,10 @@ export interface ListDeck extends ListCards {
   list: CommunityList
 }
 
-/** A list as a Riftbound deck (its deck code read against the card data), or null if the code can't be read. */
-export function listDeck(list: CommunityList, cardsById: Map<string, Card>): ListDeck | null {
+/** A list as a Riftbound deck (its deck code read against the card data, `index` from codeIndex), or null if the code can't be read. */
+export function listDeck(list: CommunityList, index: Map<string, Card>): ListDeck | null {
   try {
-    const parsed = parseDecklistText(deckCodeToText(list.deckCode, cardsById.values()), getAdapter('riftbound'), cardsById, 'constructed')
-    return { list, zones: parsed.zones, freeTextZones: parsed.freeTextZones }
+    return { list, ...deckCodeToCards(list.deckCode, index) }
   } catch {
     return null
   }
@@ -156,4 +155,127 @@ export function coreDeck(decks: readonly ListCards[], cardsById: Map<string, Car
   }
   const runeCount = runeDecks ? Math.round([...runeTotals.values()].reduce((a, b) => a + b, 0) / runeDecks) : 0
   return { zones, freeTextZones: runeCount ? { runes: apportion(runeTotals, runeCount) } : {} }
+}
+
+// ---------- your record against each Legend (Pairings) ----------
+
+export interface VsRecord {
+  wins: number
+  losses: number
+  draws: number
+}
+
+const champion = (legendName: string) => legendName.split(/, | - /)[0].trim().toLowerCase()
+const titleOf = (legendName: string) => legendName.split(/, | - /).slice(1).join(' ').toLowerCase()
+const hasWord = (text: string, word: string) => new RegExp(`(^|[^\\p{L}])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^\\p{L}])`, 'iu').test(text)
+
+/**
+ * Your Pairings results against each Legend: opponents are typed by hand ("kennen", "Kennen OC"), so
+ * one counts for a Legend when it names its champion; when two Legends share a champion (Master Yi),
+ * the one whose title it also names, else neither.
+ */
+export function recordsVsLegends(legends: readonly Pick<LegendMeta, 'legendId' | 'legendName'>[], results: readonly PairingsResult[]): Map<string, VsRecord> {
+  const out = new Map<string, VsRecord>()
+  for (const m of matchupsOf([...results])) {
+    const opponent = m.opponent.toLowerCase()
+    let matches = legends.filter((l) => hasWord(opponent, champion(l.legendName)))
+    // Words of the title that aren't in the champion's name ("Wuju Master" -> "wuju": "master" is Master Yi's own).
+    const titleWords = (l: Pick<LegendMeta, 'legendName'>) => titleOf(l.legendName).split(/\s+/).filter((w) => w.length > 3 && !champion(l.legendName).split(/\s+/).includes(w))
+    if (matches.length > 1) matches = matches.filter((l) => titleWords(l).some((w) => opponent.includes(w)))
+    if (matches.length !== 1) continue
+    const r = out.get(matches[0].legendId) ?? { wins: 0, losses: 0, draws: 0 }
+    out.set(matches[0].legendId, { wins: r.wins + m.wins, losses: r.losses + m.losses, draws: r.draws + m.draws })
+  }
+  return out
+}
+
+// ---------- watching a list's price ----------
+
+export function sanitizeListWatches(raw: unknown): Record<string, ListWatch> {
+  const out: Record<string, ListWatch> = {}
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return out
+  for (const [id, w] of Object.entries(raw as Record<string, unknown>).slice(0, 200)) {
+    if (w == null || typeof w !== 'object') continue
+    const { name, deckCode, target, hit } = w as Record<string, unknown>
+    if (typeof name !== 'string' || typeof deckCode !== 'string' || !/^[A-Z2-7]+$/.test(deckCode)) continue
+    if (typeof target !== 'number' || !Number.isFinite(target) || target < 0) continue
+    out[id] = { name: name.slice(0, 200), deckCode, target, ...(hit === true ? { hit: true } : {}) }
+  }
+  return out
+}
+
+export interface ListWatchHit {
+  watch: ListWatch
+  /** USD to finish it now. */
+  cost: number
+}
+
+/**
+ * Checks each watched list's cost to finish (with what you own now) against its target. Returns the
+ * watches that just went off and the updated watches (null when nothing changed); like price alerts,
+ * one re-arms when the cost climbs back above its target.
+ */
+export function checkListWatches(
+  watches: Record<string, ListWatch> | undefined,
+  index: Map<string, Card>,
+  cardsById: Map<string, Card>,
+  cards: readonly Card[],
+  owned: Map<string, number>,
+): { hits: ListWatchHit[]; next: Record<string, ListWatch> | null } {
+  if (!watches || !cardsById.size) return { hits: [], next: null }
+  const hits: ListWatchHit[] = []
+  const next: Record<string, ListWatch> = {}
+  let changed = false
+  for (const [id, watch] of Object.entries(watches)) {
+    let cost: number
+    try {
+      cost = listOwnership(deckCodeToCards(watch.deckCode, index), cardsById, cards, owned).missingCost
+    } catch {
+      next[id] = watch
+      continue
+    }
+    const below = cost <= watch.target
+    if (below && !watch.hit) {
+      hits.push({ watch, cost })
+      next[id] = { ...watch, hit: true }
+      changed = true
+    } else if (!below && watch.hit) {
+      next[id] = { name: watch.name, deckCode: watch.deckCode, target: watch.target }
+      changed = true
+    } else next[id] = watch
+  }
+  return { hits, next: changed ? next : null }
+}
+
+// ---------- the missing cards on other people's trade lists ----------
+
+export interface TradeOffer {
+  /** The card as the list uses it. */
+  card: Card
+  missing: number
+  /** Who has it marked for trade (display names). */
+  traders: string[]
+}
+
+/** A trade listing's card name as the copy limit counts it ("Gust (Alternate Art)" -> "gust"). */
+const listingKey = (name: string) => normalizeName(name.replace(/\s*\([^)]*\)\s*$/, ''))
+
+/** Which of a list's missing cards other traders have marked for trade (any printing), most traders first. */
+export function tradeOffersFor(deck: ListCards, cardsById: Map<string, Card>, owned: Map<string, number>, traders: readonly TraderProfile[]): { offers: TradeOffer[]; missingCards: number } {
+  const missing = missingForDeck(deck as Deck, cardsById, owned)
+  const byName = new Map<string, Set<string>>()
+  for (const trader of traders) {
+    for (const listing of trader.collection) {
+      if (listing.gameId !== 'riftbound' || !listing.forTrade || listing.quantity <= 0) continue
+      const key = listingKey(listing.cardName)
+      const names = byName.get(key) ?? byName.set(key, new Set()).get(key)!
+      names.add(trader.displayName || '?')
+    }
+  }
+  const offers: TradeOffer[] = []
+  for (const m of missing) {
+    const traders = byName.get(listingKey(getAdapter('riftbound').copyName?.(m.card) ?? m.card.name))
+    if (traders?.size) offers.push({ card: m.card, missing: m.quantity, traders: [...traders].sort() })
+  }
+  return { offers: offers.sort((a, b) => b.traders.length - a.traders.length || a.card.name.localeCompare(b.card.name)), missingCards: missing.length }
 }

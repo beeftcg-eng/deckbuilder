@@ -17,6 +17,20 @@ describe('desktop settings', () => {
     expect(saved.theme).toBeUndefined()
   })
 
+  it('remembers the last announcement shown, so it shows once', () => {
+    expect(sanitize({ announcementSeen: 'Anuncio 10/10/2026' }).announcementSeen).toBe('Anuncio 10/10/2026')
+    expect(sanitize({ announcementSeen: 3 }).announcementSeen).toBeUndefined()
+  })
+
+  it('keeps every setting the app has', async () => {
+    // A setting the app saves but this file doesn't let through is lost at every launch.
+    const types = (await import('node:fs')).readFileSync(new URL('../../src/shared/types.ts', import.meta.url), 'utf8')
+    const block = types.slice(types.indexOf('export interface AppSettings'))
+    const keys = [...block.slice(0, block.indexOf('\n}\n')).matchAll(/^ {2}(\w+)\??:/gm)].map((m) => m[1])
+    const source = (await import('node:fs')).readFileSync(new URL('./settings.ts', import.meta.url), 'utf8')
+    expect(keys.filter((k) => !source.includes(`source.${k}`))).toEqual([])
+  })
+
   it('drops malformed values', () => {
     const saved = sanitize({ currency: 'pesos', currencyRates: { rates: { MXN: 17 } }, artChoices: 'x' })
     expect(saved.currency).toBeUndefined()

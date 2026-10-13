@@ -9,6 +9,7 @@ import { itemsFile, settingsFile } from '../lib/paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/jsonStore'
 import { sanitizeValueHistory } from '../../src/shared/valueHistory'
 import { sanitizePriceAlerts } from '../../src/shared/priceAlerts'
+import { sanitizeListWatches } from '../../src/shared/communityMeta'
 import { sanitizePackOpenings } from '../../src/shared/packOpenings'
 import { sanitizeCollectionBatches } from '../../src/shared/collectionBatches'
 import { sanitizeCollectionDetails } from '../../src/shared/copyDetails'
@@ -36,6 +37,8 @@ export function sanitize(raw: unknown): AppSettings {
   if (isThemeId(source.theme)) settings.theme = source.theme
   if (isLanguage(source.language)) settings.language = source.language
   if (source.tourSeen === true) settings.tourSeen = true
+  // The last announcement shown (shared/announcement.ts): dropping it here showed the same one at every launch.
+  if (typeof source.announcementSeen === 'string') settings.announcementSeen = source.announcementSeen.slice(0, 200)
   // Currency and its last known exchange rates (shared/currency.ts): dropping these here is what made
   // picking a currency snap back to dollars on the desktop.
   if (typeof source.currency === 'string' && /^[A-Z]{3}$/.test(source.currency)) settings.currency = source.currency
@@ -59,6 +62,7 @@ export function sanitize(raw: unknown): AppSettings {
   }
   if (source.valueHistory !== undefined) settings.valueHistory = sanitizeValueHistory(source.valueHistory, GAME_IDS)
   if (source.priceAlerts !== undefined) settings.priceAlerts = sanitizePriceAlerts(source.priceAlerts)
+  if (source.listWatches !== undefined) settings.listWatches = sanitizeListWatches(source.listWatches)
   if (source.packOpenings !== undefined) settings.packOpenings = sanitizePackOpenings(source.packOpenings)
   if (source.collectionBatches !== undefined) settings.collectionBatches = sanitizeCollectionBatches(source.collectionBatches, GAME_IDS)
   if (source.collectionDetails !== undefined) settings.collectionDetails = sanitizeCollectionDetails(source.collectionDetails)

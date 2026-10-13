@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { cardPlayRates, coreDeck, legendMeta, listOwnership } from './communityMeta'
+import { cardPlayRates, checkListWatches, coreDeck, legendMeta, listOwnership, recordsVsLegends, sanitizeListWatches, tradeOffersFor } from './communityMeta'
+import { codeIndex } from './riftboundDeckCode'
+import type { PairingsResult } from './types'
 import type { CommunityList } from './communityLists'
 import { makeCard } from './testFixtures'
 
 const list = (legendId: string, rank: number): CommunityList => ({
   id: `${legendId}${rank}`,
+  eventId: 'e',
   legendId,
   legendName: legendId,
   eventName: 'e',
@@ -76,5 +79,48 @@ describe('community meta', () => {
     expect(o.needed).toBe(6)
     expect(o.owned).toBeLessThan(6)
     expect(o.missingCost).toBeGreaterThan(0)
+  })
+
+  it('counts your Pairings results against each Legend, by its champion', () => {
+    const result = (...matches: [string, 'W' | 'L' | 'D'][]): PairingsResult => ({
+      event: '', date: '', game: '', format: '', store: '', placement: '', record: '', inProgress: false, deckVersion: null,
+      matches: matches.map(([opponent, outcome]) => ({ opponent, outcome, wentFirst: '' })),
+    })
+    const legends = [
+      { legendId: 'K', legendName: 'Kennen, Heart of the Tempest' },
+      { legendId: 'Y1', legendName: 'Master Yi, Wuju Bladesman' },
+      { legendId: 'Y2', legendName: 'Master Yi, Wuju Master' },
+    ]
+    const records = recordsVsLegends(legends, [result(['kennen', 'L'], ['Kennen OC', 'W'], ['Master Yi bladesman', 'W'], ['master yi', 'L'], ['Kennenite', 'W'])])
+    expect(records.get('K')).toEqual({ wins: 1, losses: 1, draws: 0 })
+    expect(records.get('Y1')).toEqual({ wins: 1, losses: 0, draws: 0 })
+    expect(records.has('Y2')).toBe(false)
+  })
+
+  it("watches a list's cost to finish, once until it climbs back", () => {
+    const kennen = makeCard('riftbound', { name: 'Kennen - Heart of the Tempest', sourceId: 'ven-155-166', category: 'Legend', price: 2 })
+    const sett = makeCard('riftbound', { name: 'Sett, Brawler', sourceId: 'ven-sp1-006', price: 4 })
+    const all = [kennen, sett]
+    const byId = new Map(all.map((c) => [c.id, c]))
+    const watches = sanitizeListWatches({ a: { name: 'Kennen', deckCode: 'CUAQEAYBAECQAAQBAEAQCBIAACNQCAAA', target: 10 }, bad: { name: 'x', deckCode: 'lower', target: 1 } })
+    expect(Object.keys(watches)).toEqual(['a'])
+    const first = checkListWatches(watches, codeIndex(all), byId, all, new Map())
+    expect(first.hits).toEqual([])
+    const owned = new Map([[`riftbound:${sett.name.toLowerCase()}`, 2]])
+    const second = checkListWatches(watches, codeIndex(all), byId, all, owned)
+    expect(second.hits.map((h) => h.cost)).toEqual([6])
+    expect(second.next?.a.hit).toBe(true)
+    expect(checkListWatches(second.next!, codeIndex(all), byId, all, owned).next).toBeNull()
+    expect(checkListWatches(second.next!, codeIndex(all), byId, all, new Map()).next?.a.hit).toBeUndefined()
+  })
+
+  it("finds the missing cards on other people's trade lists", () => {
+    const traders = [
+      { userId: '1', displayName: 'Sam', email: '', wants: [], collection: [{ gameId: 'riftbound' as const, cardId: 'x', cardName: 'Gust (Alternate Art)', setCode: '', quantity: 1, forTrade: true }] },
+      { userId: '2', displayName: 'Alex', email: '', wants: [], collection: [{ gameId: 'riftbound' as const, cardId: 'y', cardName: 'Retreat', setCode: '', quantity: 2, forTrade: false }] },
+    ]
+    const { offers, missingCards } = tradeOffersFor(decks[2], cardsById, new Map(), traders)
+    expect(missingCards).toBe(3)
+    expect(offers.map((o) => [o.card.name, o.missing, o.traders])).toEqual([['Gust', 3, ['Sam']]])
   })
 })

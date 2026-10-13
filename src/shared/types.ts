@@ -325,6 +325,8 @@ export interface AppSettings {
   valueHistory?: ValueHistory
   /** Target prices on wishlist cards, by card id (priceAlerts.ts). */
   priceAlerts?: PriceAlerts
+  /** Community lists you're watching the price of, by list id (communityMeta.ts checkListWatches). */
+  listWatches?: Record<string, ListWatch>
   /** Pack and box openings, every game's, newest first (packOpenings.ts). */
   packOpenings?: PackOpening[]
   /** Recent many-card collection changes, newest first, kept so each can be undone (collectionBatches.ts). This device only. */
@@ -335,6 +337,15 @@ export interface AppSettings {
   itemsSynced?: boolean
   /** Trade matches already announced on this device (tradeAlerts.ts). */
   tradeSeen?: string[]
+}
+
+/** A community list whose cost to finish you're watching: say so once when it drops to `target` (USD) or below. */
+export interface ListWatch {
+  name: string
+  deckCode: string
+  target: number
+  /** Set once it went off, cleared when the cost climbs back above the target. */
+  hit?: boolean
 }
 
 export interface PawmodoroConfig {

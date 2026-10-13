@@ -17,6 +17,7 @@ on:
       - "public/**"
       - "package.json"
       - "scripts/build-prices.ts"
+      - "scripts/build-community-lists.ts"
       - ".github/workflows/deploy-pwa.yml"
   workflow_dispatch: {}
   # Daily, so the TCGplayer price files (below) stay current even when nothing else changed.
@@ -27,6 +28,8 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  # To open (and close) the issue that says RiftAtlas can't be read (below).
+  issues: write
 
 concurrency:
   group: pages
@@ -48,6 +51,34 @@ jobs:
       # is skipped with a warning; the apps keep the prices they already had.
       # (Bundled first: it reuses the app's own One Piece and Magic download code.)
       - run: npx rolldown scripts/build-prices.ts --platform node --format esm -o .prices/build-prices.mjs && node .prices/build-prices.mjs dist-web/prices
+      # Riftbound tournament lists from RiftAtlas, published as community/riftbound.json for the Community
+      # lists window (RiftAtlas doesn't let the phone app read it). This is also the daily check that
+      # RiftAtlas can still be read: when it can't, the last good file is published again and an issue
+      # is opened (and closed again once it reads).
+      - name: Community lists
+        id: community
+        continue-on-error: true
+        run: npx rolldown scripts/build-community-lists.ts --platform node --format esm -o .community/build-community-lists.mjs && node .community/build-community-lists.mjs dist-web/community
+      - name: Community lists failed - keep the last file, open an issue
+        if: steps.community.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: "Community lists: RiftAtlas can't be read"
+        run: |
+          mkdir -p dist-web/community
+          curl -sfL https://beeftcg-eng.github.io/deckbuilder/community/riftbound.json -o dist-web/community/riftbound.json || echo "No earlier file to keep."
+          if [ "$(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq 'length')" = 0 ]; then
+            gh issue create --title "$TITLE" --body "The daily deploy couldn't read RiftAtlas's tournament lists (run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). The apps keep showing the last lists that were read. Check the run's **Community lists** step: RiftAtlas has probably changed its pages, and src/shared/communityLists.ts needs to follow. This issue closes by itself once a deploy reads them again."
+          fi
+      - name: Community lists read - close the issue
+        if: steps.community.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: "Community lists: RiftAtlas can't be read"
+        run: |
+          for n in $(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Read again in $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+          done
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

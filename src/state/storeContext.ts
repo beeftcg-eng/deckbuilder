@@ -3,6 +3,8 @@ import { GAME_LIST, getAdapter } from '../shared/games/registry'
 import { gameIdOfCardId, totalPrice } from '../shared/collection'
 import { localDay, recordValue, type ValueHistory } from '../shared/valueHistory'
 import { checkPriceAlerts } from '../shared/priceAlerts'
+import { checkListWatches } from '../shared/communityMeta'
+import { codeIndex } from '../shared/riftboundDeckCode'
 import { isCatalogStale } from '../shared/catalogAge'
 import { notify } from '../lib/notify'
 import { freshTradeMatches } from '../shared/tradeAlerts'
@@ -10,7 +12,7 @@ import type { CollectionDetails, CopyDetail } from '../shared/copyDetails'
 import { formatMoney } from '../shared/currency'
 import { withListHash, withSummary } from '../shared/deckSummary'
 import { t } from '../shared/i18n'
-import { MAX_UNDO, errorMessage, lookupIn, type GetState, type SetState, type UndoEntry } from './storeUtils'
+import { MAX_UNDO, errorMessage, lookupIn, ownedIndexOf, type GetState, type SetState, type UndoEntry } from './storeUtils'
 
 /** The helpers every slice shares: saving settings and decks, undo, and the background checks (prices, alerts, trade matches). */
 export type StoreContext = ReturnType<typeof createStoreContext>
@@ -77,11 +79,29 @@ export function createStoreContext(set: SetState, get: GetState) {
       set((s) => ({ settings: { ...s.settings, priceAlerts: next } }))
       persistSettings({ priceAlerts: next })
     }
+    if (hits.length > 0) {
+      const text =
+        hits.length === 1
+          ? t.priceAlerts.hitOne(hits[0].card.name, formatMoney(hits[0].price), formatMoney(hits[0].target))
+          : t.priceAlerts.hitMany(hits.length, hits.map((h) => h.card.name).join(', '))
+      set({ notice: text })
+      void notify(t.priceAlerts.notifyTitle, text)
+    }
+    checkWatches()
+  }
+
+  /** Watched community lists (communityMeta.ts) against the Riftbound prices and the collection now. */
+  function checkWatches() {
+    const { catalogs, collection, settings } = get()
+    const catalog = catalogs.riftbound
+    if (!catalog || !settings.listWatches || !Object.keys(settings.listWatches).length) return
+    const { hits, next } = checkListWatches(settings.listWatches, codeIndex(catalog.cards), catalog.byId, catalog.cards, ownedIndexOf(collection, catalogs))
+    if (next) {
+      set((s) => ({ settings: { ...s.settings, listWatches: next } }))
+      persistSettings({ listWatches: next })
+    }
     if (hits.length === 0) return
-    const text =
-      hits.length === 1
-        ? t.priceAlerts.hitOne(hits[0].card.name, formatMoney(hits[0].price), formatMoney(hits[0].target))
-        : t.priceAlerts.hitMany(hits.length, hits.map((h) => h.card.name).join(', '))
+    const text = hits.map((h) => t.communityLists.watchHit(h.watch.name, formatMoney(h.cost), formatMoney(h.watch.target))).join(' · ')
     set({ notice: text })
     void notify(t.priceAlerts.notifyTitle, text)
   }
@@ -90,6 +110,7 @@ export function createStoreContext(set: SetState, get: GetState) {
   async function loadAlertCatalogs() {
     const alerts = get().settings.priceAlerts ?? {}
     const games = new Set(get().wishlist.filter((e) => alerts[e.cardId]).map((e) => e.gameId))
+    if (Object.keys(get().settings.listWatches ?? {}).length) games.add('riftbound')
     for (const gameId of games) {
       if (!get().catalogs[gameId] && get().syncMeta[gameId]?.count) await get().loadCatalog(gameId).catch(() => undefined)
     }

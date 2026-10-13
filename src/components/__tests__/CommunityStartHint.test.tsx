@@ -13,7 +13,7 @@ const data = {
 const html = `<script>self.__next_f.push([1,${JSON.stringify(JSON.stringify(data))}])</script>`
 const saved: Deck[] = []
 ;(window as unknown as { api: object }).api = {
-  fetchCommunityLists: vi.fn(async () => html),
+  fetchCommunityPage: vi.fn(async (url: string) => (url.includes('/events/') ? '' : html)),
   decks: { save: vi.fn(async (deck: Deck) => (saved.push(deck), deck)) },
 }
 
@@ -21,6 +21,8 @@ const { useAppStore } = await import('../../state/useAppStore')
 const { CommunityStartHint } = await import('../CommunityStartHint')
 
 afterEach(cleanup)
+// No published file: the desktop app reads RiftAtlas itself.
+vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 404 })))
 
 describe("Starting a deck from its Legend's lists", () => {
   it('offers the lists for a deck with only its Legend, and fills it', async () => {

@@ -228,6 +228,8 @@ export interface AppState {
   recordCollectionValue: (gameId: GameId) => void
   /** Sets (US dollars) or clears (null) the price alert on a wishlisted card (priceAlerts.ts). */
   setPriceAlert: (cardId: string, targetUsd: number | null) => void
+  /** Watches a community list's cost to finish (communityMeta.ts), or stops with null. */
+  setListWatch: (listId: string, watch: { name: string; deckCode: string; target: number } | null) => void
   /** Changes whenever the currency or its rate does, so price text re-renders (App.tsx keys on it). */
   currencyKey: string
   /** The welcome tour (WelcomeTour.tsx): opens by itself on a first launch, or from the sidebar. */

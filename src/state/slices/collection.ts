@@ -49,6 +49,15 @@ export function createCollectionSlice(ctx: StoreContext) {
       checkAlerts()
     },
 
+    setListWatch: (listId, watch) => {
+      const watches = { ...get().settings.listWatches }
+      if (watch == null) delete watches[listId]
+      else watches[listId] = { name: watch.name, deckCode: watch.deckCode, target: watch.target }
+      set((s) => ({ settings: { ...s.settings, listWatches: watches } }))
+      persistSettings({ listWatches: watches })
+      checkAlerts()
+    },
+
     loadWishlist: async () => {
       const wishlist = await window.api.wishlist.list()
       set({ wishlist })

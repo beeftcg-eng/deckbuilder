@@ -53,7 +53,6 @@ import { t } from '../shared/i18n'
 import { fetchSharedDeck } from '../shared/deckShare'
 import { applyPriceUpdate, fetchPriceUpdate } from '../shared/priceRefresh'
 import { deckUrlTarget } from '../shared/deckUrl'
-import { COMMUNITY_LISTS_URL } from '../shared/communityLists'
 import { migrateFormats } from '../shared/formatMigration'
 
 const RELEASES_REPO = 'beeftcg-eng/deckbuilder-releases'
@@ -690,11 +689,9 @@ const fetchDeckPage = async (url: string): Promise<string> => {
   return res.text()
 }
 
-/** RiftAtlas lets other pages read its Decks page, so the phone app fetches it directly. */
-const fetchCommunityLists = async (): Promise<string> => {
-  const res = await fetch(COMMUNITY_LISTS_URL)
-  if (!res.ok) throw new Error(t.communityLists.fetchFailed(String(res.status)))
-  return res.text()
+/** RiftAtlas doesn't let web pages read it: the phone app reads the published file instead (state/communityLists.ts). */
+const fetchCommunityPage = async (): Promise<string> => {
+  throw new Error(t.communityLists.fetchFailed('web'))
 }
 
 const exportSaveFile = async (content: string, suggestedName: string): Promise<boolean> =>
@@ -870,7 +867,7 @@ export const webApi = {
   updater,
   exportPaste,
   fetchDeckPage,
-  fetchCommunityLists,
+  fetchCommunityPage,
   exportSaveFile,
   exportSaveImage,
   exportSavePdf,

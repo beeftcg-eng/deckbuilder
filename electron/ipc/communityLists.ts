@@ -5,10 +5,15 @@ import { t } from '../../src/shared/i18n'
 const MAX_BYTES = 5 * 1024 * 1024
 const TIMEOUT_MS = 20_000
 
-/** Reads RiftAtlas's Decks page for the Community lists window (shared/communityLists.ts). Only that page. */
+/**
+ * Reads RiftAtlas's Decks page or one of its event pages, for the Community lists when the published
+ * file is missing or old (shared/communityLists.ts). Only those pages.
+ */
 export function registerCommunityListsIpc(): void {
-  ipcMain.handle('communityLists:fetch', async (): Promise<string> => {
-    const res = await fetch(COMMUNITY_LISTS_URL, {
+  ipcMain.handle('communityLists:fetch', async (_e, url: unknown): Promise<string> => {
+    const target = String(url ?? COMMUNITY_LISTS_URL)
+    if (target !== COMMUNITY_LISTS_URL && !/^https:\/\/riftatlas\.com\/events\/[a-z0-9][a-z0-9-]{0,199}$/.test(target)) throw new Error('Not a RiftAtlas page this app reads')
+    const res = await fetch(target, {
       headers: { 'User-Agent': 'BeefsBrewhouse (community lists)', Accept: 'text/html' },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })

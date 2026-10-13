@@ -27,7 +27,7 @@ export function CommunityStartHint({ deck }: { deck: Deck }) {
     const key = poolKey(legendCard)
     return lists.flatMap((l) => {
       const card = cardForCode(index, l.legendId)
-      const d = card && poolKey(card) === key ? listDeck(l, cardsById) : null
+      const d = card && poolKey(card) === key ? listDeck(l, index) : null
       return d ? [d] : []
     })
   }, [show, lists, legendCard, cardsById])

@@ -29,6 +29,7 @@ release
 # scripts/build-ygo-art-map.py progress (resumable)
 .ygo-art-cache.json
 .prices/
+.community/
 
 # Personal backups (never commit real decks)
 backup/

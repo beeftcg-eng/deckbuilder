@@ -179,20 +179,15 @@ const RUNE_DOMAINS = ['Fury', 'Calm', 'Mind', 'Body', 'Chaos', 'Order']
 
 type Section = 'Legend' | 'MainDeck' | 'Battlefields' | 'Runes' | 'Sideboard'
 
-/**
- * A deck code as decklist text the paste importer reads ("3 ogn-066-298 Ahri, Alluring" under
- * Legend:/MainDeck:/Battlefields:/Runes:/Sideboard:), each card as the exact printing when the catalog
- * has it; a variant the catalog lacks falls back to the regular printing. Runes are the Rune Deck's
- * count by domain ("8 Order Rune"), whichever printings the code names. Anything the catalog doesn't
- * have is left as its code, which the importer reports as not matched.
- */
-export function deckCodeToText(code: string, cards: Iterable<Card>): string {
+type Line = { count: number; card: Card } | { count: number; code: string }
+
+/** A deck code's cards by section, each the exact printing when the catalog has it (the regular one when it lacks a variant); runes by domain. */
+function deckCodeSections(code: string, index: Map<string, Card>): { sections: Record<Section, Line[]>; runes: Map<string, number> } {
   const deck = decodeDeckCode(code)
-  const byKey = codeIndex(cards)
-  const sections: Record<Section, string[]> = { Legend: [], MainDeck: [], Battlefields: [], Runes: [], Sideboard: [] }
+  const sections: Record<Section, Line[]> = { Legend: [], MainDeck: [], Battlefields: [], Runes: [], Sideboard: [] }
   const runes = new Map<string, number>()
   const add = (entry: DeckCodeEntry, sideboard: boolean, legend = false) => {
-    const card = cardForCode(byKey, entry.code)
+    const card = cardForCode(index, entry.code)
     const numbered = /-R0([1-6])[a-z]?$/i.exec(entry.code)?.[1]
     const domain = card?.category === 'Rune' ? RUNE_DOMAINS.find((d) => card.name.startsWith(`${d} Rune`)) : numbered ? RUNE_DOMAINS[Number(numbered) - 1] : undefined
     if (domain && !sideboard) {
@@ -200,7 +195,7 @@ export function deckCodeToText(code: string, cards: Iterable<Card>): string {
       return
     }
     if (!card) {
-      sections[sideboard ? 'Sideboard' : legend ? 'Legend' : 'MainDeck'].push(`${entry.count} ${entry.code}`)
+      sections[sideboard ? 'Sideboard' : legend ? 'Legend' : 'MainDeck'].push({ count: entry.count, code: entry.code })
       return
     }
     const section: Section = sideboard
@@ -210,16 +205,54 @@ export function deckCodeToText(code: string, cards: Iterable<Card>): string {
         : card.category === 'Battlefield'
           ? 'Battlefields'
           : 'MainDeck'
-    sections[section].push(`${entry.count} ${card.sourceId} ${card.name}`)
+    sections[section].push({ count: entry.count, card })
   }
   for (const entry of deck.main) add(entry, false)
   for (const legend of deck.extraLegends) add({ code: legend, count: 1 }, false, true)
   for (const entry of deck.sideboard) add(entry, true)
-  sections.Runes = [...runes].map(([domain, count]) => `${count} ${domain} Rune`)
-  return (Object.entries(sections) as [Section, string[]][])
-    .filter(([, lines]) => lines.length > 0)
-    .map(([heading, lines]) => [`${heading}:`, ...lines].join('\n'))
+  return { sections, runes }
+}
+
+/**
+ * A deck code as decklist text the paste importer reads ("3 ogn-066-298 Ahri, Alluring" under
+ * Legend:/MainDeck:/Battlefields:/Runes:/Sideboard:), each card as the exact printing when the catalog
+ * has it; a variant the catalog lacks falls back to the regular printing. Runes are the Rune Deck's
+ * count by domain ("8 Order Rune"), whichever printings the code names. Anything the catalog doesn't
+ * have is left as its code, which the importer reports as not matched.
+ */
+export function deckCodeToText(code: string, cards: Iterable<Card>, index: Map<string, Card> = codeIndex(cards)): string {
+  const { sections, runes } = deckCodeSections(code, index)
+  const lines: Record<Section, string[]> = {
+    Legend: [],
+    MainDeck: [],
+    Battlefields: [],
+    Runes: [...runes].map(([domain, count]) => `${count} ${domain} Rune`),
+    Sideboard: [],
+  }
+  for (const [section, entries] of Object.entries(sections) as [Section, Line[]][])
+    for (const e of entries) lines[section].push('card' in e ? `${e.count} ${e.card.sourceId} ${e.card.name}` : `${e.count} ${e.code}`)
+  return (Object.entries(lines) as [Section, string[]][])
+    .filter(([, l]) => l.length > 0)
+    .map(([heading, l]) => [`${heading}:`, ...l].join('\n'))
     .join('\n\n')
+}
+
+const SECTION_ZONE: Record<Section, string> = { Legend: 'legend', MainDeck: 'main', Battlefields: 'battlefields', Runes: 'runes', Sideboard: 'sideboard' }
+
+/**
+ * A deck code straight to a deck's zones (`index` from codeIndex), without going through text: the
+ * same cards deckCodeToText's text imports as, quick enough for a thousand lists. Cards the catalog
+ * doesn't have are left out.
+ */
+export function deckCodeToCards(code: string, index: Map<string, Card>): Pick<Deck, 'zones' | 'freeTextZones'> {
+  const { sections, runes } = deckCodeSections(code, index)
+  const zones: Record<string, { cardId: string; quantity: number }[]> = {}
+  for (const [section, entries] of Object.entries(sections) as [Section, Line[]][]) {
+    const merged = new Map<string, number>()
+    for (const e of entries) if ('card' in e) merged.set(e.card.id, (merged.get(e.card.id) ?? 0) + e.count)
+    if (merged.size) zones[SECTION_ZONE[section]] = [...merged].map(([cardId, quantity]) => ({ cardId, quantity }))
+  }
+  return { zones, freeTextZones: runes.size ? { runes: [...runes].map(([label, quantity]) => ({ label, quantity })) } : {} }
 }
 
 // ---------- out of a deck ----------
