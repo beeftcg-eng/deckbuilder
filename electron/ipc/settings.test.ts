@@ -24,7 +24,8 @@ describe('desktop settings', () => {
 
   it('keeps every setting the app has', async () => {
     // A setting the app saves but this file doesn't let through is lost at every launch.
-    const types = (await import('node:fs')).readFileSync(new URL('../../src/shared/types.ts', import.meta.url), 'utf8')
+    // Windows checkouts have CRLF line endings.
+    const types = (await import('node:fs')).readFileSync(new URL('../../src/shared/types.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
     const block = types.slice(types.indexOf('export interface AppSettings'))
     const keys = [...block.slice(0, block.indexOf('\n}\n')).matchAll(/^ {2}(\w+)\??:/gm)].map((m) => m[1])
     const source = (await import('node:fs')).readFileSync(new URL('./settings.ts', import.meta.url), 'utf8')
