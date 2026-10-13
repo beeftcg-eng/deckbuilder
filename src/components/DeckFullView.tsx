@@ -12,6 +12,7 @@ import { CardDetailModal } from './CardDetailModal'
 import { DeckLockButton } from './DeckLockButton'
 import { PairingsRecordStrip } from './PairingsRecordStrip'
 import { DeckNotes } from './DeckNotes'
+import { DeckMetaCompare } from './DeckMetaCompare'
 import { RotationBadge } from './RotationBadge'
 import { FolderPicker } from './FolderPicker'
 import { PairingsSyncReminder } from './PairingsSyncReminder'
@@ -333,6 +334,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
       {!readOnly && <PairingsRecordStrip deck={deck} />}
       {!readOnly && <PairingsSyncReminder deck={deck} inset />}
       {!readOnly && <DeckNotes deck={deck} />}
+      {!readOnly && <DeckMetaCompare deck={deck} />}
 
       <div className="fv-body">
         {sections.length === 0 ? (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cardPlayRates, checkListWatches, coreDeck, legendMeta, listOwnership, recordsVsLegends, sanitizeListWatches, tradeOffersFor } from './communityMeta'
+import { cardPlayRates, cardTrends, checkListWatches, compareToMeta, coreDeck, legendMeta, listOwnership, newListsFor, recordsVsLegends, sanitizeListAlerts, sanitizeListWatches, tradeOffersFor } from './communityMeta'
 import { codeIndex } from './riftboundDeckCode'
 import type { PairingsResult } from './types'
 import type { CommunityList } from './communityLists'
@@ -122,5 +122,36 @@ describe('community meta', () => {
     const { offers, missingCards } = tradeOffersFor(decks[2], cardsById, new Map(), traders)
     expect(missingCards).toBe(3)
     expect(offers.map((o) => [o.card.name, o.missing, o.traders])).toEqual([['Gust', 3, ['Sam']]])
+  })
+
+  it('compares a deck with its Legend’s lists: staples it skips, picks few make', () => {
+    const odd = makeCard('riftbound', { name: 'Odd Pick' })
+    const mine = deck([[retreat.id, 2], [odd.id, 1]], [])
+    const byIdPlus = new Map([...cardsById, [odd.id, odd]])
+    const c = compareToMeta(mine, decks, byIdPlus)
+    expect(c.total).toBe(3)
+    expect(c.missing.map((p) => p.card.name)).toEqual(['Gust', 'The Grand Plaza'])
+    expect(c.unusual).toEqual([{ card: odd, lists: 0 }])
+  })
+
+  it('finds the cards gaining and losing play over the last two weeks', () => {
+    const dated = (date: string, main: [string, number][], i: number) => ({ ...deck(main, []), list: { ...list('A', i), id: `${date}${i}`, date } })
+    const older = Array.from({ length: 5 }, (_, i) => dated('2026-09-01', [[gust.id, 3]], i))
+    const newer = Array.from({ length: 5 }, (_, i) => dated('2026-10-10', [[retreat.id, 3], ...(i < 4 ? [[gust.id, 3] as [string, number]] : [])], i))
+    const trends = cardTrends([...newer, ...older], cardsById)!
+    expect(trends.rising.map((tr) => [tr.card.name, tr.recent, tr.earlier])).toEqual([['Retreat', 1, 0]])
+    expect(trends.falling.map((tr) => [tr.card.name, tr.recent, tr.earlier])).toEqual([['Gust', 0.8, 1]])
+    expect(cardTrends(newer, cardsById)).toBeNull()
+  })
+
+  it('announces new lists only for the Legends you opted into, each event once', () => {
+    const l = (legendId: string, eventId: string): CommunityList => ({ ...list(legendId, 1), id: `${legendId}${eventId}`, eventId, eventName: eventId })
+    expect(newListsFor(undefined, [l('K', 'e1')])).toEqual({ found: [], next: null })
+    const alerts = sanitizeListAlerts({ legends: ['K', 3], seenEvents: ['e1'] })!
+    expect(alerts).toEqual({ legends: ['K'], seenEvents: ['e1'] })
+    const { found, next } = newListsFor(alerts, [l('K', 'e1'), l('K', 'e2'), l('K', 'e2'), l('Z', 'e2'), l('K', 'e3')])
+    expect(found).toEqual([{ legendId: 'K', legendName: 'K', count: 3, eventNames: ['e2', 'e3'] }])
+    expect(next).toEqual({ legends: ['K'], seenEvents: ['e1', 'e2', 'e3'] })
+    expect(newListsFor(next!, [l('K', 'e2')]).found).toEqual([])
   })
 })

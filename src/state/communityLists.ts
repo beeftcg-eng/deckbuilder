@@ -115,6 +115,11 @@ export function useCommunityLists(enabled = true): CommunityListsState & { lists
   return { ...current, lists: current.file?.lists ?? null, retry: () => void refreshCommunityLists(true) }
 }
 
+/** The lists read so far (or kept on the device), for code outside React. */
+export function communityListsNow(): CommunityList[] | null {
+  return state.file?.lists ?? null
+}
+
 /** For tests: forget everything read so far. */
 export function resetCommunityLists() {
   state = { file: null, offline: false, error: null, loading: false }

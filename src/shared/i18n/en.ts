@@ -514,6 +514,22 @@ export const en = {
     tradesFailed: (err: string) => `Couldn't read the trade lists: ${err}`,
     youVs: (w: number, l: number, d: number) => `You ${w}–${l}${d ? `–${d}` : ''}`,
     youVsTitle: 'Your record against this Legend, from your Pairings results',
+    newListsTitle: 'New community lists',
+    newListsHit: (n: number, legend: string, events: string) => `${n} new ${legend} ${plural(n, 'list', 'lists')} from ${events}`,
+    alertOff: '🔕 Tell me about new lists',
+    alertOn: '🔔 Telling you about new lists',
+    alertTitle: 'When RiftAtlas has new lists with this Legend, the app says so the next time it opens. Off until you turn it on.',
+    trendsTitle: (days: number) => `Last ${days} days vs. before`,
+    rising: 'Rising',
+    falling: 'Falling',
+    trend: (now: number, before: number) => `${before}% → ${now}%`,
+    vsMetaHeading: '📈 Against the meta',
+    vsMetaTitle: (n: number) => `📈 Against the meta (${n} ${plural(n, 'list', 'lists')})`,
+    vsMetaMissing: 'Most lists play, you don’t',
+    vsMetaUnusual: 'You play, few lists do',
+    vsMetaNone: 'Nothing stands out: your deck plays what most lists do.',
+    vsMetaFew: 'Too few recent lists with this Legend to compare with yet.',
+    vsMetaShare: (n: number, total: number) => `${Math.round((n / total) * 100)}%`,
   },
 
   pairingsAccount: {
@@ -539,6 +555,10 @@ export const en = {
   },
 
   exportDeck: {
+    showQr: 'Show as QR code',
+    hideQr: 'Hide QR code',
+    qrLabel: 'QR code of the deck code',
+    qrHint: 'Scan it with a phone to get the deck code (for an event, TCG Arena or another device).',
     copyDeckCode: 'Copy deck code',
     deckCodeCopied: 'Deck code copied ✓',
     deckCodeTitle: 'The code Riftbound deck builders and simulators share decks by (TCG Arena, RiftAtlas, Piltover Archive)',

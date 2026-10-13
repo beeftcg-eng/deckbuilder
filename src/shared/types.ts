@@ -327,6 +327,8 @@ export interface AppSettings {
   priceAlerts?: PriceAlerts
   /** Community lists you're watching the price of, by list id (communityMeta.ts checkListWatches). */
   listWatches?: Record<string, ListWatch>
+  /** Legends you asked to hear about new community lists for (off until you opt in), and the events already seen (communityMeta.ts newListsFor). */
+  listAlerts?: { legends: string[]; seenEvents: string[] }
   /** Pack and box openings, every game's, newest first (packOpenings.ts). */
   packOpenings?: PackOpening[]
   /** Recent many-card collection changes, newest first, kept so each can be undone (collectionBatches.ts). This device only. */

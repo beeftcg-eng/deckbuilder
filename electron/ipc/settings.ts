@@ -9,7 +9,7 @@ import { itemsFile, settingsFile } from '../lib/paths'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/jsonStore'
 import { sanitizeValueHistory } from '../../src/shared/valueHistory'
 import { sanitizePriceAlerts } from '../../src/shared/priceAlerts'
-import { sanitizeListWatches } from '../../src/shared/communityMeta'
+import { sanitizeListAlerts, sanitizeListWatches } from '../../src/shared/communityMeta'
 import { sanitizePackOpenings } from '../../src/shared/packOpenings'
 import { sanitizeCollectionBatches } from '../../src/shared/collectionBatches'
 import { sanitizeCollectionDetails } from '../../src/shared/copyDetails'
@@ -63,6 +63,10 @@ export function sanitize(raw: unknown): AppSettings {
   if (source.valueHistory !== undefined) settings.valueHistory = sanitizeValueHistory(source.valueHistory, GAME_IDS)
   if (source.priceAlerts !== undefined) settings.priceAlerts = sanitizePriceAlerts(source.priceAlerts)
   if (source.listWatches !== undefined) settings.listWatches = sanitizeListWatches(source.listWatches)
+  if (source.listAlerts !== undefined) {
+    const alerts = sanitizeListAlerts(source.listAlerts)
+    if (alerts) settings.listAlerts = alerts
+  }
   if (source.packOpenings !== undefined) settings.packOpenings = sanitizePackOpenings(source.packOpenings)
   if (source.collectionBatches !== undefined) settings.collectionBatches = sanitizeCollectionBatches(source.collectionBatches, GAME_IDS)
   if (source.collectionDetails !== undefined) settings.collectionDetails = sanitizeCollectionDetails(source.collectionDetails)

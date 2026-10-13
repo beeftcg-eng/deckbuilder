@@ -279,3 +279,136 @@ export function tradeOffersFor(deck: ListCards, cardsById: Map<string, Card>, ow
   }
   return { offers: offers.sort((a, b) => b.traders.length - a.traders.length || a.card.name.localeCompare(b.card.name)), missingCards: missing.length }
 }
+
+// ---------- a deck against its Legend's lists ----------
+
+export interface MetaComparison {
+  /** How many of the Legend's lists this compares with. */
+  total: number
+  /** Cards at least half the lists play that the deck doesn't, most played first. */
+  missing: CardPlay[]
+  /** Cards the deck plays that at most a tenth of the lists do (none, often). */
+  unusual: { card: Card; lists: number }[]
+}
+
+/** Every card the deck plays outside its Legend zone, by play key. */
+function deckPlayKeys(deck: ListCards, cardsById: Map<string, Card>): Map<string, Card> {
+  const out = new Map<string, Card>()
+  for (const [zoneId, entries] of Object.entries(deck.zones)) {
+    if (zoneId === 'legend') continue
+    for (const { cardId, quantity } of entries) {
+      const card = cardsById.get(cardId)
+      if (card && quantity > 0 && !out.has(playKey(card))) out.set(playKey(card), card)
+    }
+  }
+  return out
+}
+
+/** How a deck differs from the recent lists with its Legend: the staples it skips and its unusual picks (sideboards aside). */
+export function compareToMeta(deck: ListCards, legendDecks: readonly ListCards[], cardsById: Map<string, Card>): MetaComparison {
+  const total = legendDecks.length
+  const mine = deckPlayKeys(deck, cardsById)
+  const plays = cardPlayRates(legendDecks, cardsById).filter((p) => p.zoneId !== 'sideboard')
+  const listsByKey = new Map<string, number>()
+  for (const p of plays) listsByKey.set(playKey(p.card), Math.max(listsByKey.get(playKey(p.card)) ?? 0, p.lists))
+  const missing = plays.filter((p) => p.lists * 2 >= total && !mine.has(playKey(p.card)))
+  const unusual = [...mine]
+    .map(([key, card]) => ({ card, lists: listsByKey.get(key) ?? 0 }))
+    .filter((u) => u.lists * 10 <= total && u.card.category !== 'Rune')
+    .sort((a, b) => a.lists - b.lists || a.card.name.localeCompare(b.card.name))
+  return { total, missing, unusual }
+}
+
+// ---------- which cards are gaining or losing play ----------
+
+export interface CardTrend {
+  card: Card
+  /** Share of the recent lists playing it, and of the earlier ones (0-1). */
+  recent: number
+  earlier: number
+}
+
+/** The window the trends compare: the last two weeks of a Legend's lists against everything before. */
+export const TREND_DAYS = 14
+const MIN_TREND_LISTS = 5
+
+/**
+ * Cards whose share of a Legend's lists moved the most between the last two weeks (counted back from
+ * its newest list) and before, `limit` rising and `limit` falling. Null when either side has too few
+ * lists to say.
+ */
+export function cardTrends(decks: readonly ListDeck[], cardsById: Map<string, Card>, limit = 5): { rising: CardTrend[]; falling: CardTrend[] } | null {
+  const dated = decks.filter((d) => d.list.date)
+  const newest = Math.max(...dated.map((d) => new Date(d.list.date!).getTime()))
+  if (!Number.isFinite(newest)) return null
+  const cut = newest - TREND_DAYS * 24 * 60 * 60 * 1000
+  const recent = dated.filter((d) => new Date(d.list.date!).getTime() > cut)
+  const earlier = dated.filter((d) => new Date(d.list.date!).getTime() <= cut)
+  if (recent.length < MIN_TREND_LISTS || earlier.length < MIN_TREND_LISTS) return null
+  const share = (group: readonly ListDeck[]) => {
+    const out = new Map<string, { card: Card; n: number }>()
+    for (const p of cardPlayRates(group, cardsById)) {
+      if (p.zoneId === 'sideboard') continue
+      const key = playKey(p.card)
+      const seen = out.get(key)
+      out.set(key, { card: seen?.card ?? p.card, n: Math.max(seen?.n ?? 0, p.lists) })
+    }
+    return out
+  }
+  const now = share(recent)
+  const before = share(earlier)
+  const trends: CardTrend[] = []
+  for (const key of new Set([...now.keys(), ...before.keys()])) {
+    const card = now.get(key)?.card ?? before.get(key)!.card
+    trends.push({ card, recent: (now.get(key)?.n ?? 0) / recent.length, earlier: (before.get(key)?.n ?? 0) / earlier.length })
+  }
+  const delta = (t: CardTrend) => t.recent - t.earlier
+  const MIN_CHANGE = 0.15
+  return {
+    rising: trends.filter((t) => delta(t) >= MIN_CHANGE).sort((a, b) => delta(b) - delta(a)).slice(0, limit),
+    falling: trends.filter((t) => -delta(t) >= MIN_CHANGE).sort((a, b) => delta(a) - delta(b)).slice(0, limit),
+  }
+}
+
+// ---------- new lists for the Legends you opted into ----------
+
+export interface ListAlerts {
+  /** The Legends (by code) you asked to hear about. */
+  legends: string[]
+  /** Events already seen, so only new ones are announced. */
+  seenEvents: string[]
+}
+
+export function sanitizeListAlerts(raw: unknown): ListAlerts | undefined {
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const r = raw as Record<string, unknown>
+  const strings = (v: unknown, max: number) => (Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string'))].slice(-max) : [])
+  return { legends: strings(r.legends, 100), seenEvents: strings(r.seenEvents, 500) }
+}
+
+export interface NewLists {
+  legendId: string
+  legendName: string
+  count: number
+  eventNames: string[]
+}
+
+/**
+ * The lists with your opted-in Legends from events not seen before, per Legend, and the alerts with
+ * every current event marked seen (null when nothing changed).
+ */
+export function newListsFor(alerts: ListAlerts | undefined, lists: readonly CommunityList[]): { found: NewLists[]; next: ListAlerts | null } {
+  if (!alerts?.legends.length) return { found: [], next: null }
+  const seen = new Set(alerts.seenEvents)
+  const wanted = new Set(alerts.legends)
+  const found = new Map<string, NewLists>()
+  for (const l of lists) {
+    if (!l.eventId || seen.has(l.eventId) || !wanted.has(l.legendId)) continue
+    const f = found.get(l.legendId) ?? found.set(l.legendId, { legendId: l.legendId, legendName: l.legendName, count: 0, eventNames: [] }).get(l.legendId)!
+    f.count++
+    if (!f.eventNames.includes(l.eventName)) f.eventNames.push(l.eventName)
+  }
+  const events = [...new Set(lists.map((l) => l.eventId).filter(Boolean))]
+  const fresh = events.filter((e) => !seen.has(e))
+  return { found: [...found.values()], next: fresh.length ? { legends: alerts.legends, seenEvents: [...alerts.seenEvents, ...fresh].slice(-500) } : null }
+}

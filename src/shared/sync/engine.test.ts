@@ -190,4 +190,51 @@ describe('SyncEngine', () => {
     expect(fetchMock).not.toHaveBeenCalled()
     expect(statuses).toEqual([{ state: 'disconnected' }])
   })
+
+  it('downloads the account only when it changed, offering the fingerprint of the one it has', async () => {
+    const store = new FakeStore()
+    const bodies: unknown[] = []
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/auth/')) return ok({ access_token: 'tok', refresh_token: 'r1' })
+      bodies.push(JSON.parse(String(init?.body)))
+      return bodies.length === 1 ? ok({ decks: [], collection: [], wants: [], fingerprint: 'f1' }) : ok({ unchanged: true, fingerprint: 'f1' })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const { engine, pulls } = makeEngine(store)
+    await engine.start()
+    engine.stop()
+    expect(pulls).toHaveLength(1)
+    expect(pulls[0]).not.toHaveProperty('fingerprint')
+    await (engine as unknown as { tick: () => Promise<void> }).tick()
+    expect(bodies).toEqual([{ p_fingerprint: null }, { p_fingerprint: 'f1' }])
+    expect(fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('rpc'))).toEqual([
+      'http://x/rest/v1/rpc/deckbuilder_sync_pull_if_changed',
+      'http://x/rest/v1/rpc/deckbuilder_sync_pull_if_changed',
+    ])
+    expect(pulls).toHaveLength(1) // unchanged: nothing applied
+
+    // A local edit since: the next pull doesn't offer the fingerprint, so it gets the whole account.
+    store.rev++
+    await (engine as unknown as { tick: () => Promise<void> }).tick()
+    expect(bodies.at(-1)).toEqual({ p_fingerprint: null })
+  })
+
+  it('pulls the whole account as before on a server without the fingerprint function', async () => {
+    const store = new FakeStore()
+    const rpcs: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/auth/')) return ok({ access_token: 'tok', refresh_token: 'r1' })
+        rpcs.push(url.split('/').pop()!)
+        return url.endsWith('_if_changed') ? status(404, '{"code":"PGRST202"}') : ok({ decks: [], collection: [], wants: [] })
+      }),
+    )
+    const { engine, pulls } = makeEngine(store)
+    await engine.start()
+    engine.stop()
+    await (engine as unknown as { tick: () => Promise<void> }).tick()
+    expect(rpcs).toEqual(['deckbuilder_sync_pull_if_changed', 'deckbuilder_sync_pull', 'deckbuilder_sync_pull'])
+    expect(pulls).toHaveLength(2)
+  })
 })

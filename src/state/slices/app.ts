@@ -60,6 +60,8 @@ export function createAppSlice(ctx: StoreContext) {
         const openingShareLink = typeof location !== 'undefined' && new URLSearchParams(location.search).has('share')
         if (!settings.tourSeen && decks.length === 0 && !openingShareLink) set({ showTour: true })
         // A message to everyone (shared/announcement.ts), once. Not over the tour or a share link, so it waits for the next launch.
+        // New community lists for the Legends you opted into (off until you do).
+        void get().checkListAlerts().catch(() => undefined)
         void loadAnnouncement().then((announcement) => {
           if (!announcement || announcement.id === get().settings.announcementSeen) return
           if (get().showTour || get().sharedDeckState) return

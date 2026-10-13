@@ -4,6 +4,10 @@ import { cardIdsOfGame, newBatch, removalItems, undoItems, withBatch } from '../
 import { fitDetails, normalizeDetails, withDetail, type CollectionDetails } from '../../shared/copyDetails'
 import { ownedIndexOf, wishlistIndexOf, type AppState } from '../storeUtils'
 import type { StoreContext } from '../storeContext'
+import { communityListsNow, refreshCommunityLists } from '../communityLists'
+import { newListsFor } from '../../shared/communityMeta'
+import { askToNotify, notify } from '../../lib/notify'
+import { t } from '../../shared/i18n'
 
 /** The collection, wishlist and trade marks, with batches, copy details, pack openings, price alerts and the value graph. */
 export function createCollectionSlice(ctx: StoreContext) {
@@ -56,6 +60,33 @@ export function createCollectionSlice(ctx: StoreContext) {
       set((s) => ({ settings: { ...s.settings, listWatches: watches } }))
       persistSettings({ listWatches: watches })
       checkAlerts()
+    },
+
+    setLegendAlert: (legendId, on) => {
+      const current = get().settings.listAlerts ?? { legends: [], seenEvents: [] }
+      const legends = on ? [...new Set([...current.legends, legendId])] : current.legends.filter((l) => l !== legendId)
+      // Opting in hears about events from now on, not the ones already there.
+      const events = (communityListsNow() ?? []).map((l) => l.eventId).filter(Boolean)
+      const listAlerts = { legends, seenEvents: [...new Set([...current.seenEvents, ...events])].slice(-500) }
+      set((s) => ({ settings: { ...s.settings, listAlerts } }))
+      persistSettings({ listAlerts })
+      if (on) askToNotify()
+    },
+
+    checkListAlerts: async () => {
+      if (!get().settings.listAlerts?.legends.length) return
+      await refreshCommunityLists()
+      const lists = communityListsNow()
+      if (!lists) return
+      const { found, next } = newListsFor(get().settings.listAlerts, lists)
+      if (next) {
+        set((s) => ({ settings: { ...s.settings, listAlerts: next } }))
+        persistSettings({ listAlerts: next })
+      }
+      if (!found.length) return
+      const text = found.map((f) => t.communityLists.newListsHit(f.count, f.legendName, f.eventNames.join(', '))).join(' · ')
+      set({ notice: text })
+      void notify(t.communityLists.newListsTitle, text)
     },
 
     loadWishlist: async () => {

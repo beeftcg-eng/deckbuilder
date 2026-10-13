@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { CommunityList } from '../../shared/communityLists'
-import { cardPlayRates, legendMeta, type ListDeck, type VsRecord } from '../../shared/communityMeta'
+import { TREND_DAYS, cardPlayRates, cardTrends, legendMeta, type CardTrend, type ListDeck, type VsRecord } from '../../shared/communityMeta'
+import { useAppStore } from '../../state/useAppStore'
 import { cardForCode } from '../../shared/riftboundDeckCode'
 import type { Card } from '../../shared/types'
 import { t, zoneLabel } from '../../shared/i18n'
@@ -28,6 +29,9 @@ export function CommunityMetaView({ lists, decks, cardsById, index, records, leg
   const selected = meta.find((m) => m.legendId === legend)
   const legendDecks = useMemo(() => [...decks.values()].filter((d) => d.list.legendId === legend), [decks, legend])
   const plays = useMemo(() => cardPlayRates(legendDecks, cardsById), [legendDecks, cardsById])
+  const trends = useMemo(() => cardTrends(legendDecks, cardsById), [legendDecks, cardsById])
+  const alerted = useAppStore((s) => (s.settings.listAlerts?.legends ?? []).includes(legend))
+  const setLegendAlert = useAppStore((s) => s.setLegendAlert)
   const stats = (m: (typeof meta)[number]) =>
     [t.communityLists.metaLists(m.lists), m.wins ? t.communityLists.metaWins(m.wins) : null, m.top4 ? t.communityLists.metaTop4(m.top4) : null].filter(Boolean).join(' · ')
 
@@ -101,8 +105,22 @@ export function CommunityMetaView({ lists, decks, cardsById, index, records, leg
               {t.communityLists.startFromCore}
             </button>
           )}
+          <button
+            className={`btn community-alert ${alerted ? 'on' : ''}`}
+            aria-pressed={alerted}
+            title={t.communityLists.alertTitle}
+            onClick={() => setLegendAlert(selected.legendId, !alerted)}
+          >
+            {alerted ? t.communityLists.alertOn : t.communityLists.alertOff}
+          </button>
         </div>
       </div>
+      {trends && (trends.rising.length > 0 || trends.falling.length > 0) && (
+        <div className="community-sections community-trends" style={style}>
+          <TrendColumn title={`${t.communityLists.rising} · ${t.communityLists.trendsTitle(TREND_DAYS)}`} trends={trends.rising} up />
+          <TrendColumn title={`${t.communityLists.falling} · ${t.communityLists.trendsTitle(TREND_DAYS)}`} trends={trends.falling} />
+        </div>
+      )}
       <div className="community-sections community-plays" style={style}>
         {byZone.map(({ zoneId, plays: zonePlays }) => (
           <div key={zoneId} className="community-section">
@@ -118,6 +136,22 @@ export function CommunityMetaView({ lists, decks, cardsById, index, records, leg
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function TrendColumn({ title, trends, up }: { title: string; trends: CardTrend[]; up?: boolean }) {
+  if (!trends.length) return null
+  return (
+    <div className="community-section">
+      <div className="community-section-title">{title}</div>
+      {trends.map((tr) => (
+        <div key={tr.card.id} className={`community-trend ${up ? 'up' : 'down'}`}>
+          <span aria-hidden>{up ? '▲' : '▼'}</span>
+          <span className="community-play-name">{tr.card.name.replace(/\s*\([^)]*\)$/, '')}</span>
+          <span className="community-play-rate">{t.communityLists.trend(Math.round(tr.recent * 100), Math.round(tr.earlier * 100))}</span>
+        </div>
+      ))}
     </div>
   )
 }

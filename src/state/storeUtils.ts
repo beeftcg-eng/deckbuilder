@@ -230,6 +230,10 @@ export interface AppState {
   setPriceAlert: (cardId: string, targetUsd: number | null) => void
   /** Watches a community list's cost to finish (communityMeta.ts), or stops with null. */
   setListWatch: (listId: string, watch: { name: string; deckCode: string; target: number } | null) => void
+  /** Opts in to (or out of) hearing about new community lists with a Legend; off until you do. */
+  setLegendAlert: (legendId: string, on: boolean) => void
+  /** Announces new community lists for the opted-in Legends (communityMeta.ts newListsFor). */
+  checkListAlerts: () => Promise<void>
   /** Changes whenever the currency or its rate does, so price text re-renders (App.tsx keys on it). */
   currencyKey: string
   /** The welcome tour (WelcomeTour.tsx): opens by itself on a first launch, or from the sidebar. */

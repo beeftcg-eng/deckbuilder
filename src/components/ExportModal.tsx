@@ -7,6 +7,7 @@ import { renderDeckImage } from '../lib/deckImage'
 import { dataUrlBytes, imageExtension } from '../shared/exportImage'
 import { t } from '../shared/i18n'
 import { deckToCode } from '../shared/riftboundDeckCode'
+import { qrPath } from '../lib/qrCode'
 
 interface Props {
   deck: Deck
@@ -33,6 +34,18 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
   const [generatingImage, setGeneratingImage] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
   const [codeError, setCodeError] = useState<string | null>(null)
+  const [qr, setQr] = useState<{ size: number; path: string } | null>(null)
+
+  /** Riftbound: the deck code as a QR code, to scan into a phone, an event's registration or TCG Arena. */
+  function toggleQr() {
+    if (qr) return setQr(null)
+    try {
+      setQr(qrPath(deckToCode(deck, cardsById)))
+      setCodeError(null)
+    } catch (err) {
+      setCodeError(err instanceof Error ? err.message : String(err))
+    }
+  }
 
   /** Riftbound: the deck as a deck code (riftboundDeckCode.ts), for other deck builders and simulators. */
   async function handleCopyCode() {
@@ -121,6 +134,11 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
               {codeCopied ? t.exportDeck.deckCodeCopied : t.exportDeck.copyDeckCode}
             </button>
           )}
+          {deck.gameId === 'riftbound' && (
+            <button className="btn" onClick={toggleQr} aria-pressed={qr != null}>
+              {qr ? t.exportDeck.hideQr : t.exportDeck.showQr}
+            </button>
+          )}
         </div>
         {pasteUrl && (
           <div className="paste-result">
@@ -134,6 +152,16 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
           </div>
         )}
         {codeError && <div className="sync-error">{t.exportDeck.deckCodeFailed(codeError)}</div>}
+        {qr && (
+          <div className="export-qr">
+            {/* Always black on white, whatever the theme: that's what camera apps read best. */}
+            <svg viewBox={`-4 -4 ${qr.size + 8} ${qr.size + 8}`} shapeRendering="crispEdges" role="img" aria-label={t.exportDeck.qrLabel}>
+              <rect x={-4} y={-4} width={qr.size + 8} height={qr.size + 8} fill="#fff" />
+              <path d={qr.path} fill="#000" />
+            </svg>
+            <span className="text-dim">{t.exportDeck.qrHint}</span>
+          </div>
+        )}
         {pasteError && <div className="sync-error">{t.exportCommon.uploadFailed(pasteError)}</div>}
         {imageError && <div className="sync-error">{t.exportCommon.imageFailed(imageError)}</div>}
         {imageNote && <div className="text-dim">{imageNote}</div>}

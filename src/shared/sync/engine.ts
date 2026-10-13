@@ -1,4 +1,4 @@
-import { callRpc, isTransient, refreshAccessToken, type SyncConfig } from './client'
+import { SyncClientError, callRpc, isTransient, refreshAccessToken, type SyncConfig } from './client'
 import { rpcForOp, type OutboxEntry, type PulledState, type SyncOp } from './ops'
 
 /** Where the engine persists its state - one implementation over Node fs (Electron main) and one
@@ -42,6 +42,10 @@ export class SyncEngine {
   private timer: ReturnType<typeof setInterval> | null = null
   private draining = false
   private background = false
+  /** The fingerprint of the last pull applied, and the rev it was applied at (see pull()). */
+  private applied: { fingerprint: string; rev: number } | null = null
+  /** False once the server turned out not to have deckbuilder_sync_pull_if_changed (an older schema). */
+  private fingerprintsSupported = true
 
   constructor(store: SyncStore, onPulled: (state: PulledState) => void, onStatus: (status: SyncStatus) => void) {
     this.store = store
@@ -179,17 +183,42 @@ export class SyncEngine {
       return
     }
     if (!auth) return
-    let result: PulledState
+    let result: (PulledState & { fingerprint?: string }) | { unchanged: true; fingerprint: string }
     try {
-      result = (await callRpc(auth.config, auth.accessToken, 'deckbuilder_sync_pull', {})) as PulledState
+      result = await this.pullState(auth, revBefore)
     } catch (err) {
       if (err instanceof Error && err.message.includes('401')) this.accessToken = null
       this.onStatus({ state: 'offline', message: err instanceof Error ? err.message : String(err) })
       return
     }
+    if ('unchanged' in result) return // the account is as last applied: nothing downloaded but the fingerprint
     const outbox = await this.store.getOutbox()
     const revAfter = await this.store.getRev()
     if (revAfter !== revBefore || outbox.length > 0) return // something local changed mid-pull; discard it, next tick tries again
-    this.onPulled(result)
+    const { fingerprint, ...state } = result
+    this.onPulled(state as PulledState)
+    this.applied = fingerprint ? { fingerprint, rev: revAfter } : null
+  }
+
+  /**
+   * The account, or `unchanged` when it still matches the last pull applied. Every pull used to
+   * download the whole account (most of the Supabase project's egress); with the fingerprint of what
+   * it already has, an idle pull costs a few bytes. The fingerprint is offered only while nothing
+   * changed locally since that pull was applied, so local state never misses one. An older server
+   * schema without the function gets the full pull, as before. Mirrors Pawmodoro's sync_engine.py.
+   */
+  private async pullState(auth: { config: SyncConfig; accessToken: string }, rev: number) {
+    if (this.fingerprintsSupported) {
+      const known = this.applied && this.applied.rev === rev ? this.applied.fingerprint : null
+      try {
+        return (await callRpc(auth.config, auth.accessToken, 'deckbuilder_sync_pull_if_changed', { p_fingerprint: known })) as
+          | (PulledState & { fingerprint?: string })
+          | { unchanged: true; fingerprint: string }
+      } catch (err) {
+        if (!(err instanceof SyncClientError && err.status === 404)) throw err
+        this.fingerprintsSupported = false
+      }
+    }
+    return (await callRpc(auth.config, auth.accessToken, 'deckbuilder_sync_pull', {})) as PulledState
   }
 }
