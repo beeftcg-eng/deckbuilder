@@ -154,6 +154,23 @@ function readChampionAndLegends(r: Reader, version: number, prefixed: boolean): 
 const sourceKey = (code: string) => code.toLowerCase().replace(/s$/, '*')
 const sourcePrefix = (sourceId: string) => sourceId.toLowerCase().split('-').slice(0, 2).join('-')
 
+/** Riftbound cards by their code's start ("ogn-066a"), for cardForCode. */
+export function codeIndex(cards: Iterable<Card>): Map<string, Card> {
+  const byKey = new Map<string, Card>()
+  for (const card of cards) {
+    if (card.gameId !== 'riftbound') continue
+    const key = sourcePrefix(card.sourceId)
+    if (!byKey.has(key)) byKey.set(key, card)
+  }
+  return byKey
+}
+
+/** The card a code names ("OGN-066a", "VEN-155"): that printing, else the regular one. */
+export function cardForCode(index: Map<string, Card>, code: string): Card | undefined {
+  const key = sourceKey(code)
+  return index.get(key) ?? index.get(key.replace(/[a-z*]$/, ''))
+}
+
 const RUNE_DOMAINS = ['Fury', 'Calm', 'Mind', 'Body', 'Chaos', 'Order']
 
 type Section = 'Legend' | 'MainDeck' | 'Battlefields' | 'Runes' | 'Sideboard'
@@ -167,17 +184,11 @@ type Section = 'Legend' | 'MainDeck' | 'Battlefields' | 'Runes' | 'Sideboard'
  */
 export function deckCodeToText(code: string, cards: Iterable<Card>): string {
   const deck = decodeDeckCode(code)
-  const byKey = new Map<string, Card>()
-  for (const card of cards) {
-    if (card.gameId !== 'riftbound') continue
-    const key = sourcePrefix(card.sourceId)
-    if (!byKey.has(key)) byKey.set(key, card)
-  }
+  const byKey = codeIndex(cards)
   const sections: Record<Section, string[]> = { Legend: [], MainDeck: [], Battlefields: [], Runes: [], Sideboard: [] }
   const runes = new Map<string, number>()
   const add = (entry: DeckCodeEntry, sideboard: boolean, legend = false) => {
-    const key = sourceKey(entry.code)
-    const card = byKey.get(key) ?? byKey.get(key.replace(/[a-z*]$/, ''))
+    const card = cardForCode(byKey, entry.code)
     const numbered = /-R0([1-6])[a-z]?$/i.exec(entry.code)?.[1]
     const domain = card?.category === 'Rune' ? RUNE_DOMAINS.find((d) => card.name.startsWith(`${d} Rune`)) : numbered ? RUNE_DOMAINS[Number(numbered) - 1] : undefined
     if (domain && !sideboard) {
