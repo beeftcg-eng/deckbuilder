@@ -14,15 +14,16 @@ import { Rich } from './Rich'
 
 const MAX_UNMATCHED_SHOWN = 8
 
-export function ImportDeckModal({ gameId, onClose }: { gameId: GameId; onClose: () => void }) {
+/** `initialText`/`initialName` start it with a list already in (a community list, CommunityListsModal.tsx). */
+export function ImportDeckModal({ gameId, onClose, initialText = '', initialName }: { gameId: GameId; onClose: () => void; initialText?: string; initialName?: string }) {
   const adapter = getAdapter(gameId)
   const cardsById = useCardsById(gameId)
   const formats = useAppStore((s) => s.formats[gameId]) ?? adapter.defaultFormats
   const importDeck = useAppStore((s) => s.importDeck)
   const collection = useAppStore((s) => s.collection)
 
-  const [text, setText] = useState('')
-  const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const [text, setText] = useState(initialText)
+  const [nameDraft, setNameDraft] = useState<string | null>(initialName ?? null)
   const [formatDraft, setFormatDraft] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)

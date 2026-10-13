@@ -16,6 +16,7 @@ import { lazyModal } from './lazyModal'
 const BugReportModal = lazyModal(() => import('./BugReportModal'), 'BugReportModal')
 const PatchNotesModal = lazyModal(() => import('./PatchNotesModal'), 'PatchNotesModal')
 const ImportDeckModal = lazyModal(() => import('./ImportDeckModal'), 'ImportDeckModal')
+const CommunityListsModal = lazyModal(() => import('./CommunityListsModal'), 'CommunityListsModal')
 const PairingsAccountModal = lazyModal(() => import('./PairingsAccountModal'), 'PairingsAccountModal')
 const PawmodoroAccountModal = lazyModal(() => import('./PawmodoroAccountModal'), 'PawmodoroAccountModal')
 const ShareAppModal = lazyModal(() => import('./ShareAppModal'), 'ShareAppModal')
@@ -91,6 +92,9 @@ export function Sidebar() {
   const [showBackups, setShowBackups] = useState(false)
   const [deckFilter, setDeckFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
+  // A community list (Riftbound, from RiftAtlas) to start the import window with.
+  const [showCommunity, setShowCommunity] = useState(false)
+  const [importStart, setImportStart] = useState<{ text: string; name: string } | null>(null)
   const [showPatchNotes, setShowPatchNotes] = useState(false)
   const [showBugReport, setShowBugReport] = useState(false)
   const [showShareApp, setShowShareApp] = useState(false)
@@ -456,6 +460,11 @@ export function Sidebar() {
       <div className="deck-list-header" data-tour="decks">
         <span>{t.sidebar.decks}</span>
         <div className="deck-list-header-actions">
+          {currentGameId === 'riftbound' && (
+            <button className="btn" onClick={() => setShowCommunity(true)} title={t.sidebar.communityListsTitle}>
+              {t.sidebar.communityLists}
+            </button>
+          )}
           <button className="btn" onClick={() => setShowImport(true)} title={t.sidebar.importTitle}>
             {t.sidebar.import}
           </button>
@@ -577,7 +586,27 @@ export function Sidebar() {
         </div>
       )}
 
-      {showImport && <ImportDeckModal gameId={currentGameId} onClose={() => setShowImport(false)} />}
+      {showImport && (
+        <ImportDeckModal
+          gameId={currentGameId}
+          initialText={importStart?.text}
+          initialName={importStart?.name}
+          onClose={() => {
+            setShowImport(false)
+            setImportStart(null)
+          }}
+        />
+      )}
+      {showCommunity && (
+        <CommunityListsModal
+          onClose={() => setShowCommunity(false)}
+          onImport={(text, name) => {
+            setShowCommunity(false)
+            setImportStart({ text, name })
+            setShowImport(true)
+          }}
+        />
+      )}
       {showPatchNotes && <PatchNotesModal onClose={() => setShowPatchNotes(false)} />}
       {showBugReport && <BugReportModal onClose={() => setShowBugReport(false)} />}
       {showAccount && <PawmodoroAccountModal onClose={() => setShowAccount(false)} />}

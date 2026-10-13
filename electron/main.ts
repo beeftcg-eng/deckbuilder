@@ -7,6 +7,7 @@ import { registerBindersIpc } from './ipc/binders'
 import { registerFormatsIpc } from './ipc/formats'
 import { registerExportIpc } from './ipc/exportPaste'
 import { registerDeckUrlIpc } from './ipc/deckUrl'
+import { registerCommunityListsIpc } from './ipc/communityLists'
 import { registerImagesIpc } from './ipc/images'
 import { registerImageProtocol, registerImageSchemePrivileges } from './ipc/imageProtocol'
 import { ImageFetcher } from './lib/imageCache'
@@ -78,6 +79,7 @@ registerBindersIpc()
 registerFormatsIpc()
 registerExportIpc()
 registerDeckUrlIpc()
+registerCommunityListsIpc()
 registerImageSchemePrivileges()
 const imageFetcher = new ImageFetcher({ cacheDir: join(userDataDir(), 'image-cache') })
 registerImagesIpc(imageFetcher)

@@ -165,7 +165,7 @@ interface PiltoverEntry {
 }
 
 /** The data a Next.js page streams into itself (`self.__next_f.push([1, "..."])`), as one string. */
-function nextFlightData(html: string): string {
+export function nextFlightData(html: string): string {
   let text = ''
   const chunk = /self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g
   for (let m = chunk.exec(html); m; m = chunk.exec(html)) {
@@ -179,7 +179,7 @@ function nextFlightData(html: string): string {
 }
 
 /** The JSON value that starts at `from` in `text` (an object or array), or undefined. */
-function jsonValueAt(text: string, from: number): unknown {
+export function jsonValueAt(text: string, from: number): unknown {
   let depth = 0
   let inString = false
   for (let i = from; i < text.length; i++) {

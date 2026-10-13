@@ -137,6 +137,8 @@ const api = {
   exportPaste: (content: string): Promise<string> => ipcRenderer.invoke('export:paste', content),
   /** A deck site's page or API, for importing a deck from a link (shared/deckUrl.ts). */
   fetchDeckPage: (url: string): Promise<string> => ipcRenderer.invoke('deckUrl:fetch', url),
+  /** RiftAtlas's Decks page, for the Community lists window (shared/communityLists.ts). */
+  fetchCommunityLists: (): Promise<string> => ipcRenderer.invoke('communityLists:fetch'),
   exportSaveFile: (content: string, suggestedName: string): Promise<boolean> =>
     ipcRenderer.invoke('export:saveFile', content, suggestedName),
   exportSaveImage: (dataUrl: string, suggestedName: string): Promise<boolean> =>
