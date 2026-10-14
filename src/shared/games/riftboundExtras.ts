@@ -22,7 +22,39 @@ interface Override {
   rarity?: string
   /** A picture published with the phone app (public/card-art/riftbound). */
   image?: string
+  /** For a listing TCGplayer hasn't filled in yet: its type, domains and Energy cost. */
+  category?: string
+  subtypes?: string[]
+  colors?: string[]
+  cost?: string | null
 }
+
+/**
+ * Radiance cards TCGplayer listed without a card type, domains or Energy cost (October 2026), which
+ * would otherwise come in as plain Units with no domain - Riven, The Exile couldn't be picked as a
+ * Legend. From each card's page on Riftwatch (riftwatch.gg/cards/rad-<number>-167). [product id, type, domains, Energy]
+ */
+const RADIANCE_UNLISTED: [number, string, string[], number | null][] = [
+  [723382, 'Champion Unit', ['Fury'], 5], // Ekko, Revolutionary (Overnumbered)
+  [723412, 'Unit', ['Chaos'], 8], // Angler Wyrm
+  [723413, 'Unit', ['Body'], 6], // Armored Tusker
+  [723414, 'Spell', ['Calm'], 2], // Battle Preparations
+  [723415, 'Unit', ['Body'], 8], // Bloodscent Swarm
+  [723416, 'Spell', ['Order'], 3], // Burn Away
+  [723417, 'Unit', ['Chaos'], 6], // Explosimian
+  [723418, 'Spell', ['Fury'], 2], // Forbidden Technique
+  [723419, 'Unit', ['Chaos'], 3], // Gutter Guardian
+  [723420, 'Gear', ['Calm'], 4], // Hunting Blind
+  [723421, 'Unit', ['Fury'], 4], // Incorrigible Construct
+  [723423, 'Champion Unit', ['Calm'], 3], // Orianna, Exquisite (Alternate Art)
+  [723424, 'Unit', ['Chaos'], 5], // Pitiless Stalker
+  [723425, 'Gear', ['Order'], 2], // Protector's Shield
+  [723432, 'Unit', ['Calm'], 4], // Stoic Ferryman
+  [723433, 'Unit', ['Mind'], 2], // Strigian Oracle
+  [723434, 'Legend', ['Calm', 'Chaos'], null], // Riven, The Exile
+  [723435, 'Legend', ['Calm', 'Chaos'], null], // Riven, The Exile (Overnumbered)
+  [723436, 'Unit', ['Mind'], 3], // Trinket Peddler
+]
 
 /**
  * Where TCGplayer's listing needs correcting. The Vendetta promo runes (Pixelverse's art) are printed
@@ -44,6 +76,9 @@ const OVERRIDES: Record<number, Override> = {
     ] as const).map(
       ([productId, file]) => [productId, { image: `${file}.webp` }],
     ),
+  ),
+  ...Object.fromEntries(
+    RADIANCE_UNLISTED.map(([productId, type, colors, energy]) => [productId, { ...categoryOf(type), colors, cost: energy == null ? null : String(energy) }]),
   ),
 }
 
@@ -138,7 +173,7 @@ function toCard(extra: RiftboundExtra, base: Card | undefined, setNames: Map<str
 
   const imageUrl = override.image ? `${ART_URL}/${override.image}` : extra.image ? TCGPLAYER_IMAGE(extra.productId) : null
   const date = released.get(setId) ?? extra.released
-  const { category, subtypes } = base ? { category: base.category, subtypes: base.subtypes } : categoryOf(extra.type)
+  const { category, subtypes } = base ? { category: base.category, subtypes: base.subtypes } : override.category ? { category: override.category, subtypes: override.subtypes ?? [] } : categoryOf(extra.type)
   return {
     id: `${EXTRA_ID_PREFIX}${extra.productId}`,
     gameId: 'riftbound',
@@ -154,8 +189,8 @@ function toCard(extra: RiftboundExtra, base: Card | undefined, setNames: Map<str
     rarity,
     category,
     subtypes,
-    colors: base?.colors ?? extra.domains,
-    cost: base ? base.cost : extra.energy != null ? String(extra.energy) : null,
+    colors: base?.colors ?? override.colors ?? extra.domains,
+    cost: base ? base.cost : override.cost !== undefined ? override.cost : extra.energy != null ? String(extra.energy) : null,
     text: base ? base.text : plainText(extra.text),
     legality: null,
     price: null,

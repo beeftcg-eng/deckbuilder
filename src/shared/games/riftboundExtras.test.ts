@@ -81,6 +81,19 @@ describe('extraCards', () => {
     expect(card).toMatchObject({ name: "K'Sante, Courageous (Showcase)", setName: 'Radiance', category: 'Unit', subtypes: ['Champion'], colors: ['Body'], cost: '5', text: 'Tank.', released: '2026-10-23' })
   })
 
+  it("fills in the Radiance cards TCGplayer listed without a type, so Riven, The Exile is a Legend", () => {
+    const blank = { group: 'RAD', groupName: 'Radiance', type: null, domains: [], energy: null }
+    const [riven, shield] = extraCards(
+      [
+        product({ ...blank, productId: 723434, name: 'Riven, The Exile', number: '149/167', rarity: 'Rare' }),
+        product({ ...blank, productId: 723425, name: "Protector's Shield", number: '123/167', rarity: 'Common' }),
+      ],
+      [],
+    )
+    expect([riven.category, riven.subtypes, riven.colors, riven.cost]).toEqual(['Legend', [], ['Calm', 'Chaos'], null])
+    expect([shield.category, shield.colors, shield.cost]).toEqual(['Gear', ['Order'], '2'])
+  })
+
   it('skips products the card data already has', () => {
     expect(extraCards([product({ productId: 706005, name: 'Blade Twirler', number: '002/166' })], cards)).toEqual([])
   })
