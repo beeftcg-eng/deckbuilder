@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cardPlayRates, cardTrends, localMeta, checkListWatches, compareToMeta, coreDeck, legendMeta, listOwnership, newListsFor, recordsVsLegends, sanitizeListAlerts, sanitizeListWatches, tradeOffersFor } from './communityMeta'
+import { cardPlayRates, cardTrends, localMeta, checkListWatches, compareToMeta, coreDeck, legendMeta, listOwnership, newListsFor, recommendCards, recordsVsLegends, sanitizeListAlerts, sanitizeListWatches, tradeOffersFor } from './communityMeta'
 import { codeIndex } from './riftboundDeckCode'
 import type { PairingsResult } from './types'
 import type { CommunityList } from './communityLists'
@@ -132,6 +132,30 @@ describe('community meta', () => {
     expect(c.total).toBe(3)
     expect(c.missing.map((p) => p.card.name)).toEqual(['Gust', 'The Grand Plaza'])
     expect(c.unusual).toEqual([{ card: odd, lists: 0 }])
+  })
+
+  it('suggests the cards the lists most like the deck play, that it doesn’t yet', () => {
+    const [a, b, c, d, e] = ['A', 'B', 'C', 'D', 'E'].map((name) => makeCard('riftbound', { name }))
+    const byId = new Map([...cardsById, ...[a, b, c, d, e].map((x) => [x.id, x] as const)])
+    // Two lists build around A and B and add C; three popular ones play D and E instead.
+    const lists = [
+      deck([[a.id, 3], [b.id, 3], [c.id, 2]], []),
+      deck([[a.id, 3], [b.id, 3], [c.id, 2]], [], [plaza.id]),
+      ...Array.from({ length: 3 }, () => deck([[d.id, 3], [e.id, 3]], [], [plaza.id])),
+    ]
+    // Starting from A, the A/B lists count most: B and C come before the more popular D and E.
+    const fromA = recommendCards(deck([[a.id, 2]], []), lists, byId)
+    expect(fromA.map((s) => [s.card.name, s.zoneId, s.lists, s.usualCopies])).toEqual([
+      ['B', 'main', 2, 3],
+      ['C', 'main', 2, 2],
+      ['The Grand Plaza', 'battlefields', 4, 1],
+      ['D', 'main', 3, 3],
+      ['E', 'main', 3, 3],
+    ])
+    // With nothing in common yet, popularity decides; what the deck plays is never suggested.
+    const empty = recommendCards(deck([], []), lists, byId)
+    expect(empty.slice(0, 3).map((s) => s.card.name)).toEqual(['The Grand Plaza', 'D', 'E'])
+    expect(recommendCards(deck([[d.id, 3]], []), lists, byId).map((s) => s.card.name)).not.toContain('D')
   })
 
   it('finds the cards gaining and losing play over the last two weeks', () => {

@@ -528,6 +528,13 @@ export const pt: Messages = {
     vsMetaNone: 'Nada se destaca: seu deck joga o que a maioria joga.',
     vsMetaFew: 'Ainda há poucas listas recentes com esta Lenda para comparar.',
     vsMetaShare: (n: number, total: number) => `${Math.round((n / total) * 100)}%`,
+    suggestHeading: '💡 Sugestões de listas recentes',
+    suggestTitle: (n: number) => `💡 Sugestões de listas recentes (${n} ${plural(n, 'lista', 'listas')})`,
+    suggestHint: 'Cartas que você ainda não joga, ordenadas pelas listas mais parecidas com o seu deck.',
+    suggestNone: 'Sem sugestões: seu deck já joga o que as listas parecidas jogam.',
+    suggestShare: (pct: number) => `${pct}% das listas parecidas`,
+    suggestAdd: (copies: number) => `+ ${copies}`,
+    suggestAddLabel: (copies: number, name: string) => `Adicionar ${copies} ${name}`,
   },
 
   matchupPlans: {

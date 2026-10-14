@@ -538,6 +538,13 @@ export const en = {
     vsMetaNone: 'Nothing stands out: your deck plays what most lists do.',
     vsMetaFew: 'Too few recent lists with this Legend to compare with yet.',
     vsMetaShare: (n: number, total: number) => `${Math.round((n / total) * 100)}%`,
+    suggestHeading: '💡 Suggestions from recent lists',
+    suggestTitle: (n: number) => `💡 Suggestions from recent lists (${n} ${plural(n, 'list', 'lists')})`,
+    suggestHint: 'Cards you don’t play yet, ranked by the lists most like your deck so far.',
+    suggestNone: 'No suggestions: your deck already plays what lists like it do.',
+    suggestShare: (pct: number) => `${pct}% of similar lists`,
+    suggestAdd: (copies: number) => `+ ${copies}`,
+    suggestAddLabel: (copies: number, name: string) => `Add ${copies} ${name}`,
   },
 
   matchupPlans: {

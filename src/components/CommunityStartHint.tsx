@@ -1,9 +1,8 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { useAppStore, useCardsById } from '../state/useAppStore'
 import { useCommunityLists } from '../state/communityLists'
-import { coreDeck, listDeck, type ListCards } from '../shared/communityMeta'
-import { cardForCode, codeIndex } from '../shared/riftboundDeckCode'
-import { poolKey } from '../shared/collection'
+import { coreDeck, listsForLegend, type ListCards } from '../shared/communityMeta'
+import { codeIndex } from '../shared/riftboundDeckCode'
 import { DOMAIN_COLORS } from '../lib/domainColors'
 import type { Deck } from '../shared/types'
 import { t } from '../shared/i18n'
@@ -23,13 +22,7 @@ export function CommunityStartHint({ deck }: { deck: Deck }) {
 
   const decks = useMemo(() => {
     if (!show || !lists || !legendCard) return []
-    const index = codeIndex(cardsById.values())
-    const key = poolKey(legendCard)
-    return lists.flatMap((l) => {
-      const card = cardForCode(index, l.legendId)
-      const d = card && poolKey(card) === key ? listDeck(l, index) : null
-      return d ? [d] : []
-    })
+    return listsForLegend(lists, legendCard, codeIndex(cardsById.values()))
   }, [show, lists, legendCard, cardsById])
 
   if (!show || !decks.length) return null

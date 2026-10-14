@@ -528,6 +528,13 @@ export const es: Messages = {
     vsMetaNone: 'Nada destaca: tu mazo juega lo que juega la mayoría.',
     vsMetaFew: 'Aún hay muy pocas listas recientes con esta Leyenda para comparar.',
     vsMetaShare: (n: number, total: number) => `${Math.round((n / total) * 100)}%`,
+    suggestHeading: '💡 Sugerencias de listas recientes',
+    suggestTitle: (n: number) => `💡 Sugerencias de listas recientes (${n} ${plural(n, 'lista', 'listas')})`,
+    suggestHint: 'Cartas que aún no juegas, ordenadas según las listas más parecidas a tu mazo.',
+    suggestNone: 'Sin sugerencias: tu mazo ya juega lo que juegan las listas parecidas.',
+    suggestShare: (pct: number) => `${pct}% de listas parecidas`,
+    suggestAdd: (copies: number) => `+ ${copies}`,
+    suggestAddLabel: (copies: number, name: string) => `Añadir ${copies} ${name}`,
   },
 
   matchupPlans: {

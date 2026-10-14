@@ -27,6 +27,7 @@ const BanListEditor = lazyModal(() => import('./BanListEditor'), 'BanListEditor'
 const MoveCardsModal = lazyModal(() => import('./MoveCardsModal'), 'MoveCardsModal')
 // Riftbound's community-list code loads only for a Riftbound deck.
 const CommunityStartHint = lazyModal(() => import('./CommunityStartHint'), 'CommunityStartHint')
+const DeckSuggestions = lazyModal(() => import('./DeckSuggestions'), 'DeckSuggestions')
 
 /** What a zone's header says about its size, e.g. "/40", ", at least 60", ", up to 15". */
 function zoneCountHint(zone: DeckZoneRule): string {
@@ -225,6 +226,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
       {format?.description && <div className="format-description text-dim">{formatDescription(deck.gameId, format)}</div>}
 
       {deck.gameId === 'riftbound' && <CommunityStartHint deck={deck} />}
+      {deck.gameId === 'riftbound' && !locked && ((deck.zones.main ?? []).length > 0 || (deck.zones.battlefields ?? []).length > 0) && <DeckSuggestions deck={deck} />}
 
       {result && (
         <LegalityPanel

@@ -1806,6 +1806,22 @@
   font-size: 12px;
   line-height: 1.6;
 }
+.deck-suggestions {
+  margin: 0;
+}
+.deck-suggestions-hint {
+  font-size: 12px;
+}
+.deck-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+.deck-suggestion .deck-entry-name {
+  min-width: 0;
+}
 .export-qr {
   display: flex;
   flex-direction: column;

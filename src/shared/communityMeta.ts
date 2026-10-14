@@ -1,9 +1,9 @@
 import type { Card, Deck, DeckCardEntry, DeckFreeTextEntry, ListWatch, PairingsResult, TraderProfile } from './types'
 import type { CommunityList } from './communityLists'
-import { deckCodeToCards } from './riftboundDeckCode'
+import { cardForCode, deckCodeToCards } from './riftboundDeckCode'
 import { matchupsOf, type Matchup } from './pairingsRecord'
 import { getAdapter } from './games/registry'
-import { missingForDeck, neededByPool, normalizeName } from './collection'
+import { missingForDeck, neededByPool, normalizeName, poolKey } from './collection'
 import { buyList } from './buyList'
 
 /**
@@ -439,4 +439,70 @@ export function newListsFor(alerts: ListAlerts | undefined, lists: readonly Comm
   const events = [...new Set(lists.map((l) => l.eventId).filter(Boolean))]
   const fresh = events.filter((e) => !seen.has(e))
   return { found: [...found.values()], next: fresh.length ? { legends: alerts.legends, seenEvents: [...alerts.seenEvents, ...fresh].slice(-500) } : null }
+}
+
+// ---------- cards to add, from the lists most like the deck so far ----------
+
+export interface CardSuggestion {
+  /** The printing most of the lists playing it use. */
+  card: Card
+  zoneId: string
+  /** How many of the lists play it, and their usual number of copies. */
+  lists: number
+  usualCopies: number
+  /** Its share of the lists (0-1), each list counting by how much it plays what the deck does. */
+  score: number
+}
+
+/** A list's weight when it shares nothing with the deck, so a nearly empty deck still hears what's popular. */
+const BASE_WEIGHT = 0.05
+const MIN_SCORE = 0.15
+
+/**
+ * Cards the deck doesn't play yet, ranked by how many of its Legend's lists play them, each list
+ * weighed by how much of the deck it shares (cards in both over cards in either), so the lists
+ * closest to what you're building count most. Main Deck and Battlefields only (sideboards aside).
+ */
+export function recommendCards(deck: ListCards, legendDecks: readonly ListCards[], cardsById: Map<string, Card>, limit = 10): CardSuggestion[] {
+  const mine = new Set(deckPlayKeys(deck, cardsById).keys())
+  const plays = new Map<string, { zoneIds: string[]; cardIds: string[]; copies: number[]; weight: number }>()
+  let totalWeight = 0
+  for (const listDeck of legendDecks) {
+    const theirs = new Map<string, { zoneId: string; cardId: string; copies: number }>()
+    for (const [zoneId, entries] of Object.entries(listDeck.zones)) {
+      if (zoneId === 'legend' || zoneId === 'sideboard') continue
+      for (const [key, c] of copiesByPool(entries, cardsById)) if (!theirs.has(key)) theirs.set(key, { zoneId, ...c })
+    }
+    let shared = 0
+    for (const key of theirs.keys()) if (mine.has(key)) shared++
+    const union = mine.size + theirs.size - shared
+    const weight = BASE_WEIGHT + (union ? shared / union : 0)
+    totalWeight += weight
+    for (const [key, { zoneId, cardId, copies }] of theirs) {
+      if (mine.has(key)) continue
+      const p = plays.get(key) ?? plays.set(key, { zoneIds: [], cardIds: [], copies: [], weight: 0 }).get(key)!
+      p.zoneIds.push(zoneId)
+      p.cardIds.push(cardId)
+      p.copies.push(copies)
+      p.weight += weight
+    }
+  }
+  const out: CardSuggestion[] = []
+  for (const p of plays.values()) {
+    const card = cardsById.get(mostCommon(p.cardIds))
+    const score = totalWeight ? p.weight / totalWeight : 0
+    if (card && score >= MIN_SCORE && p.cardIds.length >= 2)
+      out.push({ card, zoneId: mostCommon(p.zoneIds), lists: p.cardIds.length, usualCopies: mostCommon(p.copies, (a, b) => b - a), score })
+  }
+  return out.sort((a, b) => b.score - a.score || b.lists - a.lists || a.card.name.localeCompare(b.card.name)).slice(0, limit)
+}
+
+/** The lists whose Legend is `legendCard` (any printing of it), as decks; `index` from codeIndex. */
+export function listsForLegend(lists: readonly CommunityList[], legendCard: Card, index: Map<string, Card>): ListDeck[] {
+  const key = poolKey(legendCard)
+  return lists.flatMap((l) => {
+    const card = cardForCode(index, l.legendId)
+    const d = card && poolKey(card) === key ? listDeck(l, index) : null
+    return d ? [d] : []
+  })
 }
