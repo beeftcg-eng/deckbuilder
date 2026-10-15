@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extraCards, keepExtrasWhenMissing, missingPrintings, onlyOriginsRegularRunes, withOvernumberedKind, withFixedLegendNames, withPromoRuneArt } from './riftboundExtras'
+import { extraCards, keepExtrasWhenMissing, withListingFixes, missingPrintings, onlyOriginsRegularRunes, withOvernumberedKind, withFixedLegendNames, withPromoRuneArt } from './riftboundExtras'
 import type { RiftboundExtra } from '../priceKeys'
 import { makeCard } from '../testFixtures'
 
@@ -96,6 +96,16 @@ describe('extraCards', () => {
 
   it('skips products the card data already has', () => {
     expect(extraCards([product({ productId: 706005, name: 'Blade Twirler', number: '002/166' })], cards)).toEqual([])
+  })
+})
+
+describe('withListingFixes', () => {
+  it('makes Riven, The Exile a Legend in card data saved before the fix, and leaves the rest', () => {
+    const saved = makeCard('riftbound', { id: 'riftbound:tcg-723434', name: 'Riven, The Exile', category: 'Unit', colors: [], cost: null, tcgplayerId: '723434' })
+    const other = makeCard('riftbound', { id: 'riftbound:tcg-709727', name: 'Blade Twirler', category: 'Unit', colors: ['Fury'] })
+    const [riven, kept] = withListingFixes([saved, other])
+    expect([riven.category, riven.colors, riven.cost]).toEqual(['Legend', ['Calm', 'Chaos'], null])
+    expect(kept).toBe(other)
   })
 })
 

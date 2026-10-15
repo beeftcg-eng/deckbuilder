@@ -279,6 +279,19 @@ export function keepExtrasWhenMissing(fresh: Card[], previous: readonly Card[]):
 }
 
 /**
+ * The type, domains and cost OVERRIDES give TCGplayer's unfilled listings, put on card data saved
+ * before they existed: the cards are only downloaded again weekly, and till then Riven, The Exile
+ * would stay a Unit.
+ */
+export function withListingFixes(cards: Card[]): Card[] {
+  return cards.map((card) => {
+    const fix = card.id.startsWith(EXTRA_ID_PREFIX) ? OVERRIDES[Number(card.id.slice(EXTRA_ID_PREFIX.length))] : undefined
+    if (!fix?.category) return card
+    return { ...card, category: fix.category, subtypes: fix.subtypes ?? [], colors: fix.colors ?? card.colors, cost: fix.cost !== undefined ? fix.cost : card.cost }
+  })
+}
+
+/**
  * Legend names riftcodex has garbled: a region tag in front ("Yordle, Kennen - Heart of the Tempest")
  * or the champion left off ("Defender of Tomorrow", whose other printings say "Jayce - Defender of
  * Tomorrow"). Fixed so the card reads, searches and matches its Champion like every other Legend.
