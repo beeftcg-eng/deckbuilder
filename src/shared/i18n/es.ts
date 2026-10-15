@@ -535,6 +535,15 @@ export const es: Messages = {
     suggestShare: (pct: number) => `${pct}% de listas parecidas`,
     suggestAdd: (copies: number) => `+ ${copies}`,
     suggestAddLabel: (copies: number, name: string) => `Añadir ${copies} ${name}`,
+    suggestSort: 'Ordenar sugerencias',
+    suggestSorts: { fit: 'Mejor encaje', owned: 'Las que tengo primero', budget: 'Más baratas' },
+    suggestOwn: (owned: number, need: number) => `tienes ${owned}/${need}`,
+    suggestSwap: (copies: number, out: string) => `⇄ −${copies} ${out}`,
+    suggestSwapLabel: (copies: number, out: string, into: string) => `Cambiar ${copies} ${out} por ${into}`,
+    suggestSwapUndo: (out: string, into: string) => `Cambiar ${out} por ${into}`,
+    suggestRunes: (split: string) => `Mazo de Runas como las listas parecidas: ${split}`,
+    suggestRunesUse: 'Usar',
+    suggestRunesUndo: 'Usar el Mazo de Runas sugerido',
   },
 
   matchupPlans: {

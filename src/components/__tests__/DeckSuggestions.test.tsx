@@ -43,4 +43,24 @@ describe('Suggestions from recent lists', () => {
     fireEvent.click(screen.getByLabelText(t.communityLists.suggestAddLabel(3, 'Sett, Brawler')))
     await waitFor(() => expect(setCardQuantity).toHaveBeenCalledWith('main', sett, 3))
   })
+
+  it('offers a swap instead when the Main Deck is full', async () => {
+    const kennen = makeCard('riftbound', { name: 'Kennen - Heart of the Tempest', sourceId: 'ven-155-166', category: 'Legend' })
+    const sett = makeCard('riftbound', { name: 'Sett, Brawler', sourceId: 'ven-sp1-006' })
+    const odd = makeCard('riftbound', { name: 'Odd Pick', sourceId: 'ogn-001-298' })
+    const cards = [kennen, sett, odd]
+    const deck: Deck = {
+      id: 'd', gameId: 'riftbound', name: 'K', formatId: 'constructed', freeTextZones: {}, createdAt: '', updatedAt: '',
+      zones: { legend: [{ cardId: kennen.id, quantity: 1 }], main: [{ cardId: odd.id, quantity: 40 }] },
+    }
+    const updateDeck = vi.fn(async () => {})
+    useAppStore.setState({ catalogs: { riftbound: { cards, byId: new Map(cards.map((c) => [c.id, c])) } }, settings: {}, updateDeck } as never)
+
+    localStorage.setItem('brewhouse.deckSuggestions.open', '1') // left open last time
+    render(<DeckSuggestions deck={deck} />)
+    expect(screen.queryByLabelText(t.communityLists.suggestAddLabel(3, 'Sett, Brawler'))).toBeNull()
+    fireEvent.click(await screen.findByLabelText(t.communityLists.suggestSwapLabel(3, 'Odd Pick', 'Sett, Brawler')))
+    const [updater] = updateDeck.mock.calls[0] as unknown as [(d: Deck) => Deck]
+    expect(updater(deck).zones.main).toEqual([{ cardId: odd.id, quantity: 37 }, { cardId: sett.id, quantity: 3 }])
+  })
 })

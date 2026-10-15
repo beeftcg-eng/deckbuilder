@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cardPlayRates, cardTrends, localMeta, checkListWatches, compareToMeta, coreDeck, legendMeta, listOwnership, newListsFor, recommendCards, recordsVsLegends, sanitizeListAlerts, sanitizeListWatches, tradeOffersFor } from './communityMeta'
+import { cardPlayRates, cardTrends, localMeta, checkListWatches, compareToMeta, coreDeck, legendMeta, listOwnership, newListsFor, recommendCards, recordsVsLegends, suggestRunes, weakestCards, sanitizeListAlerts, sanitizeListWatches, tradeOffersFor } from './communityMeta'
 import { codeIndex } from './riftboundDeckCode'
 import type { PairingsResult } from './types'
 import type { CommunityList } from './communityLists'
@@ -156,6 +156,25 @@ describe('community meta', () => {
     const empty = recommendCards(deck([], []), lists, byId)
     expect(empty.slice(0, 3).map((s) => s.card.name)).toEqual(['The Grand Plaza', 'D', 'E'])
     expect(recommendCards(deck([[d.id, 3]], []), lists, byId).map((s) => s.card.name)).not.toContain('D')
+  })
+
+  it('suggests sideboard cards, swaps for a full deck, and the Rune Deck split of the lists like it', () => {
+    const [a, b, c, s1] = ['A', 'B', 'C', 'Side'].map((name) => makeCard('riftbound', { name }))
+    const byId = new Map([...cardsById, ...[a, b, c, s1].map((x) => [x.id, x] as const)])
+    const withSide = (d: ReturnType<typeof deck>) => ({ ...d, zones: { ...d.zones, sideboard: [{ cardId: s1.id, quantity: 2 }] } })
+    const lists = [
+      withSide(deck([[a.id, 3], [b.id, 3]], [['Calm', 8], ['Chaos', 4]])),
+      withSide(deck([[a.id, 3], [b.id, 3]], [['Calm', 8], ['Chaos', 4]])),
+      deck([[c.id, 3]], [['Chaos', 12]]),
+    ]
+    const mine = deck([[a.id, 3], [c.id, 1], [gust.id, 2]], [])
+    const side = recommendCards(mine, lists, byId).filter((s) => s.zoneId === 'sideboard')
+    expect(side.map((s) => [s.card.name, s.lists, s.usualCopies, s.score])).toEqual([['Side', 2, 2, 1]])
+    // Gust is in none of the lists, C only in the one least like the deck.
+    expect(weakestCards(mine, lists, byId).map((w) => [w.card.name, w.copies])).toEqual([['Gust', 2], ['C', 1], ['A', 3]])
+    // A deck like the two A/B lists takes their mostly-Calm split, nudged by the all-Chaos one.
+    expect(suggestRunes(deck([[a.id, 3], [b.id, 1]], []), lists, byId, 12)).toEqual([{ label: 'Calm', quantity: 8 }, { label: 'Chaos', quantity: 4 }])
+    expect(suggestRunes(mine, [deck([[a.id, 3]], [])], byId, 12)).toEqual([])
   })
 
   it('finds the cards gaining and losing play over the last two weeks', () => {

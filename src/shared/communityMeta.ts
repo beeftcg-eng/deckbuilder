@@ -446,8 +446,9 @@ export function newListsFor(alerts: ListAlerts | undefined, lists: readonly Comm
 export interface CardSuggestion {
   /** The printing most of the lists playing it use. */
   card: Card
+  /** Where the lists play it: a deck zone, or "sideboard". */
   zoneId: string
-  /** How many of the lists play it, and their usual number of copies. */
+  /** How many of the lists play it there, and their usual number of copies. */
   lists: number
   usualCopies: number
   /** Its share of the lists (0-1), each list counting by how much it plays what the deck does. */
@@ -457,44 +458,109 @@ export interface CardSuggestion {
 /** A list's weight when it shares nothing with the deck, so a nearly empty deck still hears what's popular. */
 const BASE_WEIGHT = 0.05
 const MIN_SCORE = 0.15
+const SIDEBOARD_LIMIT = 5
 
-/**
- * Cards the deck doesn't play yet, ranked by how many of its Legend's lists play them, each list
- * weighed by how much of the deck it shares (cards in both over cards in either), so the lists
- * closest to what you're building count most. Main Deck and Battlefields only (sideboards aside).
- */
-export function recommendCards(deck: ListCards, legendDecks: readonly ListCards[], cardsById: Map<string, Card>, limit = 10): CardSuggestion[] {
-  const mine = new Set(deckPlayKeys(deck, cardsById).keys())
-  const plays = new Map<string, { zoneIds: string[]; cardIds: string[]; copies: number[]; weight: number }>()
-  let totalWeight = 0
-  for (const listDeck of legendDecks) {
-    const theirs = new Map<string, { zoneId: string; cardId: string; copies: number }>()
-    for (const [zoneId, entries] of Object.entries(listDeck.zones)) {
-      if (zoneId === 'legend' || zoneId === 'sideboard') continue
-      for (const [key, c] of copiesByPool(entries, cardsById)) if (!theirs.has(key)) theirs.set(key, { zoneId, ...c })
-    }
+/** A deck's Main Deck and Battlefield cards (sideboards and the Legend aside) by play key, with their zone and copies. */
+function deckCards(deck: ListCards, cardsById: Map<string, Card>): Map<string, { zoneId: string; cardId: string; copies: number }> {
+  const out = new Map<string, { zoneId: string; cardId: string; copies: number }>()
+  for (const [zoneId, entries] of Object.entries(deck.zones)) {
+    if (zoneId === 'legend' || zoneId === 'sideboard') continue
+    for (const [key, c] of copiesByPool(entries, cardsById)) if (!out.has(key)) out.set(key, { zoneId, ...c })
+  }
+  return out
+}
+
+/** Each list's weight for the deck: how much of the deck it shares (cards in both over cards in either), plus a little. */
+function listWeights(deck: ListCards, legendDecks: readonly ListCards[], cardsById: Map<string, Card>): number[] {
+  const mine = new Set(deckCards(deck, cardsById).keys())
+  return legendDecks.map((d) => {
+    const theirs = deckCards(d, cardsById)
     let shared = 0
     for (const key of theirs.keys()) if (mine.has(key)) shared++
     const union = mine.size + theirs.size - shared
-    const weight = BASE_WEIGHT + (union ? shared / union : 0)
-    totalWeight += weight
-    for (const [key, { zoneId, cardId, copies }] of theirs) {
-      if (mine.has(key)) continue
-      const p = plays.get(key) ?? plays.set(key, { zoneIds: [], cardIds: [], copies: [], weight: 0 }).get(key)!
-      p.zoneIds.push(zoneId)
-      p.cardIds.push(cardId)
-      p.copies.push(copies)
-      p.weight += weight
+    return BASE_WEIGHT + (union ? shared / union : 0)
+  })
+}
+
+/**
+ * Cards the deck doesn't play yet, ranked by how many of its Legend's lists play them, each list
+ * weighed by how much of the deck it shares, so the lists closest to what you're building count
+ * most: up to `limit` for the Main Deck and Battlefields, and a few for the sideboard (their share
+ * of the lists that have one).
+ */
+export function recommendCards(deck: ListCards, legendDecks: readonly ListCards[], cardsById: Map<string, Card>, limit = 10): CardSuggestion[] {
+  const mine = deckPlayKeys(deck, cardsById)
+  const weights = listWeights(deck, legendDecks, cardsById)
+  const plays = new Map<string, { sideboard: boolean; zoneIds: string[]; cardIds: string[]; copies: number[]; weight: number }>()
+  let deckWeight = 0
+  let sideboardWeight = 0
+  const count = (key: string, sideboard: boolean, zoneId: string, cardId: string, copies: number, weight: number) => {
+    const id = `${sideboard ? 'sb' : 'deck'}|${key}`
+    const p = plays.get(id) ?? plays.set(id, { sideboard, zoneIds: [], cardIds: [], copies: [], weight: 0 }).get(id)!
+    p.zoneIds.push(zoneId)
+    p.cardIds.push(cardId)
+    p.copies.push(copies)
+    p.weight += weight
+  }
+  legendDecks.forEach((listDeck, i) => {
+    const weight = weights[i]
+    deckWeight += weight
+    for (const [key, { zoneId, cardId, copies }] of deckCards(listDeck, cardsById)) if (!mine.has(key)) count(key, false, zoneId, cardId, copies, weight)
+    const sideboard = copiesByPool(listDeck.zones.sideboard ?? [], cardsById)
+    if (sideboard.size) sideboardWeight += weight
+    for (const [key, { cardId, copies }] of sideboard) if (!mine.has(key)) count(key, true, 'sideboard', cardId, copies, weight)
+  })
+  const ranked = (sideboard: boolean, total: number, max: number) => {
+    const out: CardSuggestion[] = []
+    for (const p of plays.values()) {
+      if (p.sideboard !== sideboard) continue
+      const card = cardsById.get(mostCommon(p.cardIds))
+      const score = total ? p.weight / total : 0
+      if (card && score >= MIN_SCORE && p.cardIds.length >= 2)
+        out.push({ card, zoneId: mostCommon(p.zoneIds), lists: p.cardIds.length, usualCopies: mostCommon(p.copies, (a, b) => b - a), score })
     }
+    return out.sort((a, b) => b.score - a.score || b.lists - a.lists || a.card.name.localeCompare(b.card.name)).slice(0, max)
   }
-  const out: CardSuggestion[] = []
-  for (const p of plays.values()) {
-    const card = cardsById.get(mostCommon(p.cardIds))
-    const score = totalWeight ? p.weight / totalWeight : 0
-    if (card && score >= MIN_SCORE && p.cardIds.length >= 2)
-      out.push({ card, zoneId: mostCommon(p.zoneIds), lists: p.cardIds.length, usualCopies: mostCommon(p.copies, (a, b) => b - a), score })
+  return [...ranked(false, deckWeight, limit), ...ranked(true, sideboardWeight, SIDEBOARD_LIMIT)]
+}
+
+export interface CutCandidate {
+  card: Card
+  zoneId: string
+  /** Copies the deck plays. */
+  copies: number
+  /** Its share of the lists, weighed as in recommendCards (0-1). */
+  score: number
+}
+
+/** The deck's Main Deck and Battlefield cards the lists most like it play least, least first: what to swap out for a suggestion. */
+export function weakestCards(deck: ListCards, legendDecks: readonly ListCards[], cardsById: Map<string, Card>): CutCandidate[] {
+  const weights = listWeights(deck, legendDecks, cardsById)
+  const total = weights.reduce((a, b) => a + b, 0)
+  const played = legendDecks.map((d) => new Set(deckCards(d, cardsById).keys()))
+  const out: CutCandidate[] = []
+  for (const [key, { zoneId, cardId, copies }] of deckCards(deck, cardsById)) {
+    const card = cardsById.get(cardId)
+    if (!card) continue
+    const weight = played.reduce((sum, keys, i) => sum + (keys.has(key) ? weights[i] : 0), 0)
+    out.push({ card, zoneId, copies, score: total ? weight / total : 0 })
   }
-  return out.sort((a, b) => b.score - a.score || b.lists - a.lists || a.card.name.localeCompare(b.card.name)).slice(0, limit)
+  return out.sort((a, b) => a.score - b.score || a.card.name.localeCompare(b.card.name))
+}
+
+/**
+ * The Rune Deck split the lists most like the deck use, weighed as in recommendCards, as whole
+ * numbers adding up to `total`; empty when none of the lists say.
+ */
+export function suggestRunes(deck: ListCards, legendDecks: readonly ListCards[], cardsById: Map<string, Card>, total: number): DeckFreeTextEntry[] {
+  const weights = listWeights(deck, legendDecks, cardsById)
+  const byDomain = new Map<string, number>()
+  legendDecks.forEach((d, i) => {
+    const runes = d.freeTextZones.runes ?? []
+    const sum = runes.reduce((n, r) => n + r.quantity, 0)
+    for (const { label, quantity } of runes) if (sum) byDomain.set(label, (byDomain.get(label) ?? 0) + (weights[i] * quantity) / sum)
+  })
+  return apportion(byDomain, total).sort((a, b) => b.quantity - a.quantity || a.label.localeCompare(b.label))
 }
 
 /** The lists whose Legend is `legendCard` (any printing of it), as decks; `index` from codeIndex. */

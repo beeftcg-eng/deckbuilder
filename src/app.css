@@ -1822,6 +1822,14 @@
 .deck-suggestion .deck-entry-name {
   min-width: 0;
 }
+.deck-suggestion-own {
+  font-size: 12px;
+  color: var(--warning);
+  white-space: nowrap;
+}
+.deck-suggestion-own.owned {
+  color: var(--success);
+}
 .export-qr {
   display: flex;
   flex-direction: column;

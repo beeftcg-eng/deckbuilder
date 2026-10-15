@@ -545,6 +545,15 @@ export const en = {
     suggestShare: (pct: number) => `${pct}% of similar lists`,
     suggestAdd: (copies: number) => `+ ${copies}`,
     suggestAddLabel: (copies: number, name: string) => `Add ${copies} ${name}`,
+    suggestSort: 'Sort suggestions',
+    suggestSorts: { fit: 'Best fit', owned: 'Owned first', budget: 'Cheapest' },
+    suggestOwn: (owned: number, need: number) => `own ${owned}/${need}`,
+    suggestSwap: (copies: number, out: string) => `⇄ −${copies} ${out}`,
+    suggestSwapLabel: (copies: number, out: string, into: string) => `Swap ${copies} ${out} for ${into}`,
+    suggestSwapUndo: (out: string, into: string) => `Swap ${out} for ${into}`,
+    suggestRunes: (split: string) => `Rune Deck like similar lists: ${split}`,
+    suggestRunesUse: 'Use',
+    suggestRunesUndo: 'Use the suggested Rune Deck',
   },
 
   matchupPlans: {
