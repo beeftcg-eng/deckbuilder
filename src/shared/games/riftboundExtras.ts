@@ -56,6 +56,17 @@ const RADIANCE_UNLISTED: [number, string, string[], number | null][] = [
   [723436, 'Unit', ['Mind'], 3], // Trinket Peddler
 ]
 
+/** Radiance listings TCGplayer filled in wrong (October 2026), checked against riftwatch.gg. */
+const RADIANCE_MISLISTED: Record<number, Override> = {
+  723202: { colors: ['Fury'] }, // Antagonistic Apparatus, listed with no domain
+  723208: { colors: ['Calm'] }, // Hush, listed with no domain
+  723206: { colors: ['Mind'] }, // Gravity Field, listed as Calm
+  723204: { colors: ['Chaos'] }, // Demon Shade, listed as Fury
+  723215: { colors: ['Order'] }, // One-Two Punch, listed with no domain
+  723228: { category: 'Unit', subtypes: ['Champion'] }, // Ziggs, Explosive, listed as a plain Unit
+  722321: { name: 'Neeko, Blending In' }, // listed as "Neeko, Bleeding In"
+}
+
 /**
  * Where TCGplayer's listing needs correcting. The Vendetta promo runes (Pixelverse's art) are printed
  * "VEN · R01b · P" but TCGplayer files them under Organized Play Promos as "Fury Rune (Vendetta)", a
@@ -80,6 +91,7 @@ const OVERRIDES: Record<number, Override> = {
   ...Object.fromEntries(
     RADIANCE_UNLISTED.map(([productId, type, colors, energy]) => [productId, { ...categoryOf(type), colors, cost: energy == null ? null : String(energy) }]),
   ),
+  ...RADIANCE_MISLISTED,
 }
 
 const PARENTHETICAL = /\s*\(([^)]*)\)/g
@@ -304,15 +316,21 @@ export function keepExtrasWhenMissing(fresh: Card[], previous: readonly Card[]):
 }
 
 /**
- * The type, domains and cost OVERRIDES give TCGplayer's unfilled listings, put on card data saved
- * before they existed: the cards are only downloaded again weekly, and till then Riven, The Exile
+ * The name, type, domains and cost OVERRIDES give TCGplayer's unfilled or mistaken listings, put on card data
+ * saved before they existed: the cards are only downloaded again weekly, and till then Riven, The Exile
  * would stay a Unit.
  */
 export function withListingFixes(cards: Card[]): Card[] {
   return cards.map((card) => {
     const fix = card.id.startsWith(EXTRA_ID_PREFIX) ? OVERRIDES[Number(card.id.slice(EXTRA_ID_PREFIX.length))] : undefined
-    if (!fix?.category) return card
-    return { ...card, category: fix.category, subtypes: fix.subtypes ?? [], colors: fix.colors ?? card.colors, cost: fix.cost !== undefined ? fix.cost : card.cost }
+    if (!fix?.category && !fix?.colors && !fix?.name) return card
+    return {
+      ...card,
+      ...(fix.name ? { name: fix.name } : {}),
+      ...(fix.category ? { category: fix.category, subtypes: fix.subtypes ?? [] } : {}),
+      colors: fix.colors ?? card.colors,
+      cost: fix.cost !== undefined ? fix.cost : card.cost,
+    }
   })
 }
 

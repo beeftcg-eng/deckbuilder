@@ -127,6 +127,18 @@ describe('withListingFixes', () => {
     expect([riven.category, riven.colors, riven.cost]).toEqual(['Legend', ['Calm', 'Chaos'], null])
     expect(kept).toBe(other)
   })
+
+  it("corrects the domains, Champion and name TCGplayer got wrong, and keeps the rest", () => {
+    const saved = [
+      makeCard('riftbound', { id: 'riftbound:tcg-723204', name: 'Demon Shade', category: 'Spell', colors: ['Fury'], cost: '3', tcgplayerId: '723204' }),
+      makeCard('riftbound', { id: 'riftbound:tcg-723228', name: 'Ziggs, Explosive', category: 'Unit', subtypes: [], colors: ['Chaos'], cost: '4', tcgplayerId: '723228' }),
+      makeCard('riftbound', { id: 'riftbound:tcg-722321', name: 'Neeko, Bleeding In', category: 'Unit', subtypes: ['Champion'], colors: [], cost: '6', tcgplayerId: '722321' }),
+    ]
+    const [shade, ziggs, neeko] = withListingFixes(saved)
+    expect([shade.category, shade.colors, shade.cost]).toEqual(['Spell', ['Chaos'], '3'])
+    expect([ziggs.name, ziggs.subtypes, ziggs.colors, ziggs.cost]).toEqual(['Ziggs, Explosive', ['Champion'], ['Chaos'], '4'])
+    expect([neeko.name, neeko.subtypes, neeko.colors]).toEqual(['Neeko, Blending In', ['Champion'], []])
+  })
 })
 
 describe('keepExtrasWhenMissing', () => {
