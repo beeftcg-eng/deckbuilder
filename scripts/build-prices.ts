@@ -25,6 +25,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pokemonKey, pokemonPromoKey, riftboundKey, splitYugiohCode, yugiohExactKey, yugiohKey, onepieceSetKey, type OnePieceSetsFile, type PriceFile, type RiftboundExtra, type RiftboundPrintingsFile } from '../src/shared/priceKeys.ts'
 import { getAdapter } from '../src/shared/games/registry.ts'
+import { listingsMissingType } from '../src/shared/games/riftboundExtras.ts'
 import { uniquifyCardIds } from '../src/shared/cardIds.ts'
 import { idKey } from '../src/shared/priceRefresh.ts'
 import type { GameId } from '../src/shared/types.ts'
@@ -147,6 +148,13 @@ async function riftbound(): Promise<Prices> {
   // For the apps to add the ones riftcodex lacks (games/riftboundExtras.ts); they compare, since riftcodex
   // refuses requests from GitHub's servers.
   prices.printings = products
+  // Cards a new set lists before TCGplayer fills them in come in as plain Units (Riven, The Exile in
+  // October 2026): say so, so they get an override in games/riftboundExtras.ts or riftcodex catches up.
+  const untyped = listingsMissingType(products)
+  if (untyped.length) {
+    const names = untyped.slice(0, 20).map((p) => `${p.group} ${p.number} ${p.name}`).join('; ')
+    console.warn(`::warning::Riftbound: ${untyped.length} TCGplayer card ${untyped.length === 1 ? 'listing has' : 'listings have'} no card type: ${names}${untyped.length > 20 ? '...' : ''}`)
+  }
   return prices
 }
 

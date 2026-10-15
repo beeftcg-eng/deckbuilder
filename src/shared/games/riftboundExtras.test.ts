@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extraCards, keepExtrasWhenMissing, withListingFixes, missingPrintings, onlyOriginsRegularRunes, withOvernumberedKind, withFixedLegendNames, withPromoRuneArt } from './riftboundExtras'
+import { extraCards, keepExtrasWhenMissing, listingsMissingType, withListingFixes, missingPrintings, onlyOriginsRegularRunes, withOvernumberedKind, withFixedLegendNames, withPromoRuneArt } from './riftboundExtras'
 import type { RiftboundExtra } from '../priceKeys'
 import { makeCard } from '../testFixtures'
 
@@ -96,6 +96,26 @@ describe('extraCards', () => {
 
   it('skips products the card data already has', () => {
     expect(extraCards([product({ productId: 706005, name: 'Blade Twirler', number: '002/166' })], cards)).toEqual([])
+  })
+})
+
+describe('untyped listings', () => {
+  const blank = { group: 'RAD', groupName: 'Radiance', type: null, domains: [], energy: null }
+  const products = [
+    product({ group: 'RAD', productId: 10, name: 'Jinx, Rebel', number: '001/167', type: 'Champion Unit', domains: ['Chaos'], energy: 3 }),
+    product({ ...blank, productId: 11, name: 'Jinx, Rebel (Overnumbered)', number: '170/167' }),
+    product({ ...blank, productId: 12, name: 'Mystery Card', number: '002/167' }),
+    product({ ...blank, productId: 723434, name: 'Riven, The Exile', number: '149/167' }),
+    product({ ...blank, productId: 13, name: 'Recruit (272) // Buff', number: '272 // B' }),
+  ]
+
+  it('takes the type, domains and cost from another printing of the card', () => {
+    const jinx = extraCards(products, []).find((c) => c.name === 'Jinx, Rebel (Overnumbered)')!
+    expect([jinx.category, jinx.subtypes, jinx.colors, jinx.cost]).toEqual(['Unit', ['Champion'], ['Chaos'], '3'])
+  })
+
+  it('names the card listings with no type anywhere and no override, for the price build to warn about', () => {
+    expect(listingsMissingType(products).map((p) => p.name)).toEqual(['Mystery Card'])
   })
 })
 

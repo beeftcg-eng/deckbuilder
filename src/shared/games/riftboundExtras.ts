@@ -212,9 +212,34 @@ export function extraCards(extras: readonly RiftboundExtra[], cards: readonly Ca
     setNames.set(card.setId, card.setName)
     if (card.released) released.set(card.setId, card.released)
   }
+  const typed = typedListings(extras)
   return extras
     .filter((e) => !have.has(String(e.productId)))
-    .map((e) => toCard(e, bases.get(baseName(OVERRIDES[e.productId]?.name ?? e.name)), setNames, released))
+    .map((e) => toCard(withSiblingType(e, typed), bases.get(baseName(OVERRIDES[e.productId]?.name ?? e.name)), setNames, released))
+}
+
+/** The first listing with a card type for each card name. */
+function typedListings(products: readonly RiftboundExtra[]): Map<string, RiftboundExtra> {
+  const out = new Map<string, RiftboundExtra>()
+  for (const p of products) if (p.type && !out.has(baseName(p.name))) out.set(baseName(p.name), p)
+  return out
+}
+
+/** A listing TCGplayer left without a type ("Ekko, Revolutionary (Overnumbered)") takes it, and its domains and cost, from another printing of the card that has one. */
+function withSiblingType(product: RiftboundExtra, typed: Map<string, RiftboundExtra>): RiftboundExtra {
+  const sibling = product.type ? undefined : typed.get(baseName(product.name))
+  if (!sibling) return product
+  return { ...product, type: sibling.type, domains: product.domains.length ? product.domains : sibling.domains, energy: product.energy ?? sibling.energy }
+}
+
+/**
+ * Card listings that would come in as plain Units with no domain: no card type, none on another
+ * printing of the card, and no override. The daily price build warns about them, so a new set's
+ * unfinished listings get noticed (riftcodex may still have the card; the build can't ask it).
+ */
+export function listingsMissingType(products: readonly RiftboundExtra[]): RiftboundExtra[] {
+  const typed = typedListings(products)
+  return products.filter((p) => isCard(p) && !p.type && !OVERRIDES[p.productId]?.category && !typed.has(baseName(p.name)))
 }
 
 /**
