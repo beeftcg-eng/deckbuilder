@@ -3,12 +3,13 @@ import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { formatPrice, totalPrice } from '../shared/collection'
 import type { ResolvedWishlistEntry } from '../shared/export'
-import type { GameId, WishlistEntry } from '../shared/types'
+import type { Deck, GameId, WishlistEntry } from '../shared/types'
 import { t } from '../shared/i18n'
 import { PriceAlertButton, PriceAlertEditor } from './PriceAlertEditor'
 import { lazyModal } from './lazyModal'
 
 const WishlistExportModal = lazyModal(() => import('./WishlistExportModal'), 'WishlistExportModal')
+const ProxyPrintModal = lazyModal(() => import('./ProxyPrintModal'), 'ProxyPrintModal')
 
 export function WishlistPanel() {
   const wishlist = useAppStore((s) => s.wishlist)
@@ -42,6 +43,7 @@ export function WishlistPanel() {
   const [pushError, setPushError] = useState<string | null>(null)
   const [showExport, setShowExport] = useState(false)
   const [editingAlert, setEditingAlert] = useState<string | null>(null)
+  const [printing, setPrinting] = useState<GameId | null>(null)
 
   const grouped = useMemo(() => {
     const byGame = new Map<GameId, WishlistEntry[]>()
@@ -67,6 +69,14 @@ export function WishlistPanel() {
     }
     return entries
   }, [wishlist, catalogs])
+
+  // One game's wishlist as a deck, for the proxy print window.
+  const printDeck = useMemo<Deck | null>(() => {
+    if (!printing) return null
+    const now = new Date().toISOString()
+    const main = (grouped.get(printing) ?? []).map((e) => ({ cardId: e.cardId, quantity: e.quantity }))
+    return { id: 'wishlist', gameId: printing, name: t.wishlist.title, formatId: '', zones: { main }, freeTextZones: {}, createdAt: now, updatedAt: now }
+  }, [printing, grouped])
 
   const wishlistPrice = useMemo(() => totalPrice(resolvedEntries), [resolvedEntries])
 
@@ -106,6 +116,9 @@ export function WishlistPanel() {
         </div>
       </div>
 
+      {printDeck && catalogs[printDeck.gameId] && (
+        <ProxyPrintModal deck={printDeck} cardsById={catalogs[printDeck.gameId]!.byId} onClose={() => setPrinting(null)} />
+      )}
       {showExport && <WishlistExportModal entries={resolvedEntries} onClose={() => setShowExport(false)} />}
 
       <div className="pawmodoro-box">
@@ -135,7 +148,12 @@ export function WishlistPanel() {
           const byId = catalogs[gameId]?.byId
           return (
             <div key={gameId} className="wishlist-group">
-              <div className="wishlist-group-header">{adapter.shortName}</div>
+              <div className="wishlist-group-header">
+                {adapter.shortName}
+                <button className="btn" disabled={!byId} title={t.proxies.wishlistButtonTitle} onClick={() => setPrinting(gameId)}>
+                  {t.proxies.wishlistButton}
+                </button>
+              </div>
               {entries.map((entry) => {
                 const card = byId?.get(entry.cardId)
                 return (

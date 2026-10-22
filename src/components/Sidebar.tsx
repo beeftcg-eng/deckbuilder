@@ -16,6 +16,7 @@ import { lazyModal } from './lazyModal'
 const BugReportModal = lazyModal(() => import('./BugReportModal'), 'BugReportModal')
 const PatchNotesModal = lazyModal(() => import('./PatchNotesModal'), 'PatchNotesModal')
 const ImportDeckModal = lazyModal(() => import('./ImportDeckModal'), 'ImportDeckModal')
+const ProxyPrintModal = lazyModal(() => import('./ProxyPrintModal'), 'ProxyPrintModal')
 const CommunityListsModal = lazyModal(() => import('./CommunityListsModal'), 'CommunityListsModal')
 const CompareDecksModal = lazyModal(() => import('./CompareDecksModal'), 'CompareDecksModal')
 const PairingsAccountModal = lazyModal(() => import('./PairingsAccountModal'), 'PairingsAccountModal')
@@ -93,6 +94,7 @@ export function Sidebar() {
   const [showBackups, setShowBackups] = useState(false)
   const [deckFilter, setDeckFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
+  const [showProxies, setShowProxies] = useState(false)
   // A community list (Riftbound, from RiftAtlas) to start the import window with.
   const [showCommunity, setShowCommunity] = useState(false)
   const [importStart, setImportStart] = useState<{ text: string; name: string } | null>(null)
@@ -473,6 +475,9 @@ export function Sidebar() {
           <button className="btn" onClick={() => setShowImport(true)} title={t.sidebar.importTitle}>
             {t.sidebar.import}
           </button>
+          <button className="btn" onClick={() => setShowProxies(true)} title={t.proxies.sidebarTitle}>
+            {t.proxies.button}
+          </button>
           <button
             className="btn"
             onClick={() => {
@@ -591,6 +596,7 @@ export function Sidebar() {
         </div>
       )}
 
+      {showProxies && <ProxyPrintModal gameId={currentGameId} onClose={() => setShowProxies(false)} />}
       {showImport && (
         <ImportDeckModal
           gameId={currentGameId}

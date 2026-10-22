@@ -65,9 +65,12 @@ export function defaultPaper(locale: string | undefined): Paper {
   return region && ['US', 'CA', 'MX', 'CL', 'CO', 'VE', 'PH', 'GT', 'CR', 'DO', 'PR', 'PA', 'SV', 'NI', 'HN'].includes(region) ? 'letter' : 'a4'
 }
 
-/** A card's printed size. Yu-Gi-Oh! uses the smaller Japanese size; the rest are poker size. */
+/**
+ * A card's printed size. Yu-Gi-Oh! uses the smaller Japanese size; the rest are poker size, 2.5 × 3.5 in
+ * (63.5 × 88.9 mm). The rounded 63 × 88 often quoted printed a hair small next to a real card.
+ */
 export function cardSizeMm(gameId: GameId): { width: number; height: number } {
-  return gameId === 'yugioh' ? { width: 59, height: 86 } : { width: 63, height: 88 }
+  return gameId === 'yugioh' ? { width: 59, height: 86 } : { width: 63.5, height: 88.9 }
 }
 
 /** Printers can't reach the very edge, so nothing is placed closer to it than this. */
@@ -151,7 +154,9 @@ export function buildProxyPdf(layout: PageLayout, images: PdfImage[], sequence: 
 
   write('%PDF-1.4\n%âãÏÓ\n')
   startObj(1)
-  write('<< /Type /Catalog /Pages 2 0 R >>\nendobj\n')
+  // PrintScaling /None: viewers that honour it (Chrome, Acrobat) default the print dialog to actual size
+  // instead of "fit to page", which shrinks every card by a few percent.
+  write('<< /Type /Catalog /Pages 2 0 R /ViewerPreferences << /PrintScaling /None >> >>\nendobj\n')
   startObj(2)
   write(`<< /Type /Pages /Count ${pageCount} /Kids [${Array.from({ length: pageCount }, (_, p) => `${pageObj(p)} 0 R`).join(' ')}] >>\nendobj\n`)
   images.forEach((image, i) => {

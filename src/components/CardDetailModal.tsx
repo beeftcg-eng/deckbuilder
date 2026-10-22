@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import type { Card } from '../shared/types'
 import { useAppStore } from '../state/useAppStore'
+import { useProxyList } from '../state/proxyList'
 import { formatPrice } from '../shared/collection'
 import { rarityColorClass } from '../shared/rarityColor'
 import { artUrl, artworkIds, knownArtIds } from '../shared/artChoice'
@@ -44,6 +45,8 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
   const currentBinder = useAppStore((s) => s.binders.find((b) => b.id === currentBinderId))
   const setBinderCardQuantity = useAppStore((s) => s.setBinderCardQuantity)
   const inBinder = currentBinder?.cards[card.id] ?? 0
+  const addProxy = useProxyList((s) => s.add)
+  const inProxies = useProxyList((s) => s.lists[card.gameId]?.find((e) => e.cardId === card.id)?.quantity ?? 0)
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
@@ -104,6 +107,9 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
               onClick={() => (wishlistEntryId != null ? removeFromWishlist(wishlistEntryId) : addToWishlist(card, 1))}
             >
               {onWishlist ? t.cardDetail.removeWishlist : t.cardDetail.addWishlist}
+            </button>
+            <button className="btn" title={t.proxies.addToListTitle} onClick={() => addProxy(card)}>
+              {inProxies > 0 ? t.proxies.addedToList(inProxies) : t.proxies.addToList}
             </button>
             <button className="btn" onClick={onClose}>
               {t.common.close}

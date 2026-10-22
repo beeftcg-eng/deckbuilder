@@ -60,6 +60,11 @@ describe('pageLayout', () => {
     }
   })
 
+  it('prints poker-size cards at 2.5 × 3.5 in, still 9 to a Letter page', () => {
+    expect(cardSizeMm('mtg')).toEqual({ width: 63.5, height: 88.9 })
+    expect(pageLayout('letter', 'pokemon').slots).toHaveLength(9)
+  })
+
   it('uses Yu-Gi-Oh!’s smaller card size', () => {
     expect(cardSizeMm('yugioh')).toEqual({ width: 59, height: 86 })
     expect(pageLayout('a4', 'yugioh').card.width).toBe(59)
@@ -75,6 +80,11 @@ describe('pageLayout', () => {
 
 describe('buildProxyPdf', () => {
   const jpeg = (n: number) => ({ jpeg: new Uint8Array([0xff, 0xd8, n, 0xff, 0xd9]), width: 10, height: 14 })
+
+  it('asks the viewer to print at actual size, not fit to page', () => {
+    const pdf = new TextDecoder('latin1').decode(buildProxyPdf(pageLayout('a4', 'mtg'), [jpeg(1)], [0]))
+    expect(pdf).toContain('/PrintScaling /None')
+  })
 
   it('stores each picture once, fills 9 slots a page, and writes a correct xref table', () => {
     const layout = pageLayout('letter', 'mtg')
