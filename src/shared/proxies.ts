@@ -73,9 +73,16 @@ export function cardSizeMm(gameId: GameId): { width: number; height: number } {
   return gameId === 'yugioh' ? { width: 59, height: 86 } : { width: 63.5, height: 88.9 }
 }
 
-/** Printers can't reach the very edge, so nothing is placed closer to it than this. */
+/** Printers can't reach the very edge, so nothing is placed closer to the sides than this. */
 const MIN_MARGIN_MM = 6
-/** How far the cut marks reach into the margin. */
+/** Nor closer to the top than this… */
+const MIN_TOP_MM = 4
+/**
+ * …while the bottom, where many printers stop well short of the edge, gets this much when the page
+ * has room. Three poker-size rows on Letter leave only 12.7 mm in all: centred, the bottom row was cut.
+ */
+const BOTTOM_MM = 10
+/** How far the cut marks reach into the margin (less where the margin is narrower). */
 const MARK_MM = 4
 
 export interface PageLayout {
@@ -89,22 +96,29 @@ export interface PageLayout {
   marks: { x1: number; y1: number; x2: number; y2: number }[]
 }
 
-/** Cards edge to edge in a centred grid (one cut between neighbours), with cut marks in the margins. */
+/**
+ * Cards edge to edge in a grid (one cut between neighbours), with cut marks in the margins. It's
+ * centred, except on a tight page, where it moves up to leave the bottom margin printers need.
+ */
 export function pageLayout(paper: Paper, gameId: GameId): PageLayout {
   const page = PAPER_MM[paper]
   const card = cardSizeMm(gameId)
   const columns = Math.floor((page.width - 2 * MIN_MARGIN_MM) / card.width)
-  const rows = Math.floor((page.height - 2 * MIN_MARGIN_MM) / card.height)
+  const rows = Math.floor((page.height - MIN_TOP_MM - MIN_MARGIN_MM) / card.height)
   const left = (page.width - columns * card.width) / 2
-  const top = (page.height - rows * card.height) / 2
+  const spareY = page.height - rows * card.height
+  const top = spareY / 2 >= BOTTOM_MM ? spareY / 2 : Math.max(MIN_TOP_MM, spareY - BOTTOM_MM)
   const slots: { x: number; y: number }[] = []
   for (let r = 0; r < rows; r++) for (let c = 0; c < columns; c++) slots.push({ x: left + c * card.width, y: top + r * card.height })
   const marks: PageLayout['marks'] = []
   const right = left + columns * card.width
   const bottom = top + rows * card.height
+  // Marks stop short of the paper's edge as well as the cards'.
+  const markTop = Math.min(MARK_MM, top - 2)
+  const markBottom = Math.min(MARK_MM, page.height - bottom - 2)
   for (let c = 0; c <= columns; c++) {
     const x = left + c * card.width
-    marks.push({ x1: x, y1: top - MARK_MM - 1, x2: x, y2: top - 1 }, { x1: x, y1: bottom + 1, x2: x, y2: bottom + MARK_MM + 1 })
+    marks.push({ x1: x, y1: top - markTop - 1, x2: x, y2: top - 1 }, { x1: x, y1: bottom + 1, x2: x, y2: bottom + markBottom + 1 })
   }
   for (let r = 0; r <= rows; r++) {
     const y = top + r * card.height

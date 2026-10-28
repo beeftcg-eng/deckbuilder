@@ -46,7 +46,7 @@ describe('proxyCopies', () => {
 })
 
 describe('pageLayout', () => {
-  it('fits 9 poker-size cards on Letter and A4, centred, inside the printable area', () => {
+  it('fits 9 poker-size cards on Letter and A4, centred across, inside the printable area', () => {
     for (const paper of ['letter', 'a4'] as const) {
       const layout = pageLayout(paper, 'mtg')
       expect(layout.slots).toHaveLength(9)
@@ -54,10 +54,25 @@ describe('pageLayout', () => {
       const right = layout.slots[8].x + layout.card.width
       const bottom = layout.slots[8].y + layout.card.height
       expect(layout.slots[0].x).toBeCloseTo(page.width - right)
-      expect(layout.slots[0].y).toBeCloseTo(page.height - bottom)
       expect(layout.slots[0].x).toBeGreaterThanOrEqual(6)
-      for (const m of layout.marks) for (const v of [m.x1, m.x2]) expect(v).toBeGreaterThan(0)
+      expect(layout.slots[0].y).toBeGreaterThanOrEqual(4)
+      expect(page.height - bottom).toBeGreaterThanOrEqual(8)
+      for (const m of layout.marks) {
+        for (const v of [m.x1, m.x2]) expect(v).toBeGreaterThan(0)
+        for (const v of [m.y1, m.y2]) {
+          expect(v).toBeGreaterThan(0)
+          expect(v).toBeLessThan(page.height)
+        }
+      }
     }
+  })
+
+  it('moves the grid up on Letter to clear the bottom edge, and keeps roomy pages centred', () => {
+    const letter = pageLayout('letter', 'mtg')
+    expect(PAPER_MM.letter.height - (letter.slots[8].y + letter.card.height)).toBeCloseTo(8.7)
+    expect(letter.slots[0].y).toBeCloseTo(4)
+    const a4 = pageLayout('a4', 'mtg')
+    expect(a4.slots[0].y).toBeCloseTo(PAPER_MM.a4.height - (a4.slots[8].y + a4.card.height))
   })
 
   it('prints poker-size cards at 2.5 × 3.5 in, still 9 to a Letter page', () => {
