@@ -8,6 +8,8 @@ declare global {
   const __SCANNER__: boolean
   /** True in the phone app's build (vite.web.config.ts), false in the desktop one. */
   const __WEB__: boolean
+  /** The app's version (package.json), from both builds. */
+  const __APP_VERSION__: string
 }
 
 export {}

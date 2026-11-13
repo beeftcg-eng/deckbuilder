@@ -72,6 +72,7 @@ export function sanitize(raw: unknown): AppSettings {
   if (source.collectionBatches !== undefined) settings.collectionBatches = sanitizeCollectionBatches(source.collectionBatches, GAME_IDS)
   if (source.collectionDetails !== undefined) settings.collectionDetails = sanitizeCollectionDetails(source.collectionDetails)
   if (source.itemsSynced === true) settings.itemsSynced = true
+  if (typeof source.usageStats === 'boolean') settings.usageStats = source.usageStats
   if (source.banListsSeen !== undefined) settings.banListsSeen = sanitizeBanListsSeen(source.banListsSeen)
   if (Array.isArray(source.tradeSeen)) settings.tradeSeen = source.tradeSeen.filter((k): k is string => typeof k === 'string').slice(0, 3000)
   if (isPlainObject(source.tradeProfile)) {

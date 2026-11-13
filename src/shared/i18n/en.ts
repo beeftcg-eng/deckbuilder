@@ -1253,6 +1253,17 @@ export const en = {
     card: (game: string) => `${game} card`,
   },
 
+  usage: {
+    label: 'Share anonymous usage counts',
+    title: 'Counts of which parts of the app get used, sent once a day with no account, device, deck or card in them. Off until you tick it.',
+    whatsSent: 'What’s sent?',
+    detailsTitle: 'Anonymous usage counts',
+    explain:
+      'When this is ticked, the app counts which windows, panels and games get used — just their names and how many times a day — and sends each finished day’s counts with the app version and whether it’s the desktop or phone app. Nothing else: no account, device ID, deck, card, or anything you type. It helps decide what to improve and what nobody uses. Here’s everything waiting to be sent from this device:',
+    off: 'It’s off, so nothing is being counted.',
+    nothingYet: 'Nothing counted yet.',
+  },
+
   banLists: {
     title: 'Ban list update',
     heading: (game: string, format: string) => `${game} — ${format}`,

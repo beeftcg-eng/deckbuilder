@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { UsageToggle } from './UsageToggle'
 import { useCommand } from '../lib/commands'
 import { isCommunityGame } from '../shared/communityGames'
 import { useAppStore, useCardsById, useOrderedGames, useVisibleGames } from '../state/useAppStore'
@@ -608,6 +609,7 @@ export function Sidebar() {
               {t.sidebar.supportButton}
             </button>
           </div>
+          <UsageToggle />
         </div>
       )}
 

@@ -235,6 +235,8 @@ export interface AppState {
   setDeckViewMode: (mode: DeckViewMode) => void
   setUpdateStatus: (status: UpdateStatus) => void
   setTheme: (id: string) => void
+  /** Turns the anonymous usage counts (shared/usage.ts) on or off. */
+  setUsageStats: (on: boolean) => void
   /** Shows prices in this currency (converted from US dollars at the day's rate). */
   setCurrency: (code: string) => void
   /** Saves today's collection value for a game whose cards are loaded (valueHistory.ts). */

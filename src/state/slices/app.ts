@@ -166,6 +166,11 @@ export function createAppSlice(ctx: StoreContext) {
       set((s) => ({ settings: { ...s.settings, currency: code }, currencyKey: `${displayCurrency()}:${s.settings.currencyRates?.updatedAt ?? ''}` }))
       persistSettings({ currency: code })
     },
+    setUsageStats: (on) => {
+      set((s) => ({ settings: { ...s.settings, usageStats: on } }))
+      persistSettings({ usageStats: on })
+    },
+
     setTheme: (id) => {
       applyTheme(id) // instant; the saved copy follows
       persistSettings({ theme: id })

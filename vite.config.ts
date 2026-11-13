@@ -2,6 +2,9 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import electron from 'vite-plugin-electron/simple'
 import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs'
+
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8')) as { version: string }
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -9,6 +12,7 @@ export default defineConfig({
   define: {
     __SCANNER__: 'false',
     __WEB__: 'false',
+    __APP_VERSION__: JSON.stringify(pkg.version),
   },
   // The phone app's service worker registration (src/web/pwaUpdate.ts) doesn't exist on the desktop.
   resolve: {

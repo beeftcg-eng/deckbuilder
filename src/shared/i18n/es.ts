@@ -1289,6 +1289,17 @@ export const es: Messages = {
     card: (game) => `Carta de ${game}`,
   },
 
+  usage: {
+    label: 'Compartir conteos de uso anónimos',
+    title: 'Conteos de qué partes de la app se usan, enviados una vez al día sin cuenta, dispositivo, mazo ni carta. Desactivado hasta que lo marques.',
+    whatsSent: '¿Qué se envía?',
+    detailsTitle: 'Conteos de uso anónimos',
+    explain:
+      'Con esto marcado, la app cuenta qué ventanas, paneles y juegos se usan — solo sus nombres y cuántas veces al día — y envía los conteos de cada día terminado con la versión de la app y si es la de escritorio o la del teléfono. Nada más: ni cuenta, ni ID de dispositivo, ni mazos, cartas o lo que escribas. Ayuda a decidir qué mejorar y qué no usa nadie. Esto es todo lo que espera para enviarse desde este dispositivo:',
+    off: 'Está desactivado, así que no se cuenta nada.',
+    nothingYet: 'Aún no se ha contado nada.',
+  },
+
   banLists: {
     title: 'Nueva lista de prohibidas',
     heading: (game, format) => `${game} — ${format}`,

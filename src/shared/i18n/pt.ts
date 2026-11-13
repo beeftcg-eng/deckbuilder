@@ -1289,6 +1289,17 @@ export const pt: Messages = {
     card: (game) => `Carta de ${game}`,
   },
 
+  usage: {
+    label: 'Compartilhar contagens de uso anônimas',
+    title: 'Contagens de quais partes do app são usadas, enviadas uma vez por dia sem conta, dispositivo, deck ou carta. Desligado até você marcar.',
+    whatsSent: 'O que é enviado?',
+    detailsTitle: 'Contagens de uso anônimas',
+    explain:
+      'Com isto marcado, o app conta quais janelas, painéis e jogos são usados — só os nomes e quantas vezes por dia — e envia as contagens de cada dia encerrado com a versão do app e se é o de computador ou o do celular. Nada mais: nem conta, nem ID do dispositivo, nem decks, cartas ou o que você digitar. Ajuda a decidir o que melhorar e o que ninguém usa. Isto é tudo o que espera para ser enviado deste dispositivo:',
+    off: 'Está desligado, então nada é contado.',
+    nothingYet: 'Nada contado ainda.',
+  },
+
   banLists: {
     title: 'Nova lista de banidas',
     heading: (game, format) => `${game} — ${format}`,

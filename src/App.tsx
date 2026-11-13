@@ -11,6 +11,7 @@ import { TradePanel } from './components/TradePanel'
 import { BinderPanel } from './components/BinderPanel'
 import { DeckViewPage } from './components/DeckViewPage'
 import { useAppStore } from './state/useAppStore'
+import { startUsageTracking } from './state/usageTracking'
 import { useSyncProgressListener } from './state/syncProgress'
 import { useUpdaterListener } from './state/updater'
 import { useDeckbuilderSyncListener } from './state/deckbuilderSync'
@@ -84,6 +85,8 @@ export default function App() {
 
   useEffect(() => {
     initialize()
+    // Anonymous usage counts: nothing is counted or sent unless the setting is ticked (shared/usage.ts).
+    startUsageTracking()
   }, [initialize])
 
   // Keyboard shortcuts (ShortcutsModal.tsx lists them). Ctrl/Cmd+Z undoes the last deck change, but

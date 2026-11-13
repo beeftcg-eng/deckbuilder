@@ -877,7 +877,6 @@ export const webApi = {
   clipboard: clipboardApi,
 }
 
-declare const __APP_VERSION__: string
 
 export function installWebApiIfNeeded(): void {
   if (typeof window.api === 'undefined') {

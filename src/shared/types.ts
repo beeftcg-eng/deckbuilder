@@ -358,6 +358,8 @@ export interface AppSettings {
   tradeSeen?: string[]
   /** The Yu-Gi-Oh! ban lists last applied on this device, by `yugioh:<format>` (banLists.ts). */
   banListsSeen?: Record<string, import('./banLists').BanSnapshot>
+  /** Ticked "Share anonymous usage counts" (shared/usage.ts). Unset or false: nothing is counted or sent. */
+  usageStats?: boolean
 }
 
 /** A community list whose cost to finish you're watching: say so once when it drops to `target` (USD) or below. */
