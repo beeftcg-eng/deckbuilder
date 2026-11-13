@@ -5223,3 +5223,17 @@
     border-radius: 0;
   }
 }
+
+/* Practice's resources this turn and the cards in play (SampleHandModal.tsx, practiceResources.ts). */
+.practice-resources {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.practice-resources.over {
+  color: var(--danger);
+}
+
+.sample-hand-card.unaffordable {
+  opacity: 0.45;
+}

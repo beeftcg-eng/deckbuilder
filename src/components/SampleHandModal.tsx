@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { Card, Deck } from '../shared/types'
 import { cardsSeenBy, chanceAtLeast, expandZone, shuffled } from '../shared/sampleHand'
 import { poolKey } from '../shared/collection'
+import { playCost, resourceRule, resourcesAt } from '../shared/practiceResources'
 import { t } from '../shared/i18n'
 
 interface Props {
@@ -17,15 +18,18 @@ const TURNS = [0, 1, 2, 3, 4, 5]
 
 function deal(from: Card[], size: number, mulligans: number) {
   const library = shuffled(from)
-  return { hand: library.slice(0, size), library: library.slice(size), discard: [] as Card[], turn: 0, mulligans, bottomed: 0 }
+  return { hand: library.slice(0, size), library: library.slice(size), discard: [] as Card[], inPlay: [] as Card[], spent: 0, turn: 0, mulligans, bottomed: 0 }
 }
 
-type TapAction = 'discard' | 'bottom'
+type TapAction = 'play' | 'discard' | 'bottom'
+const TAP_ACTIONS: TapAction[] = ['play', 'discard', 'bottom']
 
 /**
  * Practising the deck: deal an opening hand, mulligan, put cards on the bottom (Magic's London
  * mulligan, Riftbound's replace-up-to-two), play turns out draw by draw - and the exact odds of
- * seeing chosen cards by each turn.
+ * seeing chosen cards by each turn. Playing a card puts it in play and pays its cost from the turn's
+ * resources (practiceResources.ts: DON!!, runes, lands; Pokémon counts Energy attached), so a hand
+ * can be goldfished; the cards you can't afford this turn are dimmed.
  */
 export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
   const cards = useMemo(() => expandZone(deck, 'main', cardsById), [deck, cardsById])
@@ -34,7 +38,11 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
   const [state, setState] = useState(() => deal(cards, handSize, 0))
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [atLeast, setAtLeast] = useState(1)
-  const [tapAction, setTapAction] = useState<TapAction>('discard')
+  const rule = resourceRule(deck.gameId)
+  const [tapAction, setTapAction] = useState<TapAction>(rule ? 'play' : 'discard')
+  const total = rule ? resourcesAt(rule, state.turn, onThePlay, state.inPlay) : 0
+  const left = total - state.spent
+  const paysCosts = !!rule && (rule.kind === 'perTurn' || rule.paysCosts)
 
   function draw() {
     setState((s) => ({ ...s, hand: [...s.hand, ...s.library.slice(0, 1)], library: s.library.slice(1) }))
@@ -44,7 +52,7 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
     setState((s) => {
       const turn = s.turn + 1
       const draws = turn === 1 && onThePlay ? 0 : 1
-      return { ...s, turn, hand: [...s.hand, ...s.library.slice(0, draws)], library: s.library.slice(draws) }
+      return { ...s, turn, spent: 0, hand: [...s.hand, ...s.library.slice(0, draws)], library: s.library.slice(draws) }
     })
   }
 
@@ -54,6 +62,22 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
 
   function discard(index: number) {
     setState((s) => ({ ...s, hand: s.hand.filter((_, i) => i !== index), discard: [...s.discard, s.hand[index]] }))
+  }
+
+  /** Plays a card: into play, paying its cost from this turn's resources. */
+  function play(index: number) {
+    setState((s) => {
+      const card = s.hand[index]
+      return { ...s, hand: s.hand.filter((_, i) => i !== index), inPlay: [...s.inPlay, card], spent: s.spent + (playCost(rule, card) ?? 0) }
+    })
+  }
+
+  /** A card in play back to the hand (a mis-tap): its cost comes back if it was paid this turn. */
+  function unplay(index: number) {
+    setState((s) => {
+      const card = s.inPlay[index]
+      return { ...s, inPlay: s.inPlay.filter((_, i) => i !== index), hand: [...s.hand, card], spent: Math.max(0, s.spent - (playCost(rule, card) ?? 0)) }
+    })
   }
 
   /** A discarded card back to the hand (a mis-tap, or an effect that returns it). */
@@ -135,26 +159,54 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
                   {state.bottomed > 0 && ` · ${t.sampleHand.bottomed(state.bottomed)}`}
                   {state.discard.length > 0 && ` · ${t.sampleHand.discarded(state.discard.length)}`}
                 </div>
+                {rule && (
+                  <div className={`practice-resources ${paysCosts && left < 0 ? 'over' : ''}`} role="status">
+                    {paysCosts ? t.sampleHand.resourcesLeft(deck.gameId, Math.max(0, left), total) : t.sampleHand.resourcesCount(deck.gameId, total)}
+                    {paysCosts && left < 0 && ` · ${t.sampleHand.overspent(-left)}`}
+                  </div>
+                )}
                 <div className="practice-tap" role="group" aria-label={t.sampleHand.tapLabel}>
                   <span className="text-dim">{t.sampleHand.tapLabel}</span>
-                  {(['discard', 'bottom'] as const).map((a) => (
+                  {TAP_ACTIONS.filter((a) => a !== 'play' || rule).map((a) => (
                     <button key={a} className={`btn ${tapAction === a ? 'btn-primary' : ''}`} aria-pressed={tapAction === a} onClick={() => setTapAction(a)}>
-                      {a === 'discard' ? t.sampleHand.tapDiscard : t.sampleHand.tapBottom}
+                      {a === 'play' ? t.sampleHand.tapPlay : a === 'discard' ? t.sampleHand.tapDiscard : t.sampleHand.tapBottom}
                     </button>
                   ))}
                 </div>
                 <div className="sample-hand-grid">
-                  {state.hand.map((card, i) => (
+                  {state.hand.map((card, i) => {
+                    const cost = paysCosts ? playCost(rule, card) : null
+                    const tooDear = tapAction === 'play' && cost != null && cost > left
+                    return (
                     <button
-                      className="sample-hand-card"
+                      className={`sample-hand-card ${tooDear ? 'unaffordable' : ''}`}
                       key={`${card.id}-${i}`}
-                      title={tapAction === 'discard' ? t.sampleHand.discardTitle(card.name) : t.sampleHand.bottomTitle(card.name)}
-                      onClick={() => (tapAction === 'discard' ? discard(i) : bottom(i))}
+                      title={
+                        tapAction === 'play'
+                          ? t.sampleHand.playTitle(card.name, cost)
+                          : tapAction === 'discard'
+                            ? t.sampleHand.discardTitle(card.name)
+                            : t.sampleHand.bottomTitle(card.name)
+                      }
+                      onClick={() => (tapAction === 'play' ? play(i) : tapAction === 'discard' ? discard(i) : bottom(i))}
                     >
                       {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <div className="card-tile-placeholder">{card.name}</div>}
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
+                {state.inPlay.length > 0 && (
+                  <div className="practice-discard practice-in-play">
+                    <div className="text-dim">{t.sampleHand.inPlay(state.inPlay.length)}</div>
+                    <div className="practice-discard-row">
+                      {state.inPlay.map((card, i) => (
+                        <button className="practice-discard-card" key={`${card.id}-p${i}`} title={t.sampleHand.unplayTitle(card.name)} onClick={() => unplay(i)}>
+                          {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <span>{card.name}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {state.discard.length > 0 && (
                   <div className="practice-discard">
                     <div className="text-dim">{t.sampleHand.discardPile(state.discard.length)}</div>
