@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazyModal } from './components/lazyModal'
 import './app.css'
 import { Sidebar } from './components/Sidebar'
 import { CardBrowser } from './components/CardBrowser'
@@ -26,6 +27,8 @@ import { hoveredCard, isTyping } from './lib/shortcuts'
 
 // The card scanner and its OCR models load only when it's first opened.
 const ScannerModal = __SCANNER__ ? lazy(() => import('./components/ScannerModal')) : null
+// Ctrl+K's command palette, likewise.
+const CommandPalette = lazyModal(() => import('./components/CommandPalette'), 'CommandPalette')
 import { t } from './shared/i18n'
 
 export default function App() {
@@ -53,6 +56,7 @@ export default function App() {
   const showTour = useAppStore((s) => s.showTour)
   const showScanner = useAppStore((s) => s.showScanner)
   const showShortcuts = useAppStore((s) => s.showShortcuts)
+  const showPalette = useAppStore((s) => s.showPalette)
 
   // Switching screens or decks gives a crashed panel a fresh try.
   const panelKey = `${currentGameId}|${currentDeckId}|${deckViewing}|${showMyDecks}|${showCollection}|${showWishlist}|${showTrade}|${showBinders}`
@@ -88,6 +92,13 @@ export default function App() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const typing = isTyping(e.target)
+      // Ctrl/Cmd+K opens the command palette from anywhere, typing or not (it's no text-editing key).
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        const store = useAppStore.getState()
+        store.setShowPalette(!store.showPalette)
+        return
+      }
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
         if (typing) return
         e.preventDefault()
@@ -176,6 +187,7 @@ export default function App() {
       {showTour && <WelcomeTour />}
       <AnnouncementModal />
       <BanListUpdateModal />
+      {showPalette && <CommandPalette onClose={() => useAppStore.getState().setShowPalette(false)} />}
       <ErrorBoundary area="shared deck">
         <SharedDeckView />
       </ErrorBoundary>

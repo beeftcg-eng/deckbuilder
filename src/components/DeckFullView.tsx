@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useCommand } from '../lib/commands'
 import { isCommunityGame } from '../shared/communityGames'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
@@ -74,6 +75,15 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
   const [showPractice, setShowPractice] = useState(false)
   const [showProxies, setShowProxies] = useState(false)
   const [showBuyList, setShowBuyList] = useState(false)
+  // The command palette (CommandPalette.tsx) opens these; a shared deck's view isn't yours to act on.
+  useCommand('deck:export', () => setShowExport(true), !readOnly)
+  useCommand('deck:practice', () => setShowPractice(true), !readOnly)
+  useCommand('deck:compare', () => setShowCompare(true), !readOnly)
+  useCommand('deck:history', () => setShowHistory(true), !readOnly)
+  useCommand('deck:proxies', () => setShowProxies(true), !readOnly)
+  useCommand('deck:buyList', () => setShowBuyList(true), !readOnly)
+  useCommand('deck:share', () => setShowShare(true), !readOnly)
+  useCommand('deck:stats', () => setShowStats(true), !readOnly)
 
   const zones = useMemo(() => rulesForFormat(adapter, deck.formatId), [adapter, deck.formatId])
   const sections = useMemo(() => buildDeckView(deck, zones, cardsById, hasTags ? groupBy : 'type'), [deck, zones, cardsById, groupBy, hasTags])

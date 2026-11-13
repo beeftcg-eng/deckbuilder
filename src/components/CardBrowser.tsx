@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useCommand } from '../lib/commands'
 import { useAppStore, useCardsById, useOwnedIndex } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { isCardLegalInFormat } from '../shared/legality'
@@ -67,6 +68,11 @@ export function CardBrowser() {
   const syncProgress = useAppStore((s) => s.syncProgress[currentGameId])
   const syncing = syncProgress != null && !syncProgress.done
   const [detailCard, setDetailCard] = useState<Card | null>(null)
+  // A card picked in the command palette (CommandPalette.tsx).
+  useCommand('card', (cardId) => {
+    const card = cardId ? catalog?.byId.get(cardId) : undefined
+    if (card) setDetailCard(card)
+  })
 
   const showCollection = useAppStore((s) => s.showCollection)
 

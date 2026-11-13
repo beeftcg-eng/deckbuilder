@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useCommand } from '../lib/commands'
 import { isCommunityGame } from '../shared/communityGames'
 import { useAppStore, useCardsById, useOwnedIndex, wishlistIndexOf } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
@@ -82,6 +83,11 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const [showBuyList, setShowBuyList] = useState(false)
   const [showBanList, setShowBanList] = useState(false)
   const [viewingBanList, setViewingBanList] = useState(false)
+  // The command palette (CommandPalette.tsx) opens these; the rest open the deck's view.
+  useCommand('deck:export', () => setShowExport(true))
+  useCommand('deck:practice', () => setShowSampleHand(true))
+  useCommand('deck:proxies', () => setShowProxies(true))
+  useCommand('deck:buyList', () => setShowBuyList(true))
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [dragEntry, setDragEntry] = useState<{ zoneId: string; cardId: string } | null>(null)

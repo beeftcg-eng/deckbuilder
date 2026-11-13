@@ -215,6 +215,9 @@ export interface AppState {
   activeOpeningId: string | null
   /** The keyboard shortcuts list (desktop). */
   showShortcuts: boolean
+  /** The Ctrl+K command palette (CommandPalette.tsx). */
+  showPalette: boolean
+  setShowPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
   setActiveOpening: (id: string | null) => void
   /** Adds or replaces an opening (packOpenings.ts). */

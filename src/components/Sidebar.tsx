@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useCommand } from '../lib/commands'
 import { isCommunityGame } from '../shared/communityGames'
 import { useAppStore, useCardsById, useOrderedGames, useVisibleGames } from '../state/useAppStore'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
@@ -109,6 +110,15 @@ export function Sidebar() {
   const [showAccount, setShowAccount] = useState(false)
   const [showPairings, setShowPairings] = useState(false)
   const pairingsConfig = useAppStore((s) => s.pairingsConfig)
+  // The command palette (CommandPalette.tsx) opens these windows.
+  useCommand('import', () => setShowImport(true))
+  useCommand('community', () => setShowCommunity(true))
+  useCommand('printProxies', () => setShowProxies(true))
+  useCommand('patchNotes', () => setShowPatchNotes(true))
+  useCommand('bugReport', () => setShowBugReport(true))
+  useCommand('shareApp', () => setShowShareApp(true))
+  useCommand('account', () => setShowAccount(true))
+  useCommand('pairings', () => setShowPairings(true))
   const pawmodoroConfig = useAppStore((s) => s.pawmodoroConfig)
   const loadPawmodoroConfig = useAppStore((s) => s.loadPawmodoroConfig)
 
@@ -340,6 +350,10 @@ export function Sidebar() {
         }
       >
         {pairingsConfig.connected ? t.sidebar.pairingsConnected : t.sidebar.connectPairings}
+      </button>
+
+      <button className="wishlist-nav-btn palette-open" title={t.palette.buttonTitle} onClick={() => useAppStore.getState().setShowPalette(true)}>
+        {t.palette.button}
       </button>
 
       <button data-tour="nav" data-nav="wishlist" className={`wishlist-nav-btn ${showWishlist ? 'active' : ''}`} onClick={() => setShowWishlist(!showWishlist)}>

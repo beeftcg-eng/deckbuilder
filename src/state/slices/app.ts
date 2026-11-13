@@ -29,6 +29,7 @@ export function createAppSlice(ctx: StoreContext) {
     showScanner: false,
     currencyKey: 'USD',
     showShortcuts: false,
+    showPalette: false,
 
     dismissAnnouncement: () => {
       const id = get().announcement?.id
@@ -138,6 +139,7 @@ export function createAppSlice(ctx: StoreContext) {
     setShowBinders: (show) => set(show ? { showBinders: true, showWishlist: false, showCollection: false, showMyDecks: false, showTrade: false } : { showBinders: false }),
     setShowScanner: (show) => set({ showScanner: show }),
     setShowShortcuts: (show) => set({ showShortcuts: show }),
+    setShowPalette: (show) => set({ showPalette: show }),
     setGameOrder: (order) => {
       set((s) => ({ settings: { ...s.settings, gameOrder: order } }))
       persistSettings({ gameOrder: order })

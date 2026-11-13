@@ -7,6 +7,7 @@ export function ShortcutsModal({ onClose }: { onClose: () => void }) {
     ['/', t.shortcuts.search],
     ['+', t.shortcuts.add],
     ['−', t.shortcuts.remove],
+    ['Ctrl+K', t.shortcuts.palette],
     ['Ctrl+Z', t.shortcuts.undo],
     ['Esc', t.shortcuts.close],
     ['?', t.shortcuts.help],
