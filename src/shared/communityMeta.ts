@@ -1,9 +1,9 @@
 import type { Card, Deck, DeckCardEntry, DeckFreeTextEntry, ListWatch, PairingsResult, TraderProfile } from './types'
-import type { CommunityList } from './communityLists'
-import { cardForCode, deckCodeToCards } from './riftboundDeckCode'
+import type { CommunityList, ListCard } from './communityLists'
+import { communityGame, listGame, type CommunityGameId, type ListCards } from './communityGames'
 import { matchupsOf, type Matchup } from './pairingsRecord'
 import { getAdapter } from './games/registry'
-import { missingForDeck, neededByPool, normalizeName, poolKey } from './collection'
+import { missingForDeck, neededByPool, normalizeName } from './collection'
 import { buyList } from './buyList'
 
 /**
@@ -11,16 +11,19 @@ import { buyList } from './buyList'
  * Legend places, which cards its lists play, and the cards most of them agree on (its "core").
  */
 
-export type ListCards = Pick<Deck, 'zones' | 'freeTextZones'>
+export type { ListCards } from './communityGames'
+
+/** Zones that hold the card a deck is built around (Riftbound's Legend, One Piece's Leader): not counted as plays. */
+const IDENTITY_ZONES = new Set(['legend', 'leader'])
 
 export interface ListDeck extends ListCards {
   list: CommunityList
 }
 
-/** A list as a Riftbound deck (its deck code read against the card data, `index` from codeIndex), or null if the code can't be read. */
+/** A list as a deck (read against the card data, `index` from its game's communityGame().index), or null if it can't be read. */
 export function listDeck(list: CommunityList, index: Map<string, Card>): ListDeck | null {
   try {
-    return { list, ...deckCodeToCards(list.deckCode, index) }
+    return { list, ...communityGame(listGame(list)).toDeck(list, index) }
   } catch {
     return null
   }
@@ -75,8 +78,14 @@ export interface CardPlay {
   usualCopies: number
 }
 
-/** Which card a printing is, for counting plays: the name the copy limit goes by (an alternate art is its card). */
-const playKey = (card: Card) => normalizeName(getAdapter('riftbound').copyName?.(card) ?? card.name)
+/**
+ * Which card a printing is, for counting plays: what its game's copy limit goes by. The name (an
+ * alternate art is its card), or for One Piece the card number (two "Nami" are different cards).
+ */
+const playKey = (card: Card) => {
+  const adapter = getAdapter(card.gameId)
+  return adapter.deckRules.copyLimitBy === 'sourceId' ? `#${card.sourceId}` : normalizeName(adapter.copyName?.(card) ?? card.name)
+}
 
 /** A zone's copies per card (every printing of a card together), with the printing used most. */
 function copiesByPool(entries: readonly DeckCardEntry[], cardsById: Map<string, Card>): Map<string, { cardId: string; copies: number }> {
@@ -103,7 +112,7 @@ export function cardPlayRates(decks: readonly ListCards[], cardsById: Map<string
   const plays = new Map<string, { zoneId: string; cardIds: string[]; copies: number[] }>()
   for (const deck of decks) {
     for (const [zoneId, entries] of Object.entries(deck.zones)) {
-      if (zoneId === 'legend') continue
+      if (IDENTITY_ZONES.has(zoneId)) continue
       for (const [key, { cardId, copies }] of copiesByPool(entries, cardsById)) {
         const p = plays.get(`${zoneId}|${key}`) ?? plays.set(`${zoneId}|${key}`, { zoneId, cardIds: [], copies: [] }).get(`${zoneId}|${key}`)!
         p.cardIds.push(cardId)
@@ -140,8 +149,10 @@ function apportion(weights: Map<string, number>, total: number): DeckFreeTextEnt
  */
 export function coreDeck(decks: readonly ListCards[], cardsById: Map<string, Card>): ListCards {
   const zones: Record<string, DeckCardEntry[]> = {}
-  const legends = decks.flatMap((d) => d.zones.legend ?? []).map((e) => e.cardId)
-  if (legends.length) zones.legend = [{ cardId: mostCommon(legends), quantity: 1 }]
+  for (const zoneId of IDENTITY_ZONES) {
+    const picks = decks.flatMap((d) => d.zones[zoneId] ?? []).map((e) => e.cardId)
+    if (picks.length) zones[zoneId] = [{ cardId: mostCommon(picks), quantity: 1 }]
+  }
   for (const play of cardPlayRates(decks, cardsById)) {
     if (play.zoneId === 'sideboard' || play.lists * 2 < decks.length) continue
     ;(zones[play.zoneId] ??= []).push({ cardId: play.card.id, quantity: play.usualCopies })
@@ -219,15 +230,24 @@ export function localMeta(legends: readonly Pick<LegendMeta, 'legendId' | 'legen
 
 // ---------- watching a list's price ----------
 
+const isListCard = (c: unknown): c is ListCard => {
+  const r = c as Record<string, unknown> | null
+  return !!r && typeof r.zone === 'string' && typeof r.set === 'string' && typeof r.number === 'string' && typeof r.name === 'string' && typeof r.count === 'number'
+}
+
 export function sanitizeListWatches(raw: unknown): Record<string, ListWatch> {
   const out: Record<string, ListWatch> = {}
   if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return out
   for (const [id, w] of Object.entries(raw as Record<string, unknown>).slice(0, 200)) {
     if (w == null || typeof w !== 'object') continue
-    const { name, deckCode, target, hit } = w as Record<string, unknown>
-    if (typeof name !== 'string' || typeof deckCode !== 'string' || !/^[A-Z2-7]+$/.test(deckCode)) continue
+    const { name, deckCode, target, hit, gameId, cards } = w as Record<string, unknown>
+    if (typeof name !== 'string' || typeof deckCode !== 'string') continue
     if (typeof target !== 'number' || !Number.isFinite(target) || target < 0) continue
-    out[id] = { name: name.slice(0, 200), deckCode, target, ...(hit === true ? { hit: true } : {}) }
+    // Riftbound's watches keep the deck code; the other games' the list's cards.
+    const listCards = Array.isArray(cards) ? cards.filter(isListCard).slice(0, 120) : []
+    const other = (gameId === 'onepiece' || gameId === 'pokemon') && listCards.length > 0
+    if (!other && !/^[A-Z2-7]+$/.test(deckCode)) continue
+    out[id] = { name: name.slice(0, 200), deckCode: other ? '' : deckCode, target, ...(other ? { gameId, cards: listCards } : {}), ...(hit === true ? { hit: true } : {}) }
   }
   return out
 }
@@ -243,21 +263,29 @@ export interface ListWatchHit {
  * watches that just went off and the updated watches (null when nothing changed); like price alerts,
  * one re-arms when the cost climbs back above its target.
  */
+/** A watched list's game: Riftbound unless it says. */
+export const watchGame = (watch: ListWatch): CommunityGameId => watch.gameId ?? 'riftbound'
+
+/** Each game's cards, for the watches (only games whose cards are loaded are checked). */
+export type WatchCatalogs = Partial<Record<CommunityGameId, { index: Map<string, Card>; cardsById: Map<string, Card>; cards: readonly Card[] }>>
+
 export function checkListWatches(
   watches: Record<string, ListWatch> | undefined,
-  index: Map<string, Card>,
-  cardsById: Map<string, Card>,
-  cards: readonly Card[],
+  catalogs: WatchCatalogs,
   owned: Map<string, number>,
 ): { hits: ListWatchHit[]; next: Record<string, ListWatch> | null } {
-  if (!watches || !cardsById.size) return { hits: [], next: null }
+  if (!watches) return { hits: [], next: null }
   const hits: ListWatchHit[] = []
   const next: Record<string, ListWatch> = {}
   let changed = false
   for (const [id, watch] of Object.entries(watches)) {
+    const gameId = watchGame(watch)
+    const catalog = catalogs[gameId]
     let cost: number
     try {
-      cost = listOwnership(deckCodeToCards(watch.deckCode, index), cardsById, cards, owned).missingCost
+      if (!catalog?.cardsById.size) throw new Error('not loaded')
+      const asList = { id, legendId: '', legendName: '', eventId: '', eventName: '', date: null, players: null, rank: null, player: null, gameId, deckCode: watch.deckCode, cards: watch.cards }
+      cost = listOwnership(communityGame(gameId).toDeck(asList, catalog.index), catalog.cardsById, catalog.cards, owned).missingCost
     } catch {
       next[id] = watch
       continue
@@ -268,7 +296,8 @@ export function checkListWatches(
       next[id] = { ...watch, hit: true }
       changed = true
     } else if (!below && watch.hit) {
-      next[id] = { name: watch.name, deckCode: watch.deckCode, target: watch.target }
+      const { hit: _hit, ...rearmed } = watch
+      next[id] = rearmed
       changed = true
     } else next[id] = watch
   }
@@ -323,7 +352,7 @@ export interface MetaComparison {
 function deckPlayKeys(deck: ListCards, cardsById: Map<string, Card>): Map<string, Card> {
   const out = new Map<string, Card>()
   for (const [zoneId, entries] of Object.entries(deck.zones)) {
-    if (zoneId === 'legend') continue
+    if (IDENTITY_ZONES.has(zoneId)) continue
     for (const { cardId, quantity } of entries) {
       const card = cardsById.get(cardId)
       if (card && quantity > 0 && !out.has(playKey(card))) out.set(playKey(card), card)
@@ -464,7 +493,7 @@ const SIDEBOARD_LIMIT = 5
 function deckCards(deck: ListCards, cardsById: Map<string, Card>): Map<string, { zoneId: string; cardId: string; copies: number }> {
   const out = new Map<string, { zoneId: string; cardId: string; copies: number }>()
   for (const [zoneId, entries] of Object.entries(deck.zones)) {
-    if (zoneId === 'legend' || zoneId === 'sideboard') continue
+    if (IDENTITY_ZONES.has(zoneId) || zoneId === 'sideboard') continue
     for (const [key, c] of copiesByPool(entries, cardsById)) if (!out.has(key)) out.set(key, { zoneId, ...c })
   }
   return out
@@ -563,12 +592,11 @@ export function suggestRunes(deck: ListCards, legendDecks: readonly ListCards[],
   return apportion(byDomain, total).sort((a, b) => b.quantity - a.quantity || a.label.localeCompare(b.label))
 }
 
-/** The lists whose Legend is `legendCard` (any printing of it), as decks; `index` from codeIndex. */
-export function listsForLegend(lists: readonly CommunityList[], legendCard: Card, index: Map<string, Card>): ListDeck[] {
-  const key = poolKey(legendCard)
+/** The lists of one archetype (CommunityList.legendId), as decks. */
+export function listsForArchetype(lists: readonly CommunityList[], legendId: string | null, index: Map<string, Card>): ListDeck[] {
+  if (!legendId) return []
   return lists.flatMap((l) => {
-    const card = cardForCode(index, l.legendId)
-    const d = card && poolKey(card) === key ? listDeck(l, index) : null
+    const d = l.legendId === legendId ? listDeck(l, index) : null
     return d ? [d] : []
   })
 }

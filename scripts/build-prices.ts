@@ -23,6 +23,7 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { recordHealth } from './health.ts'
 import { pokemonKey, pokemonPromoKey, riftboundKey, splitYugiohCode, yugiohExactKey, yugiohKey, onepieceSetKey, type OnePieceSetsFile, type PriceFile, type RiftboundExtra, type RiftboundPrintingsFile } from '../src/shared/priceKeys.ts'
 import { getAdapter } from '../src/shared/games/registry.ts'
 import { listingsMissingType } from '../src/shared/games/riftboundExtras.ts'
@@ -278,8 +279,10 @@ for (const [game, build] of Object.entries({ riftbound, pokemon, yugioh, onepiec
       await writeFile(join(out, `${game}-printings.json`), JSON.stringify(list))
     }
     console.log(`${game}: ${count} prices, ${foilCount} foil prices${printings ? `, ${printings.length} printings` : ''}`)
+    await recordHealth(process.env.HEALTH_DIR, { source: `Prices: ${game}`, ok: true, detail: '' })
   } catch (err) {
     console.warn(`::warning::${game} prices skipped: ${err instanceof Error ? err.message : err}`)
+    await recordHealth(process.env.HEALTH_DIR, { source: `Prices: ${game}`, ok: false, detail: err instanceof Error ? err.message : String(err) })
   }
 }
 

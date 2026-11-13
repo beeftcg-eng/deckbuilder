@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { isCommunityGame } from '../shared/communityGames'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { rulesForFormat } from '../shared/games/rules'
@@ -337,7 +338,7 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
       {!readOnly && <PairingsSyncReminder deck={deck} inset />}
       {!readOnly && <DeckNotes deck={deck} />}
       {!readOnly && <MatchupPlans deck={deck} cardsById={cardsById} />}
-      {!readOnly && deck.gameId === 'riftbound' && <DeckMetaCompare deck={deck} />}
+      {!readOnly && isCommunityGame(deck.gameId) && <DeckMetaCompare deck={deck} />}
 
       <div className="fv-body">
         {sections.length === 0 ? (

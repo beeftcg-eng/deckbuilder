@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { isCommunityGame } from '../shared/communityGames'
 import { useAppStore, useCardsById, useOrderedGames, useVisibleGames } from '../state/useAppStore'
 import { canCheckForUpdates, describeUpdate } from '../shared/updateStatus'
 import { THEMES, getTheme, themeLabel } from '../shared/themes'
@@ -95,13 +96,13 @@ export function Sidebar() {
   const [deckFilter, setDeckFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [showProxies, setShowProxies] = useState(false)
-  // A community list (Riftbound, from RiftAtlas) to start the import window with.
+  // A community list (Riftbound from RiftAtlas, One Piece and Pokémon from Limitless) to start the import window with.
   const [showCommunity, setShowCommunity] = useState(false)
   const [importStart, setImportStart] = useState<{ text: string; name: string } | null>(null)
   // A community list to compare with one of your decks.
   const [compareStart, setCompareStart] = useState<{ deckId: string; text: string; name: string } | null>(null)
-  const riftboundCards = useCardsById('riftbound')
   const compareDeck = compareStart ? decks.find((d) => d.id === compareStart.deckId) : undefined
+  const compareCards = useCardsById(compareDeck?.gameId ?? 'riftbound')
   const [showPatchNotes, setShowPatchNotes] = useState(false)
   const [showBugReport, setShowBugReport] = useState(false)
   const [showShareApp, setShowShareApp] = useState(false)
@@ -467,8 +468,8 @@ export function Sidebar() {
       <div className="deck-list-header" data-tour="decks">
         <span>{t.sidebar.decks}</span>
         <div className="deck-list-header-actions">
-          {currentGameId === 'riftbound' && (
-            <button className="btn" onClick={() => setShowCommunity(true)} title={t.sidebar.communityListsTitle}>
+          {isCommunityGame(currentGameId) && (
+            <button className="btn" onClick={() => setShowCommunity(true)} title={t.sidebar.communityListsTitle(currentGameId)}>
               {t.sidebar.communityLists}
             </button>
           )}
@@ -608,8 +609,9 @@ export function Sidebar() {
           }}
         />
       )}
-      {showCommunity && (
+      {showCommunity && isCommunityGame(currentGameId) && (
         <CommunityListsModal
+          gameId={currentGameId}
           onClose={() => setShowCommunity(false)}
           onImport={(text, name) => {
             setShowCommunity(false)
@@ -625,7 +627,7 @@ export function Sidebar() {
       {compareStart && compareDeck && (
         <CompareDecksModal
           deck={compareDeck}
-          cardsById={riftboundCards}
+          cardsById={compareCards}
           initialText={compareStart.text}
           initialName={compareStart.name}
           onClose={() => setCompareStart(null)}

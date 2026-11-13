@@ -5,6 +5,9 @@
  */
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
+const site = (g: string) => (g === 'riftbound' ? 'RiftAtlas' : 'Limitless')
+/** What a Community list is grouped by: a Riftbound Legend, a One Piece Leader, a Pokémon deck (archetype). */
+const kindOf = (g: string, many = false) => (g === 'onepiece' ? (many ? 'Leaders' : 'Leader') : g === 'pokemon' ? (many ? 'decks' : 'deck') : many ? 'Legends' : 'Legend')
 
 export const en = {
   common: {
@@ -279,7 +282,7 @@ export const en = {
     decks: 'Decks',
     importTitle: 'Create a deck from pasted text',
     communityLists: '🌐 Lists',
-    communityListsTitle: 'Recent tournament lists from RiftAtlas',
+    communityListsTitle: (g: string) => `Recent tournament lists from ${site(g)}`,
     import: 'Import',
     newDeck: '+ New',
     undoTitle: 'Undo the last deck change (Ctrl+Z)',
@@ -451,20 +454,21 @@ export const en = {
 
   communityLists: {
     title: 'Community lists',
-    source: 'Recent tournament finishes from **RiftAtlas**.',
-    openSource: 'Open RiftAtlas',
+    source: (g: string): string => g === 'riftbound' ? 'Recent tournament finishes from **RiftAtlas**.' : 'Top finishes from recent online events on **Limitless**.',
+    openSource: (g: string) => `Open ${site(g)}`,
     loading: 'Getting the lists…',
     fetchFailed: (status: string) => `Couldn't get the lists (${status}).`,
     retry: 'Try again',
     empty: 'No lists with decks right now.',
-    allLegends: (n: number) => `All Legends (${n})`,
-    legend: 'Legend',
+    allLegends: (g: string, n: number) => `All ${kindOf(g, true)} (${n})`,
+    legend: (g: string) => kindOf(g).replace(/^./, (c) => c.toUpperCase()),
     placeLabel: (rank: number) => `Placed ${rank}`,
     domainsLabel: (domains: string) => `Domains: ${domains}`,
     place: (rank: number) => `#${rank}`,
     players: (n: number) => `${n} ${plural(n, 'player', 'players')}`,
     by: (player: string) => `by ${player}`,
     badCode: "This list's deck code couldn't be read.",
+    notInCardData: (game: string) => `Some of this list's cards aren't in your ${game} card data yet. Sync card data to see it.`,
     import: 'Import…',
     copy: 'Copy list',
     copied: 'Copied ✓',
@@ -483,8 +487,8 @@ export const en = {
     toFinish: (price: string) => `${price} to finish`,
     compare: '⇄ Compare with…',
     compareWith: 'Pick one of your decks',
-    noDecks: 'You have no Riftbound decks to compare it with yet.',
-    metaIntro: (n: number) => `From the ${n} most recent lists on RiftAtlas. Small samples swing a lot, so treat it as a sketch of the field.`,
+    noDecks: (game: string) => `You have no ${game} decks to compare it with yet.`,
+    metaIntro: (g: string, n: number) => `From the ${n} most recent lists on ${site(g)}. Small samples swing a lot, so treat it as a sketch of the field.`,
     metaLists: (n: number) => `${n} ${plural(n, 'list', 'lists')}`,
     metaWins: (n: number) => `${n} ${plural(n, 'win', 'wins')}`,
     metaTop4: (n: number) => `${n} top 4`,
@@ -492,11 +496,14 @@ export const en = {
     playedInTitle: (n: number, total: number, copies: number) => `In ${n} of ${total} lists, usually ${copies} ${plural(copies, 'copy', 'copies')}`,
     newestList: 'Import the newest list',
     startFromCore: 'Start a deck from the core',
-    coreTitle: 'Cards in at least half the lists, at their usual number of copies, with the Rune Deck split the usual way. Usually short of 40: the rest is yours to pick.',
+    coreTitle: (g: string): string =>
+      g === 'riftbound'
+        ? 'Cards in at least half the lists, at their usual number of copies, with the Rune Deck split the usual way. Usually short of 40: the rest is yours to pick.'
+        : 'Cards in at least half the lists, at their usual number of copies. Usually short of a full deck: the rest is yours to pick.',
     coreName: (legend: string) => `${legend} (core)`,
-    back: '← All Legends',
+    back: (g: string) => `← All ${kindOf(g, true)}`,
     hintTitle: (legend: string) => `Start from what's winning with ${legend}?`,
-    hintBody: (n: number) => `RiftAtlas has ${n} recent ${plural(n, 'list', 'lists')} with this Legend.`,
+    hintBody: (g: string, n: number) => `${site(g)} has ${n} recent ${plural(n, 'list', 'lists')} with this ${kindOf(g)}.`,
     hintNewest: 'Use the newest list',
     hintCore: 'Use the core',
     hintDismiss: 'No thanks',
@@ -526,7 +533,7 @@ export const en = {
     newListsHit: (n: number, legend: string, events: string) => `${n} new ${legend} ${plural(n, 'list', 'lists')} from ${events}`,
     alertOff: '🔕 Tell me about new lists',
     alertOn: '🔔 Telling you about new lists',
-    alertTitle: 'When RiftAtlas has new lists with this Legend, the app says so the next time it opens. Off until you turn it on.',
+    alertTitle: (g: string) => `When ${site(g)} has new lists with this ${kindOf(g)}, the app says so the next time it opens. Off until you turn it on.`,
     trendsTitle: (days: number) => `Last ${days} days vs. before`,
     rising: 'Rising',
     falling: 'Falling',
@@ -536,7 +543,7 @@ export const en = {
     vsMetaMissing: 'Most lists play, you don’t',
     vsMetaUnusual: 'You play, few lists do',
     vsMetaNone: 'Nothing stands out: your deck plays what most lists do.',
-    vsMetaFew: 'Too few recent lists with this Legend to compare with yet.',
+    vsMetaFew: (g: string) => `Too few recent lists ${g === 'pokemon' ? 'like this deck' : `with this ${kindOf(g)}`} to compare with yet.`,
     vsMetaShare: (n: number, total: number) => `${Math.round((n / total) * 100)}%`,
     suggestHeading: '💡 Suggestions from recent lists',
     suggestTitle: (n: number) => `💡 Suggestions from recent lists (${n} ${plural(n, 'list', 'lists')})`,

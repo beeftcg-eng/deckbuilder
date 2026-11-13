@@ -11,7 +11,7 @@
  *   node .banlists/build-ban-lists.mjs dist-web
  *
  * When YGOPRODeck can't be read, the file is still written without Yu-Gi-Oh! (apps then keep the
- * list they have), and it exits non-zero so the daily source check (check-sources) notices.
+ * list they have), and it exits non-zero; the daily source check (scripts/check-sources.ts) opens an issue.
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -19,6 +19,7 @@ import { onepieceAdapter } from '../src/shared/games/onepiece.ts'
 import { riftboundAdapter } from '../src/shared/games/riftbound.ts'
 import { YGO_FORMAT_IDS } from '../src/shared/games/yugioh.ts'
 import { publishedFormatOf, type BanListsFile, type BanStatus, type PublishedFormat, type YgoBanList } from '../src/shared/banLists.ts'
+import { recordHealth } from './health.ts'
 
 const YGO_STATUS: Record<string, BanStatus> = { Forbidden: 'banned', Limited: 'restricted', 'Semi-Limited': 'semi-restricted' }
 /** Fewer than this on a list means the API answered with something other than the list. */
@@ -67,6 +68,7 @@ async function main() {
   } catch (err) {
     failed = err instanceof Error ? err.message : String(err)
   }
+  await recordHealth(process.env.HEALTH_DIR, { source: 'Yu-Gi-Oh! ban lists (YGOPRODeck)', ok: !failed, detail: failed ?? '' })
   await mkdir(out, { recursive: true })
   await writeFile(join(out, 'banlists.json'), JSON.stringify(file))
   const ygo = file.yugioh ? YGO_FORMAT_IDS.map((id) => `${id} ${Object.keys(file.yugioh![id].cards).length}`).join(', ') : 'left out'

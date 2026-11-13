@@ -5,6 +5,8 @@
 import type { Messages } from './en'
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
+const site = (g: string) => (g === 'riftbound' ? 'RiftAtlas' : 'Limitless')
+const kindOf = (g: string, many = false) => (g === 'onepiece' ? (many ? 'Líderes' : 'Líder') : g === 'pokemon' ? (many ? 'mazos' : 'mazo') : many ? 'Leyendas' : 'Leyenda')
 
 export const es: Messages = {
   common: {
@@ -269,7 +271,7 @@ export const es: Messages = {
     decks: 'Mazos',
     importTitle: 'Crea un mazo a partir de texto pegado',
     communityLists: '🌐 Listas',
-    communityListsTitle: 'Listas recientes de torneos, de RiftAtlas',
+    communityListsTitle: (g) => `Listas recientes de torneos, de ${site(g)}`,
     import: 'Importar',
     newDeck: '+ Nuevo',
     undoTitle: 'Deshacer el último cambio en un mazo (Ctrl+Z)',
@@ -441,20 +443,21 @@ export const es: Messages = {
 
   communityLists: {
     title: 'Listas de la comunidad',
-    source: 'Resultados recientes de torneos de **RiftAtlas**.',
-    openSource: 'Abrir RiftAtlas',
+    source: (g) => g === 'riftbound' ? 'Resultados recientes de torneos de **RiftAtlas**.' : 'Los mejores puestos de eventos online recientes en **Limitless**.',
+    openSource: (g) => `Abrir ${site(g)}`,
     loading: 'Obteniendo las listas…',
     fetchFailed: (status: string) => `No se pudieron obtener las listas (${status}).`,
     retry: 'Reintentar',
     empty: 'Ahora mismo no hay listas con mazo.',
-    allLegends: (n: number) => `Todas las Leyendas (${n})`,
-    legend: 'Leyenda',
+    allLegends: (g, n) => `${g === 'pokemon' ? 'Todos los' : g === 'onepiece' ? 'Todos los' : 'Todas las'} ${kindOf(g, true)} (${n})`,
+    legend: (g) => kindOf(g).replace(/^./, (c) => c.toUpperCase()),
     placeLabel: (rank: number) => `Puesto ${rank}`,
     domainsLabel: (domains: string) => `Dominios: ${domains}`,
     place: (rank: number) => `#${rank}`,
     players: (n: number) => `${n} ${plural(n, 'jugador', 'jugadores')}`,
     by: (player: string) => `de ${player}`,
     badCode: 'No se pudo leer el código de mazo de esta lista.',
+    notInCardData: (game) => `Algunas cartas de esta lista aún no están en tus datos de ${game}. Sincroniza los datos de cartas para verla.`,
     import: 'Importar…',
     copy: 'Copiar lista',
     copied: 'Copiada ✓',
@@ -473,8 +476,8 @@ export const es: Messages = {
     toFinish: (price: string) => `${price} para completarlo`,
     compare: '⇄ Comparar con…',
     compareWith: 'Elige uno de tus mazos',
-    noDecks: 'Aún no tienes mazos de Riftbound con los que compararla.',
-    metaIntro: (n: number) => `Según las ${n} listas más recientes de RiftAtlas. Con tan pocas listas los números varían mucho: tómalo como un esbozo.`,
+    noDecks: (game) => `Aún no tienes mazos de ${game} con los que compararla.`,
+    metaIntro: (g, n) => `Según las ${n} listas más recientes de ${site(g)}. Con tan pocas listas los números varían mucho: tómalo como un esbozo.`,
     metaLists: (n: number) => `${n} ${plural(n, 'lista', 'listas')}`,
     metaWins: (n: number) => `${n} ${plural(n, 'victoria', 'victorias')}`,
     metaTop4: (n: number) => `${n} en top 4`,
@@ -482,11 +485,14 @@ export const es: Messages = {
     playedInTitle: (n: number, total: number, copies: number) => `En ${n} de ${total} listas, normalmente ${copies} ${plural(copies, 'copia', 'copias')}`,
     newestList: 'Importar la lista más reciente',
     startFromCore: 'Empezar un mazo con el núcleo',
-    coreTitle: 'Las cartas que están en al menos la mitad de las listas, con su número habitual de copias, y el Mazo de Runas repartido como suele estar. Suele quedarse corto de 40: el resto lo eliges tú.',
+    coreTitle: (g) =>
+      g === 'riftbound'
+        ? 'Las cartas que están en al menos la mitad de las listas, con su número habitual de copias, y el Mazo de Runas repartido como suele estar. Suele quedarse corto de 40: el resto lo eliges tú.'
+        : 'Las cartas que están en al menos la mitad de las listas, con su número habitual de copias. Suele quedarse corto de un mazo completo: el resto lo eliges tú.',
     coreName: (legend: string) => `${legend} (núcleo)`,
-    back: '← Todas las Leyendas',
+    back: (g) => `← ${g === 'riftbound' ? 'Todas las' : 'Todos los'} ${kindOf(g, true)}`,
     hintTitle: (legend: string) => `¿Empezar con lo que gana con ${legend}?`,
-    hintBody: (n: number) => `RiftAtlas tiene ${n} ${plural(n, 'lista reciente', 'listas recientes')} con esta Leyenda.`,
+    hintBody: (g, n) => `${site(g)} tiene ${n} ${plural(n, 'lista reciente', 'listas recientes')} con ${g === 'riftbound' ? 'esta' : 'este'} ${kindOf(g)}.`,
     hintNewest: 'Usar la lista más reciente',
     hintCore: 'Usar el núcleo',
     hintDismiss: 'No, gracias',
@@ -516,7 +522,7 @@ export const es: Messages = {
     newListsHit: (n: number, legend: string, events: string) => `${n} ${plural(n, 'lista nueva', 'listas nuevas')} de ${legend} en ${events}`,
     alertOff: '🔕 Avísame de listas nuevas',
     alertOn: '🔔 Te aviso de listas nuevas',
-    alertTitle: 'Cuando RiftAtlas tenga listas nuevas con esta Leyenda, la app te avisará la próxima vez que la abras. Desactivado hasta que lo actives.',
+    alertTitle: (g) => `Cuando ${site(g)} tenga listas nuevas con ${g === 'riftbound' ? 'esta' : 'este'} ${kindOf(g)}, la app te avisará la próxima vez que la abras. Desactivado hasta que lo actives.`,
     trendsTitle: (days: number) => `Últimos ${days} días vs. antes`,
     rising: 'Subiendo',
     falling: 'Bajando',
@@ -526,7 +532,7 @@ export const es: Messages = {
     vsMetaMissing: 'La mayoría la juega, tú no',
     vsMetaUnusual: 'Tú la juegas, pocas listas lo hacen',
     vsMetaNone: 'Nada destaca: tu mazo juega lo que juega la mayoría.',
-    vsMetaFew: 'Aún hay muy pocas listas recientes con esta Leyenda para comparar.',
+    vsMetaFew: (g) => `Aún hay muy pocas listas recientes ${g === 'pokemon' ? 'parecidas a este mazo' : `con ${g === 'riftbound' ? 'esta' : 'este'} ${kindOf(g)}`} para comparar.`,
     vsMetaShare: (n: number, total: number) => `${Math.round((n / total) * 100)}%`,
     suggestHeading: '💡 Sugerencias de listas recientes',
     suggestTitle: (n: number) => `💡 Sugerencias de listas recientes (${n} ${plural(n, 'lista', 'listas')})`,

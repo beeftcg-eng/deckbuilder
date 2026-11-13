@@ -45,7 +45,7 @@ describe("Starting a deck from its Legend's lists", () => {
       currentGameId: 'riftbound',
     } as never)
     render(<CommunityStartHint deck={deck} />)
-    expect(await screen.findByText(t.communityLists.hintBody(1))).toBeTruthy()
+    expect(await screen.findByText(t.communityLists.hintBody('riftbound', 1))).toBeTruthy()
     fireEvent.click(screen.getByText(t.communityLists.hintNewest))
     await waitFor(() => expect(saved).toHaveLength(1))
     expect(saved[0].zones).toEqual({ legend: [{ cardId: kennen.id, quantity: 1 }], main: [{ cardId: sett.id, quantity: 3 }] })

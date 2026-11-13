@@ -363,7 +363,11 @@ export interface AppSettings {
 /** A community list whose cost to finish you're watching: say so once when it drops to `target` (USD) or below. */
 export interface ListWatch {
   name: string
+  /** Riftbound's lists; '' for the other games, whose watches keep the list's cards. */
   deckCode: string
+  /** The game, when it isn't Riftbound, and the list's cards. */
+  gameId?: 'onepiece' | 'pokemon'
+  cards?: import('./communityLists').ListCard[]
   target: number
   /** Set once it went off, cleared when the cost climbs back above the target. */
   hit?: boolean

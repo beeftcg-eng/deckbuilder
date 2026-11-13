@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { isCommunityGame } from '../shared/communityGames'
 import { useAppStore, useCardsById, useOwnedIndex, wishlistIndexOf } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { rulesForFormat } from '../shared/games/rules'
@@ -227,8 +228,8 @@ function DeckEditor({ deck }: { deck: Deck }) {
 
       {format?.description && <div className="format-description text-dim">{formatDescription(deck.gameId, format)}</div>}
 
-      {deck.gameId === 'riftbound' && <CommunityStartHint deck={deck} />}
-      {deck.gameId === 'riftbound' && !locked && ((deck.zones.main ?? []).length > 0 || (deck.zones.battlefields ?? []).length > 0) && <DeckSuggestions deck={deck} />}
+      {(deck.gameId === 'riftbound' || deck.gameId === 'onepiece') && <CommunityStartHint deck={deck} />}
+      {isCommunityGame(deck.gameId) && !locked && ((deck.zones.main ?? []).length > 0 || (deck.zones.battlefields ?? []).length > 0) && <DeckSuggestions deck={deck} />}
 
       {result && (
         <LegalityPanel

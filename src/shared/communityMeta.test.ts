@@ -104,14 +104,15 @@ describe('community meta', () => {
     const byId = new Map(all.map((c) => [c.id, c]))
     const watches = sanitizeListWatches({ a: { name: 'Kennen', deckCode: 'CUAQEAYBAECQAAQBAEAQCBIAACNQCAAA', target: 10 }, bad: { name: 'x', deckCode: 'lower', target: 1 } })
     expect(Object.keys(watches)).toEqual(['a'])
-    const first = checkListWatches(watches, codeIndex(all), byId, all, new Map())
+    const catalogs = { riftbound: { index: codeIndex(all), cardsById: byId, cards: all } }
+    const first = checkListWatches(watches, catalogs, new Map())
     expect(first.hits).toEqual([])
     const owned = new Map([[`riftbound:${sett.name.toLowerCase()}`, 2]])
-    const second = checkListWatches(watches, codeIndex(all), byId, all, owned)
+    const second = checkListWatches(watches, catalogs, owned)
     expect(second.hits.map((h) => h.cost)).toEqual([6])
     expect(second.next?.a.hit).toBe(true)
-    expect(checkListWatches(second.next!, codeIndex(all), byId, all, owned).next).toBeNull()
-    expect(checkListWatches(second.next!, codeIndex(all), byId, all, new Map()).next?.a.hit).toBeUndefined()
+    expect(checkListWatches(second.next!, catalogs, owned).next).toBeNull()
+    expect(checkListWatches(second.next!, catalogs, new Map()).next?.a.hit).toBeUndefined()
   })
 
   it("finds the missing cards on other people's trade lists", () => {

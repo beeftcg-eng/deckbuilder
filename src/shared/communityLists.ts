@@ -1,6 +1,7 @@
 import { jsonValueAt, nextFlightData } from './deckUrl'
 import { decodeDeckCode } from './riftboundDeckCode'
 import { t } from './i18n'
+import type { GameId } from './types'
 
 /**
  * Community lists: recent tournament decklists to look through and import. Riftbound's come from
@@ -23,9 +24,26 @@ export function eventPageUrl(eventId: string): string | null {
   return /^[a-z0-9][a-z0-9-]{0,199}$/.test(eventId) ? `https://riftatlas.com/events/${eventId}` : null
 }
 
+/** A card in a list from Limitless (One Piece, Pokémon), as the site names it. */
+export interface ListCard {
+  /** The deck zone it goes in ("leader", "main"). */
+  zone: string
+  count: number
+  /** Set code and number: "OP09" + "102" (One Piece), "MEG" + "104" (Pokémon). */
+  set: string
+  number: string
+  name: string
+}
+
 export interface CommunityList {
   id: string
+  /** Absent on Riftbound's lists (the file predates the other games). */
+  gameId?: GameId
   eventId: string
+  /**
+   * What the list is, for grouping: its Legend's code (Riftbound), its Leader's card number (One
+   * Piece), or Limitless's archetype ("crustle-dri", Pokémon).
+   */
   legendId: string
   /** "Kennen, Heart of the Tempest", or the Legend's code when the page doesn't name it. */
   legendName: string
@@ -35,7 +53,11 @@ export interface CommunityList {
   players: number | null
   rank: number | null
   player: string | null
+  /** Riftbound's lists: the deck code. '' for the other games, which list `cards`. */
   deckCode: string
+  cards?: ListCard[]
+  /** The card that pictures the list (One Piece's Leader, Pokémon's main attacker), by set and number. */
+  art?: { set: string; number: string }
 }
 
 /** The published file (and the copy each app keeps for when it's offline). */
@@ -233,7 +255,12 @@ export function readCommunityListsFile(raw: unknown): CommunityListsFile | null 
   if (typeof r.updatedAt !== 'string' || !Array.isArray(r.lists)) return null
   const lists = r.lists.filter(
     (l): l is CommunityList =>
-      !!l && typeof l === 'object' && typeof l.id === 'string' && typeof l.legendId === 'string' && typeof l.deckCode === 'string' && typeof l.legendName === 'string',
+      !!l &&
+      typeof l === 'object' &&
+      typeof l.id === 'string' &&
+      typeof l.legendId === 'string' &&
+      typeof l.legendName === 'string' &&
+      (typeof l.deckCode === 'string' || Array.isArray(l.cards)),
   )
-  return lists.length ? { updatedAt: r.updatedAt, lists: lists.map((l) => ({ ...l, eventId: l.eventId ?? '', eventName: l.eventName ?? '' })) } : null
+  return lists.length ? { updatedAt: r.updatedAt, lists: lists.map((l) => ({ ...l, deckCode: l.deckCode ?? '', eventId: l.eventId ?? '', eventName: l.eventName ?? '' })) } : null
 }

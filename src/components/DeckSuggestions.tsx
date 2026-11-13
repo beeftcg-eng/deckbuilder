@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useAppStore, useCardsById, useOwnedIndex } from '../state/useAppStore'
-import { useCommunityLists } from '../state/communityLists'
-import { listsForLegend, recommendCards, suggestRunes, weakestCards, type CardSuggestion, type CutCandidate } from '../shared/communityMeta'
-import { codeIndex } from '../shared/riftboundDeckCode'
+import { useAppStore, useOwnedIndex } from '../state/useAppStore'
+import { recommendCards, suggestRunes, weakestCards, type CardSuggestion, type CutCandidate } from '../shared/communityMeta'
+import { useDeckLists } from './community/useDeckLists'
 import { getAdapter } from '../shared/games/registry'
 import { rulesForFormat } from '../shared/games/rules'
 import { cheapestPrinting } from '../shared/buyList'
@@ -56,17 +55,15 @@ interface Row extends CardSuggestion {
  * Closed until opened (and remembered), so the lists are only read when wanted.
  */
 export function DeckSuggestions({ deck }: { deck: Deck }) {
-  const cardsById = useCardsById('riftbound')
-  const cards = useAppStore((s) => s.catalogs.riftbound?.cards)
+  const [open, setOpenState] = useState(() => saved(OPEN_KEY) === '1')
+  const { supported, gameId, game, cardsById, lists, decks: legendDecks, identityCard } = useDeckLists(deck, open)
+  const cards = useAppStore((s) => s.catalogs[gameId]?.cards)
   const setCardQuantity = useAppStore((s) => s.setCardQuantity)
   const updateDeck = useAppStore((s) => s.updateDeck)
   const tracking = useAppStore((s) => Object.keys(s.collection).length > 0)
   const ownedIndex = useOwnedIndex()
-  const legendCard = cardsById.get(deck.zones.legend?.[0]?.cardId ?? '')
-  const [open, setOpenState] = useState(() => saved(OPEN_KEY) === '1')
   const [sort, setSortState] = useState<SuggestionSort>(() => SORTS.find((s) => s === saved(SORT_KEY)) ?? 'fit')
-  const { lists } = useCommunityLists(open)
-  const zones = useMemo(() => rulesForFormat(getAdapter('riftbound'), deck.formatId).zones, [deck.formatId])
+  const zones = useMemo(() => rulesForFormat(getAdapter(gameId), deck.formatId).zones, [gameId, deck.formatId])
 
   const setOpen = (next: boolean) => {
     setOpenState(next)
@@ -77,11 +74,7 @@ export function DeckSuggestions({ deck }: { deck: Deck }) {
     remember(SORT_KEY, next)
   }
 
-  const legendDecks = useMemo(
-    () => (open && lists && legendCard ? listsForLegend(lists, legendCard, codeIndex(cardsById.values())) : null),
-    [open, lists, legendCard, cardsById],
-  )
-  const enough = !!legendDecks && legendDecks.length >= MIN_LISTS
+  const enough = open && legendDecks.length >= MIN_LISTS
   /** Copies each zone still has room for (no limit when its rules give none). */
   const room = useMemo(() => {
     const out = new Map<string, number>()
@@ -127,7 +120,7 @@ export function DeckSuggestions({ deck }: { deck: Deck }) {
   )
   const showRunes = runes.length > 0 && !sameSplit(runes, deck.freeTextZones.runes ?? [])
 
-  if (deck.gameId !== 'riftbound' || !legendCard || deck.locked) return null
+  if (!supported || (game.identityZone && !identityCard) || deck.locked) return null
   const name = (n: string) => n.replace(/\s*\([^)]*\)$/, '')
   const zoneName = (zoneId: string) => zoneLabel(zones.find((z) => z.id === zoneId)?.label ?? zoneId)
   const swapIn = (row: Row & { swap: CutCandidate }) =>
@@ -184,7 +177,7 @@ export function DeckSuggestions({ deck }: { deck: Deck }) {
         (!lists ? (
           <div className="text-dim">{t.communityLists.loading}</div>
         ) : !enough ? (
-          <div className="text-dim">{t.communityLists.vsMetaFew}</div>
+          <div className="text-dim">{t.communityLists.vsMetaFew(gameId)}</div>
         ) : !rows.length && !showRunes ? (
           <div className="text-dim">{t.communityLists.suggestNone}</div>
         ) : (

@@ -54,18 +54,18 @@ export function createCollectionSlice(ctx: StoreContext) {
     setListWatch: (listId, watch) => {
       const watches = { ...get().settings.listWatches }
       if (watch == null) delete watches[listId]
-      else watches[listId] = { name: watch.name, deckCode: watch.deckCode, target: watch.target }
+      else watches[listId] = { name: watch.name, deckCode: watch.deckCode, target: watch.target, ...(watch.gameId && watch.cards ? { gameId: watch.gameId, cards: watch.cards } : {}) }
       set((s) => ({ settings: { ...s.settings, listWatches: watches } }))
       persistSettings({ listWatches: watches })
       checkAlerts()
     },
 
     setLegendAlert: async (legendId, on) => {
-      const { communityListsNow } = await import('../communityLists')
+      const [{ communityListsNow }, { COMMUNITY_GAME_IDS }] = await Promise.all([import('../communityLists'), import('../../shared/communityGames')])
       const current = get().settings.listAlerts ?? { legends: [], seenEvents: [] }
       const legends = on ? [...new Set([...current.legends, legendId])] : current.legends.filter((l) => l !== legendId)
-      // Opting in hears about events from now on, not the ones already there.
-      const events = (communityListsNow() ?? []).map((l) => l.eventId).filter(Boolean)
+      // Opting in hears about events from now on, not the ones already there (in any game's lists read so far).
+      const events = COMMUNITY_GAME_IDS.flatMap((g) => communityListsNow(g) ?? []).map((l) => l.eventId).filter(Boolean)
       const listAlerts = { legends, seenEvents: [...new Set([...current.seenEvents, ...events])].slice(-500) }
       set((s) => ({ settings: { ...s.settings, listAlerts } }))
       persistSettings({ listAlerts })
@@ -75,10 +75,17 @@ export function createCollectionSlice(ctx: StoreContext) {
     checkListAlerts: async () => {
       if (!get().settings.listAlerts?.legends.length) return
       // Loaded only for someone who opted in.
-      const [{ communityListsNow, refreshCommunityLists }, { newListsFor }] = await Promise.all([import('../communityLists'), import('../../shared/communityMeta')])
-      await refreshCommunityLists()
-      const lists = communityListsNow()
-      if (!lists) return
+      const [{ communityListsNow, refreshCommunityLists }, { newListsFor }, { COMMUNITY_GAME_IDS }] = await Promise.all([
+        import('../communityLists'),
+        import('../../shared/communityMeta'),
+        import('../../shared/communityGames'),
+      ])
+      // Only the games you have decks in: an alert is set from a deck's or a Legend's page.
+      const gameIds = COMMUNITY_GAME_IDS.filter((g) => g === 'riftbound' || get().decks.some((d) => d.gameId === g))
+      await Promise.all(gameIds.map((g) => refreshCommunityLists(g)))
+      // A game whose lists couldn't be read is left out: marking its events seen would skip them.
+      const lists = gameIds.flatMap((g) => communityListsNow(g) ?? [])
+      if (!lists.length) return
       const { found, next } = newListsFor(get().settings.listAlerts, lists)
       if (next) {
         set((s) => ({ settings: { ...s.settings, listAlerts: next } }))

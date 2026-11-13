@@ -19,6 +19,8 @@ on:
       - "scripts/build-prices.ts"
       - "scripts/build-community-lists.ts"
       - "scripts/build-ban-lists.ts"
+      - "scripts/check-sources.ts"
+      - "scripts/health.ts"
       - ".github/workflows/deploy-pwa.yml"
   workflow_dispatch: {}
   # Daily, so the TCGplayer price files (below) stay current even when nothing else changed.
@@ -29,7 +31,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  # To open (and close) the issue that says RiftAtlas can't be read (below).
+  # To open (and close) an issue for each outside source that can't be read (below).
   issues: write
 
 concurrency:
@@ -39,6 +41,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      # Where each step records how its outside source did, for the source check at the end.
+      HEALTH_DIR: .health
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,33 +57,18 @@ jobs:
       # is skipped with a warning; the apps keep the prices they already had.
       # (Bundled first: it reuses the app's own One Piece and Magic download code.)
       - run: npx rolldown scripts/build-prices.ts --platform node --format esm -o .prices/build-prices.mjs && node .prices/build-prices.mjs dist-web/prices
-      # Riftbound tournament lists from RiftAtlas, published as community/riftbound.json for the Community
-      # lists window (RiftAtlas doesn't let the phone app read it). This is also the daily check that
-      # RiftAtlas can still be read: when it can't, the last good file is published again and an issue
-      # is opened (and closed again once it reads).
+      # Community lists (src/shared/communityGames.ts): Riftbound's from RiftAtlas, One Piece's and Pokémon's
+      # from Limitless, published as community/<game>.json (neither lets the phone app read it directly).
+      # A game that can't be read keeps its last published file, and the source check below opens an issue.
       - name: Community lists
-        id: community
         continue-on-error: true
         run: npx rolldown scripts/build-community-lists.ts --platform node --format esm -o .community/build-community-lists.mjs && node .community/build-community-lists.mjs dist-web/community
-      - name: Community lists failed - keep the last file, open an issue
-        if: steps.community.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TITLE: "Community lists: RiftAtlas can't be read"
+      - name: Community lists - keep the last file for any game not read
         run: |
           mkdir -p dist-web/community
-          curl -sfL https://beeftcg-eng.github.io/deckbuilder/community/riftbound.json -o dist-web/community/riftbound.json || echo "No earlier file to keep."
-          if [ "$(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq 'length')" = 0 ]; then
-            gh issue create --title "$TITLE" --body "The daily deploy couldn't read RiftAtlas's tournament lists (run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). The apps keep showing the last lists that were read. Check the run's **Community lists** step: RiftAtlas has probably changed its pages, and src/shared/communityLists.ts needs to follow. This issue closes by itself once a deploy reads them again."
-          fi
-      - name: Community lists read - close the issue
-        if: steps.community.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TITLE: "Community lists: RiftAtlas can't be read"
-        run: |
-          for n in $(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq '.[].number'); do
-            gh issue close "$n" --comment "Read again in $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+          for game in riftbound onepiece pokemon; do
+            [ -f "dist-web/community/$game.json" ] && continue
+            curl -sfL "https://beeftcg-eng.github.io/deckbuilder/community/$game.json" -o "dist-web/community/$game.json" || echo "No earlier $game file to keep."
           done
       # Ban lists (src/shared/banLists.ts): One Piece and Riftbound as kept in this repo, Yu-Gi-Oh!'s from
       # YGOPRODeck. Published as banlists.json; every app merges it in at launch. When YGOPRODeck can't be
@@ -86,6 +76,42 @@ jobs:
       - name: Ban lists
         continue-on-error: true
         run: npx rolldown scripts/build-ban-lists.ts --platform node --format esm -o .banlists/build-ban-lists.mjs && node .banlists/build-ban-lists.mjs dist-web
+      # Every outside source the apps read, checked once a day (scripts/check-sources.ts): the steps above
+      # recorded their own; this probes the card-data sources. One issue per source that can't be read,
+      # closed by itself once it reads again.
+      - name: Data sources
+        continue-on-error: true
+        run: npx rolldown scripts/check-sources.ts --platform node --format esm -o .health-check/check-sources.mjs && node .health-check/check-sources.mjs "$HEALTH_DIR"
+      - name: Data sources - open or close their issues
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -f "$HEALTH_DIR/report.json" ] || exit 0
+          jq -c '.[]' "$HEALTH_DIR/report.json" | while read -r row; do
+            source=$(jq -r .source <<<"$row")
+            title="Data source can't be read: $source"
+            open=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq ".[] | select(.title == \"$title\") | .number")
+            if [ "$(jq -r .ok <<<"$row")" = true ]; then
+              for n in $open; do gh issue close "$n" --comment "Read again in $RUN_URL."; done
+            elif [ -z "$open" ]; then
+              gh issue create --title "$title" --body "The daily deploy couldn't read **$source** ($RUN_URL):
+
+          \`\`\`
+          $(jq -r .detail <<<"$row")
+          \`\`\`
+
+          The apps keep what they last had (the last published file, or the card data already downloaded). The source has probably changed or is down; check the run's log. This issue closes by itself once a deploy reads it again."
+            fi
+          done
+          # The issue the RiftAtlas check opened before there was one per source.
+          if jq -e '.[] | select(.source == "Community lists: Riftbound (RiftAtlas)" and .ok)' "$HEALTH_DIR/report.json" >/dev/null; then
+            for n in $(gh issue list --state open --search "\"Community lists: RiftAtlas can't be read\" in:title" --json number --jq '.[].number'); do
+              gh issue close "$n" --comment "Now checked as \"Data source can't be read: Community lists: Riftbound (RiftAtlas)\". Read again in $RUN_URL."
+            done
+          fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore, useCardsById, useOwnedIndex } from '../state/useAppStore'
 import { useCommunityLists } from '../state/communityLists'
-import { COMMUNITY_LISTS_URL, type CommunityList } from '../shared/communityLists'
+import type { CommunityList } from '../shared/communityLists'
 import { coreDeck, legendMeta, listDeck, listOwnership, recordsVsLegends, type ListDeck, type ListOwnership } from '../shared/communityMeta'
-import { cardForCode, codeIndex, deckCodeToText } from '../shared/riftboundDeckCode'
+import { communityGame, type CommunityGameId } from '../shared/communityGames'
 import { getAdapter } from '../shared/games/registry'
 import type { PairingsResult } from '../shared/types'
 import { t } from '../shared/i18n'
@@ -17,33 +17,39 @@ import { listName } from './community/communityHelpers'
 const PAGE = 40
 
 type Tab = 'lists' | 'meta' | 'events'
-const TABS: Tab[] = ['lists', 'meta', 'events']
+/** "Your events" matches Pairings opponents to Riftbound Legends by champion name; the other games' archetypes aren't named that way. */
+const tabsFor = (gameId: CommunityGameId): Tab[] => (gameId === 'riftbound' ? ['lists', 'meta', 'events'] : ['lists', 'meta'])
 const TAB_LABEL = (tab: Tab) => (tab === 'lists' ? t.communityLists.tabLists : tab === 'meta' ? t.communityLists.tabMeta : t.communityLists.tabEvents)
 type Sort = 'newest' | 'owned' | 'cheapest'
 
 /**
- * Recent Riftbound tournament lists from RiftAtlas (shared/communityLists.ts, state/communityLists.ts).
+ * Recent tournament lists for a game (shared/communityGames.ts): Riftbound's from RiftAtlas, One
+ * Piece's and Pokémon's from Limitless (state/communityLists.ts).
  * **Lists**: by event (or by how much of each you own, or what it costs to finish), each with its
  * Legend's art; opening one shows its cards and what to do with it (community/CommunityListRow.tsx).
  * **Meta**: how often each Legend places, how you do against it, and its card choices
  * (community/CommunityMetaView.tsx).
  */
 export function CommunityListsModal({
+  gameId = 'riftbound',
   onImport,
   onCompare,
   onClose,
 }: {
+  gameId?: CommunityGameId
   onImport: (text: string, name: string) => void
   onCompare: (deckId: string, text: string, name: string) => void
   onClose: () => void
 }) {
-  const cardsById = useCardsById('riftbound')
-  const cards = useAppStore((s) => s.catalogs.riftbound?.cards)
+  const game = communityGame(gameId)
+  const TABS = tabsFor(gameId)
+  const cardsById = useCardsById(gameId)
+  const cards = useAppStore((s) => s.catalogs[gameId]?.cards)
   const owned = useOwnedIndex()
   const myDecks = useAppStore((s) => s.decks)
   const pairingsRecords = useAppStore((s) => s.pairingsRecords)
-  const index = useMemo(() => codeIndex(cardsById.values()), [cardsById])
-  const { lists, file, offline, loading, error, retry } = useCommunityLists(cardsById.size > 0)
+  const index = useMemo(() => game.index(cardsById.values()), [game, cardsById])
+  const { lists, file, offline, loading, error, retry } = useCommunityLists(gameId, cardsById.size > 0)
   const [tab, setTab] = useState<Tab>('lists')
   const [sort, setSort] = useState<Sort>('newest')
   const [legend, setLegend] = useState('')
@@ -58,8 +64,8 @@ export function CommunityListsModal({
     }
     return out
   }, [lists, index])
-  const myRiftboundDecks = useMemo(() => myDecks.filter((d) => d.gameId === 'riftbound').sort((a, b) => a.name.localeCompare(b.name)), [myDecks])
-  const myResults = useMemo((): PairingsResult[] => myRiftboundDecks.flatMap((d) => pairingsRecords?.[d.id] ?? []), [myRiftboundDecks, pairingsRecords])
+  const myGameDecks = useMemo(() => myDecks.filter((d) => d.gameId === gameId).sort((a, b) => a.name.localeCompare(b.name)), [myDecks, gameId])
+  const myResults = useMemo((): PairingsResult[] => myGameDecks.flatMap((d) => pairingsRecords?.[d.id] ?? []), [myGameDecks, pairingsRecords])
   const records = useMemo(() => (myResults.length ? recordsVsLegends(legendMeta(lists ?? []), myResults) : new Map()), [myResults, lists])
 
   const legends = useMemo(() => legendMeta(lists ?? []), [lists])
@@ -98,7 +104,7 @@ export function CommunityListsModal({
 
   const textFor = (list: CommunityList): string | null => {
     try {
-      return deckCodeToText(list.deckCode, cardsById.values(), index)
+      return game.toText(list, cardsById, index)
     } catch {
       return null
     }
@@ -107,7 +113,7 @@ export function CommunityListsModal({
   async function startFromCore(legendId: string, legendName: string) {
     const core = coreDeck([...decks.values()].filter((d) => d.list.legendId === legendId), cardsById)
     const matchedCopies = Object.values(core.zones).reduce((n, entries) => n + entries.reduce((m, e) => m + e.quantity, 0), 0)
-    await useAppStore.getState().importDeck('riftbound', { ...core, name: null, formatLabel: null, unmatched: [], matchedCopies }, t.communityLists.coreName(legendName), 'constructed')
+    await useAppStore.getState().importDeck(gameId, { ...core, name: null, formatLabel: null, unmatched: [], matchedCopies }, t.communityLists.coreName(legendName), game.formatId)
     onClose()
   }
 
@@ -124,11 +130,11 @@ export function CommunityListsModal({
         </div>
         <div className="community-source text-dim">
           <span>
-            <Rich text={t.communityLists.source} />
+            <Rich text={t.communityLists.source(gameId)} />
             {asOf && <span className="community-updated"> {loading ? t.communityLists.refreshing : t.communityLists.updated(asOf)}</span>}
           </span>
-          <button className="btn" onClick={() => void window.api.system.openExternal(COMMUNITY_LISTS_URL)}>
-            {t.communityLists.openSource}
+          <button className="btn" onClick={() => void window.api.system.openExternal(game.sourceUrl)}>
+            {t.communityLists.openSource(gameId)}
           </button>
         </div>
         {offline && asOf && (
@@ -141,7 +147,7 @@ export function CommunityListsModal({
         )}
 
         {cardsById.size === 0 ? (
-          <div className="text-dim">{t.importDeck.noData(getAdapter('riftbound').shortName)}</div>
+          <div className="text-dim">{t.importDeck.noData(getAdapter(gameId).shortName)}</div>
         ) : error && !lists ? (
           <div className="community-error">
             <span className="sync-error">{error}</span>
@@ -185,14 +191,14 @@ export function CommunityListsModal({
                 <>
                   <select
                     value={legend}
-                    aria-label={t.communityLists.legend}
+                    aria-label={t.communityLists.legend(gameId)}
                     onChange={(e) => {
                       setLegend(e.target.value)
                       setShown(PAGE)
                       setOpenId(null)
                     }}
                   >
-                    <option value="">{t.communityLists.allLegends(lists.length)}</option>
+                    <option value="">{t.communityLists.allLegends(gameId, lists.length)}</option>
                     {legends.map((m) => (
                       <option key={m.legendId} value={m.legendId}>
                         {m.legendName} ({m.lists})
@@ -230,6 +236,7 @@ export function CommunityListsModal({
                 />
               ) : tab === 'meta' ? (
                 <CommunityMetaView
+                  gameId={gameId}
                   lists={lists}
                   decks={decks}
                   cardsById={cardsById}
@@ -265,14 +272,14 @@ export function CommunityListsModal({
                               key={list.id}
                               list={list}
                               deck={decks.get(list.id)}
-                              legendCard={cardForCode(index, list.legendId)}
+                              legendCard={game.artCard(index, list)}
                               ownership={ownership.get(list.id)}
                               cardsById={cardsById}
                               index={index}
                               showEvent={sort !== 'newest'}
                               open={openId === list.id}
                               onToggle={() => setOpenId(openId === list.id ? null : list.id)}
-                              myDecks={myRiftboundDecks}
+                              myDecks={myGameDecks}
                               onImport={onImport}
                               onCompare={onCompare}
                             />

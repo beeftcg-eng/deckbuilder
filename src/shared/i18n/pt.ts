@@ -5,6 +5,8 @@
 import type { Messages } from './en'
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
+const site = (g: string) => (g === 'riftbound' ? 'RiftAtlas' : 'Limitless')
+const kindOf = (g: string, many = false) => (g === 'onepiece' ? (many ? 'Líderes' : 'Líder') : g === 'pokemon' ? (many ? 'decks' : 'deck') : many ? 'Lendas' : 'Lenda')
 
 export const pt: Messages = {
   common: {
@@ -269,7 +271,7 @@ export const pt: Messages = {
     decks: 'Decks',
     importTitle: 'Crie um deck a partir de texto colado',
     communityLists: '🌐 Listas',
-    communityListsTitle: 'Listas recentes de torneios, do RiftAtlas',
+    communityListsTitle: (g) => `Listas recentes de torneios, do ${site(g)}`,
     import: 'Importar',
     newDeck: '+ Novo',
     undoTitle: 'Desfazer a última mudança em um deck (Ctrl+Z)',
@@ -441,20 +443,21 @@ export const pt: Messages = {
 
   communityLists: {
     title: 'Listas da comunidade',
-    source: 'Resultados recentes de torneios do **RiftAtlas**.',
-    openSource: 'Abrir o RiftAtlas',
+    source: (g) => g === 'riftbound' ? 'Resultados recentes de torneios do **RiftAtlas**.' : 'As melhores colocações de eventos online recentes no **Limitless**.',
+    openSource: (g) => `Abrir o ${site(g)}`,
     loading: 'Buscando as listas…',
     fetchFailed: (status: string) => `Não foi possível buscar as listas (${status}).`,
     retry: 'Tentar de novo',
     empty: 'Nenhuma lista com deck no momento.',
-    allLegends: (n: number) => `Todas as Lendas (${n})`,
-    legend: 'Lenda',
+    allLegends: (g, n) => `${g === 'riftbound' ? 'Todas as' : 'Todos os'} ${kindOf(g, true)} (${n})`,
+    legend: (g) => kindOf(g).replace(/^./, (c) => c.toUpperCase()),
     placeLabel: (rank: number) => `Colocação ${rank}`,
     domainsLabel: (domains: string) => `Domínios: ${domains}`,
     place: (rank: number) => `#${rank}`,
     players: (n: number) => `${n} ${plural(n, 'jogador', 'jogadores')}`,
     by: (player: string) => `de ${player}`,
     badCode: 'Não foi possível ler o código do deck desta lista.',
+    notInCardData: (game) => `Algumas cartas desta lista ainda não estão nos seus dados de ${game}. Sincronize os dados de cartas para vê-la.`,
     import: 'Importar…',
     copy: 'Copiar lista',
     copied: 'Copiada ✓',
@@ -473,8 +476,8 @@ export const pt: Messages = {
     toFinish: (price: string) => `${price} para completar`,
     compare: '⇄ Comparar com…',
     compareWith: 'Escolha um dos seus decks',
-    noDecks: 'Você ainda não tem decks de Riftbound para comparar.',
-    metaIntro: (n: number) => `Com base nas ${n} listas mais recentes do RiftAtlas. Com tão poucas listas os números variam muito: veja como um esboço.`,
+    noDecks: (game) => `Você ainda não tem decks de ${game} para comparar.`,
+    metaIntro: (g, n) => `Com base nas ${n} listas mais recentes do ${site(g)}. Com tão poucas listas os números variam muito: veja como um esboço.`,
     metaLists: (n: number) => `${n} ${plural(n, 'lista', 'listas')}`,
     metaWins: (n: number) => `${n} ${plural(n, 'vitória', 'vitórias')}`,
     metaTop4: (n: number) => `${n} no top 4`,
@@ -482,11 +485,14 @@ export const pt: Messages = {
     playedInTitle: (n: number, total: number, copies: number) => `Em ${n} de ${total} listas, normalmente ${copies} ${plural(copies, 'cópia', 'cópias')}`,
     newestList: 'Importar a lista mais recente',
     startFromCore: 'Começar um deck com o núcleo',
-    coreTitle: 'As cartas que estão em pelo menos metade das listas, no número de cópias de costume, e o Deck de Runas dividido como de costume. Costuma ficar abaixo de 40: o resto é com você.',
+    coreTitle: (g) =>
+      g === 'riftbound'
+        ? 'As cartas que estão em pelo menos metade das listas, no número de cópias de costume, e o Deck de Runas dividido como de costume. Costuma ficar abaixo de 40: o resto é com você.'
+        : 'As cartas que estão em pelo menos metade das listas, no número de cópias de costume. Costuma ficar abaixo de um deck completo: o resto é com você.',
     coreName: (legend: string) => `${legend} (núcleo)`,
-    back: '← Todas as Lendas',
+    back: (g) => `← ${g === 'riftbound' ? 'Todas as' : 'Todos os'} ${kindOf(g, true)}`,
     hintTitle: (legend: string) => `Começar com o que está vencendo com ${legend}?`,
-    hintBody: (n: number) => `O RiftAtlas tem ${n} ${plural(n, 'lista recente', 'listas recentes')} com esta Lenda.`,
+    hintBody: (g, n) => `O ${site(g)} tem ${n} ${plural(n, 'lista recente', 'listas recentes')} com ${g === 'riftbound' ? 'esta' : 'este'} ${kindOf(g)}.`,
     hintNewest: 'Usar a lista mais recente',
     hintCore: 'Usar o núcleo',
     hintDismiss: 'Não, obrigado',
@@ -516,7 +522,7 @@ export const pt: Messages = {
     newListsHit: (n: number, legend: string, events: string) => `${n} ${plural(n, 'lista nova', 'listas novas')} de ${legend} em ${events}`,
     alertOff: '🔕 Avise sobre listas novas',
     alertOn: '🔔 Avisando sobre listas novas',
-    alertTitle: 'Quando o RiftAtlas tiver listas novas com esta Lenda, o app avisa na próxima vez que você abrir. Desligado até você ligar.',
+    alertTitle: (g) => `Quando o ${site(g)} tiver listas novas com ${g === 'riftbound' ? 'esta' : 'este'} ${kindOf(g)}, o app avisa na próxima vez que você abrir. Desligado até você ligar.`,
     trendsTitle: (days: number) => `Últimos ${days} dias vs. antes`,
     rising: 'Subindo',
     falling: 'Caindo',
@@ -526,7 +532,7 @@ export const pt: Messages = {
     vsMetaMissing: 'A maioria joga, você não',
     vsMetaUnusual: 'Você joga, poucas listas jogam',
     vsMetaNone: 'Nada se destaca: seu deck joga o que a maioria joga.',
-    vsMetaFew: 'Ainda há poucas listas recentes com esta Lenda para comparar.',
+    vsMetaFew: (g) => `Ainda há poucas listas recentes ${g === 'pokemon' ? 'parecidas com este deck' : `com ${g === 'riftbound' ? 'esta' : 'este'} ${kindOf(g)}`} para comparar.`,
     vsMetaShare: (n: number, total: number) => `${Math.round((n / total) * 100)}%`,
     suggestHeading: '💡 Sugestões de listas recentes',
     suggestTitle: (n: number) => `💡 Sugestões de listas recentes (${n} ${plural(n, 'lista', 'listas')})`,

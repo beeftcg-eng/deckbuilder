@@ -1,49 +1,28 @@
 import { useMemo, useState } from 'react'
-import { useAppStore, useCardsById } from '../state/useAppStore'
-import { useCommunityLists } from '../state/communityLists'
-import { compareToMeta, listDeck, type ListDeck } from '../shared/communityMeta'
-import { cardForCode, codeIndex } from '../shared/riftboundDeckCode'
-import { poolKey } from '../shared/collection'
+import { useAppStore } from '../state/useAppStore'
+import { compareToMeta } from '../shared/communityMeta'
 import type { Deck } from '../shared/types'
 import { t } from '../shared/i18n'
+import { useDeckLists } from './community/useDeckLists'
 
 /** Fewer lists than this and the comparison says so instead of guessing. */
 const MIN_LISTS = 5
 
 /**
- * 📈 Against the meta, in a Riftbound deck's view: the cards most recent lists with its Legend play
- * that it doesn't, and its picks few of them make (communityMeta.ts compareToMeta). Closed until
- * opened, so the lists are only read when wanted. Also where to opt in to hearing about new lists
- * with that Legend.
+ * 📈 Against the meta, in a deck's view (Riftbound, One Piece, Pokémon): the cards most recent lists
+ * like it play that it doesn't, and its picks few of them make (communityMeta.ts compareToMeta).
+ * Closed until opened, so the lists are only read when wanted. Also where to opt in to hearing about
+ * new lists of that kind.
  */
 export function DeckMetaCompare({ deck }: { deck: Deck }) {
-  const cardsById = useCardsById('riftbound')
-  const legendCard = cardsById.get(deck.zones.legend?.[0]?.cardId ?? '')
   const [open, setOpen] = useState(false)
-  const { lists } = useCommunityLists(open)
-  const legendCode = useMemo(() => {
-    if (!legendCard || !lists) return null
-    const index = codeIndex(cardsById.values())
-    const key = poolKey(legendCard)
-    return lists.find((l) => {
-      const card = cardForCode(index, l.legendId)
-      return card && poolKey(card) === key
-    })?.legendId ?? null
-  }, [legendCard, lists, cardsById])
+  const { supported, gameId, game, cardsById, lists, archetype: legendCode, decks, identityCard } = useDeckLists(deck, open)
   const alerted = useAppStore((s) => (legendCode ? (s.settings.listAlerts?.legends ?? []).includes(legendCode) : false))
   const setLegendAlert = useAppStore((s) => s.setLegendAlert)
 
-  const comparison = useMemo(() => {
-    if (!open || !lists || !legendCode) return null
-    const index = codeIndex(cardsById.values())
-    const decks = lists.filter((l) => l.legendId === legendCode).flatMap((l): ListDeck[] => {
-      const d = listDeck(l, index)
-      return d ? [d] : []
-    })
-    return compareToMeta(deck, decks, cardsById)
-  }, [open, lists, legendCode, deck, cardsById])
+  const comparison = useMemo(() => (open && lists && legendCode ? compareToMeta(deck, decks, cardsById) : null), [open, lists, legendCode, deck, decks, cardsById])
 
-  if (deck.gameId !== 'riftbound' || !legendCard) return null
+  if (!supported || (game.identityZone && !identityCard)) return null
   const name = (n: string) => n.replace(/\s*\([^)]*\)$/, '')
 
   return (
@@ -53,7 +32,7 @@ export function DeckMetaCompare({ deck }: { deck: Deck }) {
           {comparison ? t.communityLists.vsMetaTitle(comparison.total) : t.communityLists.vsMetaHeading} <span className="text-dim">{open ? '▾' : '▸'}</span>
         </button>
         {open && legendCode && (
-          <button className={`btn community-alert ${alerted ? 'on' : ''}`} aria-pressed={alerted} title={t.communityLists.alertTitle} onClick={() => setLegendAlert(legendCode, !alerted)}>
+          <button className={`btn community-alert ${alerted ? 'on' : ''}`} aria-pressed={alerted} title={t.communityLists.alertTitle(gameId)} onClick={() => setLegendAlert(legendCode, !alerted)}>
             {alerted ? t.communityLists.alertOn : t.communityLists.alertOff}
           </button>
         )}
@@ -62,7 +41,7 @@ export function DeckMetaCompare({ deck }: { deck: Deck }) {
         (!lists ? (
           <div className="text-dim">{t.communityLists.loading}</div>
         ) : !comparison || comparison.total < MIN_LISTS ? (
-          <div className="text-dim">{t.communityLists.vsMetaFew}</div>
+          <div className="text-dim">{t.communityLists.vsMetaFew(gameId)}</div>
         ) : !comparison.missing.length && !comparison.unusual.length ? (
           <div className="text-dim">{t.communityLists.vsMetaNone}</div>
         ) : (

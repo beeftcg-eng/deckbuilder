@@ -1,14 +1,15 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { COMMUNITY_FILE_URL, collectCommunityLists, readCommunityListsFile, type CommunityList, type CommunityListsFile } from '../shared/communityLists'
+import { collectCommunityLists, readCommunityListsFile, type CommunityList, type CommunityListsFile } from '../shared/communityLists'
+import { communityGame, type CommunityGameId } from '../shared/communityGames'
 
 /**
- * RiftAtlas's lists for the Community lists window and the deck editor's "start from a list"
- * (shared/communityLists.ts). Read from the file the daily deploy publishes next to the phone app;
- * the desktop app reads RiftAtlas itself when that file is missing or more than a day and a half
- * old. The last good copy is kept on the device, shown straight away and used when offline.
+ * Each game's Community lists (shared/communityGames.ts): Riftbound's from RiftAtlas, One Piece's and
+ * Pokémon's from Limitless. Read from the file the daily deploy publishes next to the phone app; for
+ * Riftbound the desktop app reads RiftAtlas itself when that file is missing or more than a day and a
+ * half old. The last good copy is kept on the device, shown straight away and used when offline.
  */
 
-const STORAGE_KEY = 'brewhouse.communityLists.v1'
+const storageKey = (gameId: CommunityGameId) => (gameId === 'riftbound' ? 'brewhouse.communityLists.v1' : `brewhouse.communityLists.${gameId}.v1`)
 /** How long a read lasts before the window looks again. */
 const RECHECK_MS = 30 * 60 * 1000
 /** A published file older than this is out of date (the deploy runs daily). */
@@ -22,47 +23,59 @@ export interface CommunityListsState {
   loading: boolean
 }
 
-function savedCopy(): CommunityListsFile | null {
+interface GameState {
+  state: CommunityListsState
+  initialized: boolean
+  lastRead: number
+  inFlight: Promise<void> | null
+}
+
+const EMPTY: CommunityListsState = { file: null, offline: false, error: null, loading: false }
+const games = new Map<CommunityGameId, GameState>()
+const listeners = new Set<() => void>()
+
+function gameState(gameId: CommunityGameId): GameState {
+  let g = games.get(gameId)
+  if (!g) games.set(gameId, (g = { state: EMPTY, initialized: false, lastRead: 0, inFlight: null }))
+  return g
+}
+
+function savedCopy(gameId: CommunityGameId): CommunityListsFile | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey(gameId))
     return raw ? readCommunityListsFile(JSON.parse(raw)) : null
   } catch {
     return null
   }
 }
 
-function saveCopy(file: CommunityListsFile) {
+function saveCopy(gameId: CommunityGameId, file: CommunityListsFile) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(file))
+    localStorage.setItem(storageKey(gameId), JSON.stringify(file))
   } catch {
     // storage full or blocked: the lists just aren't kept for offline
   }
 }
 
-let state: CommunityListsState = { file: null, offline: false, error: null, loading: false }
-let initialized = false
-let lastRead = 0
-let inFlight: Promise<void> | null = null
-const listeners = new Set<() => void>()
-
-function setState(patch: Partial<CommunityListsState>) {
-  state = { ...state, ...patch }
+function setState(gameId: CommunityGameId, patch: Partial<CommunityListsState>) {
+  const g = gameState(gameId)
+  g.state = { ...g.state, ...patch }
   for (const l of listeners) l()
 }
 
-async function publishedFile(): Promise<CommunityListsFile | null> {
+async function publishedFile(gameId: CommunityGameId): Promise<CommunityListsFile | null> {
   try {
-    const res = await fetch(COMMUNITY_FILE_URL, { cache: 'no-store' })
+    const res = await fetch(communityGame(gameId).fileUrl, { cache: 'no-store' })
     return res.ok ? readCommunityListsFile(await res.json()) : null
   } catch {
     return null
   }
 }
 
-async function read(): Promise<CommunityListsFile> {
-  const published = await publishedFile()
+async function read(gameId: CommunityGameId): Promise<CommunityListsFile> {
+  const published = await publishedFile(gameId)
   if (published && Date.now() - new Date(published.updatedAt).getTime() < STALE_MS) return published
-  if (!__WEB__) {
+  if (!__WEB__ && gameId === 'riftbound') {
     try {
       return await collectCommunityLists((url) => window.api.fetchCommunityPage(url))
     } catch (err) {
@@ -73,32 +86,33 @@ async function read(): Promise<CommunityListsFile> {
   throw new Error('No community lists file')
 }
 
-/** Reads the lists again (once at a time), unless they were read in the last half hour or `force`. */
-export function refreshCommunityLists(force = false): Promise<void> {
-  if (!initialized) {
-    initialized = true
-    const saved = savedCopy()
-    if (saved) setState({ file: saved })
+/** Reads a game's lists again (once at a time), unless they were read in the last half hour or `force`. */
+export function refreshCommunityLists(gameId: CommunityGameId = 'riftbound', force = false): Promise<void> {
+  const g = gameState(gameId)
+  if (!g.initialized) {
+    g.initialized = true
+    const saved = savedCopy(gameId)
+    if (saved) setState(gameId, { file: saved })
   }
-  if (inFlight) return inFlight
-  if (!force && state.file && !state.offline && Date.now() - lastRead < RECHECK_MS) return Promise.resolve()
-  setState({ loading: true, error: null })
-  inFlight = read()
+  if (g.inFlight) return g.inFlight
+  if (!force && g.state.file && !g.state.offline && Date.now() - g.lastRead < RECHECK_MS) return Promise.resolve()
+  setState(gameId, { loading: true, error: null })
+  g.inFlight = read(gameId)
     .then((file) => {
-      lastRead = Date.now()
-      saveCopy(file)
-      setState({ file, offline: false, loading: false })
+      g.lastRead = Date.now()
+      saveCopy(gameId, file)
+      setState(gameId, { file, offline: false, loading: false })
     })
     .catch((err: unknown) => {
-      // In the bug report's error log, so a RiftAtlas change shows up there too.
-      console.error('Community lists:', err)
+      // In the bug report's error log, so a source changing shows up there too.
+      console.error(`Community lists (${gameId}):`, err)
       const message = err instanceof Error ? err.message : String(err)
-      setState(state.file ? { offline: true, loading: false } : { error: message, loading: false })
+      setState(gameId, g.state.file ? { offline: true, loading: false } : { error: message, loading: false })
     })
     .finally(() => {
-      inFlight = null
+      g.inFlight = null
     })
-  return inFlight
+  return g.inFlight
 }
 
 function subscribe(listener: () => void) {
@@ -106,24 +120,21 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener)
 }
 
-/** The lists, read when `enabled`. */
-export function useCommunityLists(enabled = true): CommunityListsState & { lists: CommunityList[] | null; retry: () => void } {
-  const current = useSyncExternalStore(subscribe, () => state)
+/** A game's lists, read when `enabled`. */
+export function useCommunityLists(gameId: CommunityGameId, enabled = true): CommunityListsState & { lists: CommunityList[] | null; retry: () => void } {
+  const current = useSyncExternalStore(subscribe, () => gameState(gameId).state)
   useEffect(() => {
-    if (enabled) void refreshCommunityLists()
-  }, [enabled])
-  return { ...current, lists: current.file?.lists ?? null, retry: () => void refreshCommunityLists(true) }
+    if (enabled) void refreshCommunityLists(gameId)
+  }, [enabled, gameId])
+  return { ...current, lists: current.file?.lists ?? null, retry: () => void refreshCommunityLists(gameId, true) }
 }
 
-/** The lists read so far (or kept on the device), for code outside React. */
-export function communityListsNow(): CommunityList[] | null {
-  return state.file?.lists ?? null
+/** A game's lists read so far (or kept on the device), for code outside React. */
+export function communityListsNow(gameId: CommunityGameId = 'riftbound'): CommunityList[] | null {
+  return gameState(gameId).state.file?.lists ?? null
 }
 
 /** For tests: forget everything read so far. */
 export function resetCommunityLists() {
-  state = { file: null, offline: false, error: null, loading: false }
-  initialized = false
-  lastRead = 0
-  inFlight = null
+  games.clear()
 }

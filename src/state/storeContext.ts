@@ -88,14 +88,18 @@ export function createStoreContext(set: SetState, get: GetState) {
     void checkWatches()
   }
 
-  /** Watched community lists (communityMeta.ts) against the Riftbound prices and the collection now. Its code loads only when there are any. */
+  /** Watched community lists (communityMeta.ts) against their games' prices and the collection now. Its code loads only when there are any. */
   async function checkWatches() {
-    const { catalogs, settings } = get()
-    if (!catalogs.riftbound || !settings.listWatches || !Object.keys(settings.listWatches).length) return
-    const [{ checkListWatches }, { codeIndex }] = await Promise.all([import('../shared/communityMeta'), import('../shared/riftboundDeckCode')])
-    const { collection } = get()
-    const catalog = get().catalogs.riftbound!
-    const { hits, next } = checkListWatches(get().settings.listWatches, codeIndex(catalog.cards), catalog.byId, catalog.cards, ownedIndexOf(collection, get().catalogs))
+    const watches = get().settings.listWatches
+    if (!watches || !Object.keys(watches).length) return
+    const [{ checkListWatches, watchGame }, { communityGame }] = await Promise.all([import('../shared/communityMeta'), import('../shared/communityGames')])
+    const catalogs: import('../shared/communityMeta').WatchCatalogs = {}
+    for (const gameId of new Set(Object.values(watches).map(watchGame))) {
+      const catalog = get().catalogs[gameId]
+      if (catalog) catalogs[gameId] = { index: communityGame(gameId).index(catalog.cards), cardsById: catalog.byId, cards: catalog.cards }
+    }
+    if (!Object.keys(catalogs).length) return
+    const { hits, next } = checkListWatches(get().settings.listWatches, catalogs, ownedIndexOf(get().collection, get().catalogs))
     if (next) {
       set((s) => ({ settings: { ...s.settings, listWatches: next } }))
       persistSettings({ listWatches: next })
@@ -110,7 +114,7 @@ export function createStoreContext(set: SetState, get: GetState) {
   async function loadAlertCatalogs() {
     const alerts = get().settings.priceAlerts ?? {}
     const games = new Set(get().wishlist.filter((e) => alerts[e.cardId]).map((e) => e.gameId))
-    if (Object.keys(get().settings.listWatches ?? {}).length) games.add('riftbound')
+    for (const watch of Object.values(get().settings.listWatches ?? {})) games.add(watch.gameId ?? 'riftbound')
     for (const gameId of games) {
       if (!get().catalogs[gameId] && get().syncMeta[gameId]?.count) await get().loadCatalog(gameId).catch(() => undefined)
     }

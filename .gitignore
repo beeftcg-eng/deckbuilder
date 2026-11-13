@@ -42,3 +42,5 @@ flatpak/build-dir/
 flatpak/repo/
 *.flatpak
 flatpak/flathub-test/
+.health/
+.health-check/

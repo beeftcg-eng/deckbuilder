@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { useAppStore, useOwnedIndex } from '../../state/useAppStore'
 import type { CommunityList } from '../../shared/communityLists'
 import { tradeOffersFor, type ListDeck, type ListOwnership, type TradeOffer } from '../../shared/communityMeta'
-import { deckCodeToText } from '../../shared/riftboundDeckCode'
+import { communityGame, listGame } from '../../shared/communityGames'
+import { getAdapter } from '../../shared/games/registry'
 import { formatPrice } from '../../shared/collection'
 import { displayCurrency, displayRate, formatMoney } from '../../shared/currency'
 import { targetToUsd } from '../../shared/priceAlerts'
 import { askToNotify } from '../../lib/notify'
 import type { Card, Deck } from '../../shared/types'
-import { t } from '../../shared/i18n'
+import { t, zoneLabel } from '../../shared/i18n'
 import { DomainPips, LegendArt, LegendWash } from './communityUi'
-import { legendLook, listName, medal, textSections } from './communityHelpers'
+import { legendLook, listName, medal } from './communityHelpers'
 
 interface Props {
   list: CommunityList
@@ -57,6 +58,19 @@ export function CommunityListRow({ list, deck, legendCard, ownership, cardsById,
   )
 }
 
+/** A list's cards by zone, in the game's zone order, for the preview: [copies, name]. */
+function deckSections(gameId: Parameters<typeof getAdapter>[0], deck: ListDeck, cardsById: Map<string, Card>): { heading: string; cards: [number, string][] }[] {
+  return getAdapter(gameId).deckRules.zones.flatMap((zone) => {
+    const cards: [number, string][] = zone.freeText
+      ? (deck.freeTextZones[zone.id] ?? []).map((e) => [e.quantity, e.label])
+      : (deck.zones[zone.id] ?? []).flatMap((e): [number, string][] => {
+          const card = cardsById.get(e.cardId)
+          return card ? [[e.quantity, card.name.replace(/\s*\([^)]*\)$/, '')]] : []
+        })
+    return cards.length ? [{ heading: zoneLabel(zone.label), cards }] : []
+  })
+}
+
 function OwnershipChip({ ownership }: { ownership: ListOwnership | undefined }) {
   if (!ownership?.needed) return null
   if (ownership.owned >= ownership.needed) return <span className="community-own complete">{t.communityLists.ownAll}</span>
@@ -79,13 +93,16 @@ function ListDetail({
 }: Pick<Props, 'list' | 'deck' | 'cardsById' | 'index' | 'myDecks' | 'onImport' | 'onCompare'>) {
   const [comparing, setComparing] = useState(false)
   const [copied, setCopied] = useState(false)
+  const gameId = listGame(list)
   let text: string | null = null
   try {
-    text = deckCodeToText(list.deckCode, cardsById.values(), index)
+    text = communityGame(gameId).toText(list, cardsById, index)
   } catch {
     text = null
   }
-  if (!text) return <div className="sync-error community-detail">{t.communityLists.badCode}</div>
+  if (!text || !deck) {
+    return <div className="sync-error community-detail">{gameId === 'riftbound' ? t.communityLists.badCode : t.communityLists.notInCardData(getAdapter(gameId).shortName)}</div>
+  }
 
   async function copy(value: string) {
     await window.api.clipboard.writeText(value)
@@ -96,10 +113,10 @@ function ListDetail({
   return (
     <div className="community-detail">
       <div className="community-sections">
-        {textSections(text).map((s) => (
+        {deckSections(gameId, deck, cardsById).map((s) => (
           <div key={s.heading} className="community-section">
             <div className="community-section-title">
-              {s.heading} <span>{s.cards.reduce((n, [c]) => n + (Number(c) || 0), 0)}</span>
+              {s.heading} <span>{s.cards.reduce((n, [c]) => n + c, 0)}</span>
             </div>
             {s.cards.map(([count, name], i) => (
               <div key={i} className="community-card-line">
@@ -126,7 +143,7 @@ function ListDetail({
               ))}
             </select>
           ) : (
-            <span className="text-dim">{t.communityLists.noDecks}</span>
+            <span className="text-dim">{t.communityLists.noDecks(getAdapter(gameId).shortName)}</span>
           )
         ) : (
           <button className="btn" onClick={() => setComparing(true)}>
@@ -186,7 +203,8 @@ function WatchPrice({ list }: { list: CommunityList }) {
           return
         }
         askToNotify()
-        setListWatch(list.id, { name: listName(list), deckCode: list.deckCode, target: usd })
+        const gameId = listGame(list)
+        setListWatch(list.id, { name: listName(list), deckCode: list.deckCode, target: usd, ...(gameId !== 'riftbound' && list.cards ? { gameId, cards: list.cards } : {}) })
         setEditing(false)
       }}
     >

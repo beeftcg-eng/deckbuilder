@@ -10,6 +10,7 @@ import type {
   DeckViewMode,
   Format,
   GameId,
+  ListWatch,
   MatchupPlan,
   PairingsConfig,
   PairingsLink,
@@ -238,7 +239,7 @@ export interface AppState {
   /** Sets (US dollars) or clears (null) the price alert on a wishlisted card (priceAlerts.ts). */
   setPriceAlert: (cardId: string, targetUsd: number | null) => void
   /** Watches a community list's cost to finish (communityMeta.ts), or stops with null. */
-  setListWatch: (listId: string, watch: { name: string; deckCode: string; target: number } | null) => void
+  setListWatch: (listId: string, watch: Omit<ListWatch, 'hit'> | null) => void
   /** Opts in to (or out of) hearing about new community lists with a Legend; off until you do. */
   setLegendAlert: (legendId: string, on: boolean) => Promise<void>
   /** Announces new community lists for the opted-in Legends (communityMeta.ts newListsFor). */
