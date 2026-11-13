@@ -4,6 +4,7 @@ import type { Card, Deck } from '../shared/types'
 import { cardsSeenBy, chanceAtLeast, expandZone, shuffled } from '../shared/sampleHand'
 import { poolKey } from '../shared/collection'
 import { playCost, resourceRule, resourcesAt } from '../shared/practiceResources'
+import { SimulateTab } from './practice/SimulateTab'
 import { t } from '../shared/i18n'
 
 interface Props {
@@ -13,7 +14,7 @@ interface Props {
   onClose: () => void
 }
 
-type Tab = 'practice' | 'odds'
+type Tab = 'practice' | 'odds' | 'simulate'
 const TURNS = [0, 1, 2, 3, 4, 5]
 
 function deal(from: Card[], size: number, mulligans: number) {
@@ -124,11 +125,11 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
         <>
           <div className="practice-tabs">
             <div className="practice-tablist" role="tablist">
-              {(['practice', 'odds'] as const).map((tb) => (
-                <button key={tb} role="tab" aria-selected={tab === tb} className={`btn ${tab === tb ? 'btn-primary' : ''}`} onClick={() => setTab(tb)}>
-                  {tb === 'practice' ? t.sampleHand.practiceTab : t.sampleHand.oddsTab}
-                </button>
-              ))}
+              {(rule ? (['practice', 'odds', 'simulate'] as const) : (['practice', 'odds'] as const)).map((tb) => (
+                  <button key={tb} role="tab" aria-selected={tab === tb} className={`btn ${tab === tb ? 'btn-primary' : ''}`} onClick={() => setTab(tb)}>
+                    {tb === 'practice' ? t.sampleHand.practiceTab : tb === 'odds' ? t.sampleHand.oddsTab : t.sampleHand.simulateTab}
+                  </button>
+                ))}
             </div>
             <label className="practice-play" title={t.sampleHand.onThePlayTitle}>
               <input type="checkbox" checked={onThePlay} onChange={(e) => setOnThePlay(e.target.checked)} />
@@ -136,7 +137,9 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
             </label>
           </div>
 
-          {tab === 'practice' ? (
+          {tab === 'simulate' ? (
+            <SimulateTab gameId={deck.gameId} cards={cards} handSize={handSize} onThePlay={onThePlay} />
+          ) : tab === 'practice' ? (
             <>
               <div className="sample-hand-actions">
                 <button className="btn btn-primary" onClick={() => setState(deal(cards, handSize, 0))}>

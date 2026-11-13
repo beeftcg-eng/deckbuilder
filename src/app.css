@@ -5350,3 +5350,30 @@
   font-size: 13px;
   line-height: 1.6;
 }
+
+/* Practice's Simulate tab (practice/SimulateTab.tsx). */
+.practice-sim {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.sim-table th,
+.sim-table td {
+  padding: 4px 10px;
+  text-align: right;
+}
+
+.sim-table th:first-child {
+  text-align: left;
+}
+
+.sim-heading {
+  font-size: 14px;
+  margin: 12px 0 6px;
+}
+
+.sim-cards li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
