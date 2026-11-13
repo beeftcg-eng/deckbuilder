@@ -24,7 +24,7 @@ interface RiftboundApiCard {
   text: { plain: string | null }
   set: { set_id: string; label: string }
   media: { image_url: string | null }
-  attributes: { energy: number | null }
+  attributes: { energy: number | null; might?: number | null; power?: number | null }
   orientation: 'portrait' | 'landscape'
 }
 
@@ -59,6 +59,8 @@ function normalizeCard(raw: RiftboundApiCard, released?: string): Card {
     subtypes: raw.classification.supertype ? [raw.classification.supertype] : [],
     colors: raw.classification.domain ?? [],
     cost: raw.attributes.energy != null ? String(raw.attributes.energy) : null,
+    ...(raw.attributes.might != null ? { might: raw.attributes.might } : {}),
+    ...(raw.attributes.power ? { powerCost: raw.attributes.power } : {}),
     text: raw.text.plain,
     legality: null,
     // riftcodex has no prices; fetchAllCards fills them in from the price file by tcgplayer_id.

@@ -39,6 +39,10 @@ export interface Card {
    */
   colorIdentity?: string[]
   cost: string | null
+  /** Riftbound units' Might (combat strength and toughness), when the card data has it. */
+  might?: number
+  /** Riftbound: how much Power of the card's domain it costs on top of its Energy. */
+  powerCost?: number
   text: string | null
   /**
    * When this printing (or, for Yu-Gi-Oh, the card) was first released, as "YYYY-MM-DD". Used by the
