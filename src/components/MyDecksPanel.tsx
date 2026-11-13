@@ -84,19 +84,22 @@ function DeckCard({ deck, cardsById, value }: { deck: Deck; cardsById: Map<strin
   const totalCards = counts.filter((c) => !c.free).reduce((sum, c) => sum + c.total, 0)
 
   return (
-    <div
-      className="md-card"
-      role="button"
-      tabIndex={0}
-      onClick={() => openDeck(deck.id)}
-      onKeyDown={(e) => e.key === 'Enter' && openDeck(deck.id)}
-      title={t.myDecks.openTitle(deck.name)}
-    >
+    // Clicking anywhere on the card opens it; for the keyboard and screen readers, its name is the button.
+    <div className="md-card" onClick={() => openDeck(deck.id)} title={t.myDecks.openTitle(deck.name)}>
       <DeckIcon card={icon} name={deck.name} size={72} />
       <div className="md-card-body">
         <div className="md-card-name" title={deck.name}>
-          {deck.locked ? '🔒 ' : ''}
-          {deck.name}
+          <button
+            type="button"
+            className="md-card-open"
+            onClick={(e) => {
+              e.stopPropagation()
+              openDeck(deck.id)
+            }}
+          >
+            {deck.locked ? '🔒 ' : ''}
+            {deck.name}
+          </button>
         </div>
         <div className="text-dim md-card-meta">
           {adapter.shortName}
@@ -226,7 +229,7 @@ export function MyDecksPanel() {
         <>
           <div className="col-controls">
             <input className="search-input" placeholder={t.myDecks.search} value={query} onChange={(e) => setQuery(e.target.value)} />
-            <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} title={t.myDecks.sort}>
+            <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} title={t.myDecks.sort} aria-label={t.myDecks.sort}>
               <option value="recent">{t.sidebar.sortRecent}</option>
               <option value="name">{t.sidebar.sortName}</option>
               <option value="game">{t.myDecks.byGame}</option>

@@ -86,7 +86,7 @@ export function ProxyPrintModal(props: Props) {
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal import-modal proxy-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal import-modal proxy-modal" role="dialog" aria-modal="true" aria-label={props.deck ? t.proxies.title(deck.name) : t.proxies.listTitle(adapter.shortName)} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{props.deck ? t.proxies.title(deck.name) : t.proxies.listTitle(adapter.shortName)}</span>
           <button className="btn" onClick={onClose}>

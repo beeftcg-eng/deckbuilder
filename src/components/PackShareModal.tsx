@@ -56,7 +56,7 @@ export function PackShareModal(props: { opening: PackOpening; lookup: (cardId: s
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal export-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal export-modal" role="dialog" aria-modal="true" aria-label={t.packs.shareHeading} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.packs.shareHeading}</span>
           <button className="btn" onClick={onClose}>

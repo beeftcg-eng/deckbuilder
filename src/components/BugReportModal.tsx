@@ -75,7 +75,7 @@ export function BugReportModal({ onClose }: { onClose: () => void }) {
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <form className="modal bug-report-modal" onClick={(e) => e.stopPropagation()} onSubmit={send}>
+      <form className="modal bug-report-modal" role="dialog" aria-modal="true" aria-label={t.bugReport.title} onClick={(e) => e.stopPropagation()} onSubmit={send}>
         <div className="modal-header">
           <span>{t.bugReport.title}</span>
           <button type="button" className="btn" onClick={onClose}>

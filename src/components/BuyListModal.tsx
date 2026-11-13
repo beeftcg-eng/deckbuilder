@@ -53,7 +53,7 @@ export function BuyListModal({ deck, cardsById, onClose, editable = false }: { d
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal import-modal buy-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal import-modal buy-modal" role="dialog" aria-modal="true" aria-label={t.buyList.title(deck.name)} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.buyList.title(deck.name)}</span>
           <button className="btn" onClick={onClose}>
@@ -65,7 +65,7 @@ export function BuyListModal({ deck, cardsById, onClose, editable = false }: { d
           <div>{t.buyList.complete}</div>
         ) : (
           <>
-            <div className="fv-modes" role="tablist">
+            <div className="fv-modes" role="group">
               {(['cheapest', 'deck'] as const).map((m) => (
                 <button key={m} className={mode === m ? 'btn btn-primary' : 'btn'} aria-pressed={mode === m} onClick={() => setMode(m)}>
                   {m === 'cheapest' ? t.buyList.cheapest : t.buyList.deckPrintings}

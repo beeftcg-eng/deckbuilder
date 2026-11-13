@@ -154,13 +154,14 @@ function DeckEditor({ deck }: { deck: Deck }) {
         <DeckIcon card={iconCard} name={deck.name} size={38} />
         <input
           className="deck-name-input"
+          aria-label={t.deckEditor.nameLabel}
           disabled={locked}
           value={nameDraft ?? deck.name}
           onChange={(e) => setNameDraft(e.target.value)}
           onBlur={commitName}
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         />
-        <select value={deck.formatId} disabled={locked} onChange={(e) => updateDeck((d) => ({ ...d, formatId: e.target.value }), t.deckEditor.undoFormat)}>
+        <select value={deck.formatId} aria-label={t.deckEditor.formatLabel} disabled={locked} onChange={(e) => updateDeck((d) => ({ ...d, formatId: e.target.value }), t.deckEditor.undoFormat)}>
           {gameFormats.map((f) => (
             <option key={f.id} value={f.id} title={formatDescription(deck.gameId, f)}>
               {formatLabel(deck.gameId, f)}
@@ -214,6 +215,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
           value=""
           disabled={locked}
           title={t.deckEditor.sortTitle}
+          aria-label={t.deckEditor.sortTitle}
           onChange={(e) => {
             const sort = e.target.value as DeckCardSort
             updateDeck((d) => sortDeckCards(d, sort, cardsById, adapter.typeOrder), t.deckEditor.undoSort(t.deckEditor.sorts[sort]))

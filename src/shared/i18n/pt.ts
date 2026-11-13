@@ -620,6 +620,7 @@ export const pt: Messages = {
   },
 
   cardTile: {
+    openDetail: (name) => `${name}: detalhes`,
     arts: (n) => `🎨 ${n} ilustrações`,
     artsTitle: (n) => `${n} ilustrações oficiais — abra para escolher a da sua cópia`,
     removeWishlist: 'Remover da lista de desejos',
@@ -826,6 +827,8 @@ export const pt: Messages = {
     ownedNone: 'Marque cartas como suas para usar isto',
     ownedTitle: 'Só as cartas que você tem (qualquer impressão)',
     owned: 'Minhas',
+    setFilter: 'Coleção',
+    rarityFilter: 'Raridade',
     allSets: 'Todas as coleções',
     allRarities: 'Todas as raridades',
     locked: (name) => `🔒 “${name}” está bloqueado, então não dá para adicionar cartas. Desbloqueie pelo painel do deck para continuar montando.`,
@@ -861,6 +864,8 @@ export const pt: Messages = {
   },
 
   deckEditor: {
+    nameLabel: 'Nome do deck',
+    formatLabel: 'Formato',
     needs: (counts) => `, precisa de ${counts}`,
     atLeast: (n) => `, pelo menos ${n}`,
     upTo: (n) => `, até ${n}`,

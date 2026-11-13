@@ -121,7 +121,7 @@ export function CommunityListsModal({
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal community-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal community-modal" role="dialog" aria-modal="true" aria-label={t.communityLists.title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.communityLists.title}</span>
           <button className="btn" onClick={onClose}>

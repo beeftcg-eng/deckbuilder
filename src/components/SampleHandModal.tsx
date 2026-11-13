@@ -111,7 +111,7 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal sample-hand-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal sample-hand-modal" role="dialog" aria-modal="true" aria-label={t.sampleHand.title(deck.name)} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.sampleHand.title(deck.name)}</span>
           <button className="btn" onClick={onClose}>
@@ -123,12 +123,14 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
           <div className="text-dim">{t.sampleHand.empty}</div>
         ) : (
           <>
-            <div className="practice-tabs" role="tablist">
-              {(['practice', 'odds'] as const).map((tb) => (
-                <button key={tb} role="tab" aria-selected={tab === tb} className={`btn ${tab === tb ? 'btn-primary' : ''}`} onClick={() => setTab(tb)}>
-                  {tb === 'practice' ? t.sampleHand.practiceTab : t.sampleHand.oddsTab}
-                </button>
-              ))}
+            <div className="practice-tabs">
+              <div className="practice-tablist" role="tablist">
+                {(['practice', 'odds'] as const).map((tb) => (
+                  <button key={tb} role="tab" aria-selected={tab === tb} className={`btn ${tab === tb ? 'btn-primary' : ''}`} onClick={() => setTab(tb)}>
+                    {tb === 'practice' ? t.sampleHand.practiceTab : t.sampleHand.oddsTab}
+                  </button>
+                ))}
+              </div>
               <label className="practice-play" title={t.sampleHand.onThePlayTitle}>
                 <input type="checkbox" checked={onThePlay} onChange={(e) => setOnThePlay(e.target.checked)} />
                 {t.sampleHand.onThePlay}

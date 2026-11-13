@@ -269,7 +269,7 @@ export function CardBrowser() {
           <input type="checkbox" checked={ownedOnly} disabled={Object.keys(collection).length === 0} onChange={(e) => setOwnedOnly(e.target.checked)} />
           {t.browser.owned}
         </label>
-        <select className="mobile-filter" value={setId} onChange={(e) => setSetId(e.target.value)}>
+        <select className="mobile-filter" aria-label={t.browser.setFilter} value={setId} onChange={(e) => setSetId(e.target.value)}>
           <option value="all">{t.browser.allSets}</option>
           {sets.map(([id, name]) => (
             <option key={id} value={id}>
@@ -278,7 +278,7 @@ export function CardBrowser() {
           ))}
         </select>
         {rarities.length > 0 && (
-          <select className="mobile-filter" value={rarity} onChange={(e) => setRarity(e.target.value)}>
+          <select className="mobile-filter" aria-label={t.browser.rarityFilter} value={rarity} onChange={(e) => setRarity(e.target.value)}>
             <option value="all">{t.browser.allRarities}</option>
             {rarities.map((r) => (
               <option key={r} value={r}>

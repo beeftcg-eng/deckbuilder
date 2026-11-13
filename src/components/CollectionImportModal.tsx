@@ -59,7 +59,7 @@ export function CollectionImportModal({ gameId, onClose, onImported }: { gameId:
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal import-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal import-modal" role="dialog" aria-modal="true" aria-label={t.collectionImport.title(adapter.shortName)} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.collectionImport.title(adapter.shortName)}</span>
           <button className="btn" onClick={onClose}>

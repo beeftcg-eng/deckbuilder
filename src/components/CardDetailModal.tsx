@@ -50,7 +50,7 @@ export function CardDetailModal({ card: opened, onClose }: { card: Card; onClose
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal card-detail-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal card-detail-modal" role="dialog" aria-modal="true" aria-label={card.name} onClick={(e) => e.stopPropagation()}>
         <div className="card-detail-image">
           {card.imageUrl ? (
             <button className="card-detail-enlarge" onClick={() => setEnlarged(true)} title={t.cardDetail.enlargeTitle}>

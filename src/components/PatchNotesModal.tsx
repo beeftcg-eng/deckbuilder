@@ -72,7 +72,7 @@ export function PatchNotesModal({ onClose }: Props) {
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal patch-notes-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal patch-notes-modal" role="dialog" aria-modal="true" aria-label={t.patchNotes.title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.patchNotes.title}</span>
           <button className="btn" onClick={onClose}>

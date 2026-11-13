@@ -620,6 +620,7 @@ export const es: Messages = {
   },
 
   cardTile: {
+    openDetail: (name) => `${name}: detalles`,
     arts: (n) => `🎨 ${n} ilustraciones`,
     artsTitle: (n) => `${n} ilustraciones oficiales — ábrela para elegir la de tu copia`,
     removeWishlist: 'Quitar de la lista de deseos',
@@ -826,6 +827,8 @@ export const es: Messages = {
     ownedNone: 'Marca cartas como tuyas para usar esto',
     ownedTitle: 'Solo las cartas que tienes (cualquier impresión)',
     owned: 'Mías',
+    setFilter: 'Expansión',
+    rarityFilter: 'Rareza',
     allSets: 'Todas las expansiones',
     allRarities: 'Todas las rarezas',
     locked: (name) => `🔒 “${name}” está bloqueado, así que no se pueden añadir cartas. Desbloquéalo desde el panel del mazo para seguir construyendo.`,
@@ -861,6 +864,8 @@ export const es: Messages = {
   },
 
   deckEditor: {
+    nameLabel: 'Nombre del mazo',
+    formatLabel: 'Formato',
     needs: (counts) => `, necesita ${counts}`,
     atLeast: (n) => `, al menos ${n}`,
     upTo: (n) => `, hasta ${n}`,

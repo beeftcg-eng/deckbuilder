@@ -49,7 +49,9 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
 
   return (
     <div className={`card-tile ${quantity > 0 ? 'in-deck' : ''}`} onMouseEnter={() => hoverCard(shortcutActions)} onMouseLeave={() => unhoverCard(shortcutActions)}>
-      <div className="card-tile-image" onClick={onOpenDetail} role="button" tabIndex={0}>
+      <div className="card-tile-image">
+        {/* The picture opens the card's details; the art and wishlist buttons sit on it, not inside it. */}
+        <button type="button" className="card-tile-open" onClick={onOpenDetail} aria-label={t.cardTile.openDetail(card.name)}>
         {card.imageUrl ? (
           <img
             src={card.imageUrl}
@@ -66,6 +68,7 @@ export function CardTile({ card, quantity, maxQuantity, owned, ownedTotal, onOwn
             {card.name}
           </div>
         )}
+        </button>
         {quantity > 0 && <div className="card-tile-badge">{quantity}</div>}
         {artCount > 1 && (
           <button

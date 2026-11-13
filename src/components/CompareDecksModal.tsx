@@ -60,7 +60,7 @@ export function CompareDecksModal({
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal compare-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal compare-modal" role="dialog" aria-modal="true" aria-label={t.compare.title(deck.name)} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.compare.title(deck.name)}</span>
           <button className="btn" onClick={onClose}>

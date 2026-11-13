@@ -243,7 +243,7 @@ export function CollectionPanel() {
 
       {adapter.hasPrices && valuePoints && <ValueChart points={valuePoints} />}
 
-      <div className="fv-modes col-tabs" role="tablist">
+      <div className="fv-modes col-tabs" role="group">
         <button className={tab === 'cards' ? 'btn btn-primary' : 'btn'} aria-pressed={tab === 'cards'} onClick={() => setTab('cards')}>
           {t.collection.myCards}
         </button>
@@ -267,11 +267,12 @@ export function CollectionPanel() {
             <input
               className="search-input"
               placeholder={tab === 'cards' ? t.collection.searchCards : t.collection.searchSets}
+              aria-label={tab === 'cards' ? t.collection.searchCards : t.collection.searchSets}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
             {tab === 'cards' ? (
-              <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} title={t.myDecks.sort}>
+              <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} title={t.myDecks.sort} aria-label={t.myDecks.sort}>
                 <option value="name">{t.collection.sortName}</option>
                 <option value="set">{t.collection.sortSet}</option>
                 <option value="copies">{t.collection.sortCopies}</option>

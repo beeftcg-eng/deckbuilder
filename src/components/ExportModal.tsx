@@ -108,7 +108,7 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal export-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal export-modal" role="dialog" aria-modal="true" aria-label={t.exportDeck.title(deck.name)} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.exportDeck.title(deck.name)}</span>
           <button className="btn" onClick={onClose}>

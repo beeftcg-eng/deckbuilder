@@ -114,7 +114,7 @@ export function TradePanel() {
         <span className="text-dim">{t.trade.markedCount(forTradeCount)}</span>
       </div>
 
-      <div className="fv-modes col-tabs" role="tablist">
+      <div className="fv-modes col-tabs" role="group">
         <button className={tab === 'profile' ? 'btn btn-primary' : 'btn'} aria-pressed={tab === 'profile'} onClick={() => setTab('profile')}>
           {t.trade.myProfile}
         </button>

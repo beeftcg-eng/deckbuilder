@@ -186,7 +186,7 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal banlist-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal banlist-modal" role="dialog" aria-modal="true" aria-label={t.banList.title(adapter.shortName)} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.banList.title(adapter.shortName)}</span>
           <button className="btn" onClick={onClose}>

@@ -36,7 +36,7 @@ export function ShareAppModal({ onClose }: { onClose: () => void }) {
   const box = size + MARGIN * 2
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal share-modal share-app-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal share-modal share-app-modal" role="dialog" aria-modal="true" aria-label={t.shareApp.title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.shareApp.title}</span>
           <button className="btn" onClick={onClose}>

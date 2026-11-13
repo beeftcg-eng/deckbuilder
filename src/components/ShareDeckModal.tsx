@@ -73,7 +73,7 @@ export function ShareDeckModal({ deck, onClose }: { deck: Deck; onClose: () => v
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal share-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal share-modal" role="dialog" aria-modal="true" aria-label={`${t.share.title}: ${deck.name}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>
             {t.share.title}: {deck.name}

@@ -14,7 +14,7 @@ export function ShortcutsModal({ onClose }: { onClose: () => void }) {
   ]
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal shortcuts-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal shortcuts-modal" role="dialog" aria-modal="true" aria-label={t.shortcuts.title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.shortcuts.title}</span>
           <button className="btn" onClick={onClose}>

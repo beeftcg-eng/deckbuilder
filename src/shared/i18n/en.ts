@@ -631,6 +631,7 @@ export const en = {
   },
 
   cardTile: {
+    openDetail: (name: string) => `${name}: details`,
     arts: (n: number) => `🎨 ${n} arts`,
     artsTitle: (n: number) => `${n} official artworks — open to pick the one on your copy`,
     removeWishlist: 'Remove from wishlist',
@@ -791,6 +792,8 @@ export const en = {
     ownedNone: 'Mark cards as owned to use this',
     ownedTitle: 'Only cards you own (any printing)',
     owned: 'Owned',
+    setFilter: 'Set',
+    rarityFilter: 'Rarity',
     allSets: 'All sets',
     allRarities: 'All rarities',
     locked: (name: string) => `🔒 “${name}” is locked, so cards can’t be added. Unlock it from the deck panel to keep building.`,
@@ -827,6 +830,8 @@ export const en = {
   },
 
   deckEditor: {
+    nameLabel: 'Deck name',
+    formatLabel: 'Format',
     needs: (counts: string) => `, needs ${counts}`,
     atLeast: (n: number) => `, at least ${n}`,
     upTo: (n: number) => `, up to ${n}`,

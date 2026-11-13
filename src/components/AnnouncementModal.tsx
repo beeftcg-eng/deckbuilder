@@ -9,7 +9,7 @@ export function AnnouncementModal() {
   if (!announcement) return null
   return createPortal(
     <div className="modal-overlay" onClick={dismiss}>
-      <div className="modal announcement-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal announcement-modal" role="dialog" aria-modal="true" aria-label={announcement.title ?? t.announcement.title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{announcement.title ?? t.announcement.title}</span>
         </div>

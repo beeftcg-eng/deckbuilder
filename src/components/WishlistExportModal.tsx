@@ -63,7 +63,7 @@ export function WishlistExportModal({ entries, onClose }: Props) {
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal export-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal export-modal" role="dialog" aria-modal="true" aria-label={t.wishlistExport.title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{t.wishlistExport.title}</span>
           <button className="btn" onClick={onClose}>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useCommand } from '../lib/commands'
 import { isCommunityGame } from '../shared/communityGames'
 import { useAppStore } from '../state/useAppStore'
@@ -160,31 +160,32 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
   }
 
   /** The card or row opens the card's details; it's a div (not a button) because it holds the −/+ buttons. */
+  /** Clicking anywhere on a card or row opens its details; for the keyboard, its picture or name is the button. */
   function openProps(card: Card) {
-    return {
-      role: 'button',
-      tabIndex: 0,
-      onClick: () => setDetail(card),
-      onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          setDetail(card)
-        }
-      },
-    }
+    return { onClick: () => setDetail(card) }
   }
+
+  const openButton = (card: Card) => ({
+    type: 'button' as const,
+    onClick: (e: { stopPropagation: () => void }) => {
+      e.stopPropagation()
+      setDetail(card)
+    },
+  })
 
   function renderCard(zoneId: string, entry: DeckViewEntry) {
     const { card, quantity, printings } = entry
     return (
       <div key={card.id} className="fv-card" {...openProps(card)} title={t.deckView.cardTitle(card.name, printings)}>
-        {card.imageUrl ? (
-          <img src={card.imageUrl} alt={card.name} loading="lazy" style={{ aspectRatio: card.orientation === 'landscape' ? '7 / 5' : '5 / 7' }} />
-        ) : (
-          <div className="fv-card-placeholder" style={{ aspectRatio: card.orientation === 'landscape' ? '7 / 5' : '5 / 7' }}>
-            {card.name}
-          </div>
-        )}
+        <button className="fv-card-open" {...openButton(card)} aria-label={t.deckView.cardTitle(card.name, printings)}>
+          {card.imageUrl ? (
+            <img src={card.imageUrl} alt="" loading="lazy" style={{ aspectRatio: card.orientation === 'landscape' ? '7 / 5' : '5 / 7' }} />
+          ) : (
+            <div className="fv-card-placeholder" style={{ aspectRatio: card.orientation === 'landscape' ? '7 / 5' : '5 / 7' }}>
+              {card.name}
+            </div>
+          )}
+        </button>
         <span className="fv-qty">×{quantity}</span>
         {renderStepper(zoneId, entry)}
       </div>
@@ -217,10 +218,10 @@ export function DeckFullView({ deck, format, cardsById, onEdit, shared }: Props)
       <div key={card.id} className="fv-row" {...openProps(card)}>
         <span className="fv-row-qty">{quantity}×</span>
         {card.imageUrlSmall ? <img className="fv-row-thumb" src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="fv-row-thumb" />}
-        <span className="fv-row-name">
+        <button className="fv-row-name fv-row-open" {...openButton(card)}>
           {card.name}
           {printings > 1 && <span className="text-dim">{t.deckView.printings(printings)}</span>}
-        </span>
+        </button>
         <span className="fv-row-detail text-dim">{card.subtypes.join(' ')}</span>
         <span className="fv-row-cost text-dim">{card.cost ?? ''}</span>
         <span className="fv-row-price text-dim">{card.price != null ? formatPrice(card.price * quantity) : ''}</span>
