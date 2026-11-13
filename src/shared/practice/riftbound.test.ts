@@ -140,7 +140,7 @@ describe('the bot', () => {
     let s = newGame(setup(), setup(Array.from({ length: 40 }, () => big)), { first: 0, random: seeded(3) })
     s = mulligan(s, 0, [])
     s = botMulligan(s)
-    expect(s.log.some((l) => l.side === BOT && l.text === 'Mulliganed 2.')).toBe(true)
+    expect(s.log.some((l) => l.side === BOT && l.text === 'Opponent mulliganed 2.')).toBe(true)
   })
 
   it('plays, takes battlefields and wins a game where you only end your turns', () => {

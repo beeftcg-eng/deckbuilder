@@ -5377,3 +5377,376 @@
   gap: 8px;
   align-items: baseline;
 }
+
+/* A Riftbound practice game (practice/RiftboundGame.tsx). */
+.rb-game-modal {
+  width: min(1280px, 98vw);
+  max-width: 98vw;
+  height: 94vh;
+  max-height: 94vh;
+  padding: 10px;
+}
+
+.rb-setup-modal {
+  max-width: 560px;
+}
+
+.rb-setup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rb-setup-row select {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.practice-game-btn {
+  margin-left: auto;
+}
+
+.rb-board {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+}
+
+.rb-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.rb-score {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.rb-topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.rb-main {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+}
+
+.rb-main.with-log {
+  grid-template-columns: 1fr 280px;
+}
+
+.rb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.rb-player {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--bg-elevated-2);
+}
+
+.rb-legend {
+  font-weight: 600;
+}
+
+.rb-points {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.rb-runes {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.rb-rune {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #0006;
+}
+
+.rb-rune.exhausted {
+  opacity: 0.3;
+}
+
+.rb-champion,
+.rb-player-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rb-battlefields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px;
+}
+
+.rb-bf {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  min-height: 150px;
+}
+
+.rb-bf.mine {
+  border-color: var(--success);
+}
+
+.rb-bf.theirs {
+  border-color: var(--danger);
+}
+
+.rb-bf header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rb-bf .rb-units.mine {
+  margin-top: auto;
+}
+
+.rb-base {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.rb-zone-label {
+  font-size: 12px;
+}
+
+.rb-units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 30px;
+}
+
+.rb-unit {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border-strong);
+  border-left: 4px solid var(--domain-a);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+
+.rb-unit.theirs {
+  background: var(--danger-dim);
+}
+
+.rb-unit.exhausted {
+  opacity: 0.6;
+}
+
+.rb-unit.selected {
+  outline: 2px solid var(--accent);
+}
+
+.rb-unit-main {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 8px;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.rb-unit-name {
+  font-size: 13px;
+  font-weight: 600;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-unit-might {
+  font-weight: 700;
+}
+
+.rb-unit-damage {
+  color: var(--danger);
+}
+
+.rb-unit-state {
+  grid-column: 1 / -1;
+  font-size: 11px;
+}
+
+.rb-unit-info {
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0 6px;
+}
+
+.rb-gear {
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rb-move-base {
+  align-self: flex-start;
+}
+
+.rb-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--bg-elevated-2);
+}
+
+.rb-hand {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.rb-hand-slot {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.rb-hand-card {
+  width: 104px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: inherit;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.rb-hand-card img {
+  width: 100%;
+  border-radius: 4px;
+}
+
+.rb-card-name {
+  display: block;
+  line-height: 1.3;
+  padding: 30px 6px;
+  font-size: 12px;
+}
+
+.rb-hand-card.picked {
+  border-color: var(--accent);
+}
+
+.rb-hand-card.unaffordable {
+  opacity: 0.5;
+}
+
+.rb-hand-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  width: 180px;
+}
+
+.rb-log {
+  overflow-y: auto;
+  min-height: 0;
+  font-size: 13px;
+  border-left: 1px solid var(--border-strong);
+  padding-left: 10px;
+}
+
+.rb-log ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rb-log .theirs {
+  color: var(--text-dim);
+}
+
+.rb-log-turn {
+  font-weight: 700;
+  color: var(--text) !important;
+  margin-top: 6px;
+}
+
+.rb-log-score,
+.rb-log-win {
+  color: var(--success) !important;
+}
+
+.rb-log-spell {
+  border-left: 3px solid var(--accent);
+  padding-left: 6px;
+}
+
+.rb-log-text {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .rb-main.with-log {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 160px;
+  }
+
+  .rb-log {
+    border-left: none;
+    border-top: 1px solid var(--border-strong);
+    padding: 6px 0 0;
+  }
+}

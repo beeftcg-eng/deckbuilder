@@ -5,6 +5,9 @@ import { cardsSeenBy, chanceAtLeast, expandZone, shuffled } from '../shared/samp
 import { poolKey } from '../shared/collection'
 import { playCost, resourceRule, resourcesAt } from '../shared/practiceResources'
 import { SimulateTab } from './practice/SimulateTab'
+import { lazyModal } from './lazyModal'
+
+const RiftboundGame = lazyModal(() => import('./practice/RiftboundGame'), 'RiftboundGame')
 import { t } from '../shared/i18n'
 
 interface Props {
@@ -40,6 +43,7 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [atLeast, setAtLeast] = useState(1)
   const rule = resourceRule(deck.gameId)
+  const [playingGame, setPlayingGame] = useState(false)
   const [tapAction, setTapAction] = useState<TapAction>(rule ? 'play' : 'discard')
   const total = rule ? resourcesAt(rule, state.turn, onThePlay, state.inPlay) : 0
   const left = total - state.spent
@@ -131,6 +135,11 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
                   </button>
                 ))}
             </div>
+            {deck.gameId === 'riftbound' && (
+              <button className="btn practice-game-btn" title={t.practiceGame.buttonTitle} onClick={() => setPlayingGame(true)}>
+                {t.practiceGame.button}
+              </button>
+            )}
             <label className="practice-play" title={t.sampleHand.onThePlayTitle}>
               <input type="checkbox" checked={onThePlay} onChange={(e) => setOnThePlay(e.target.checked)} />
               {t.sampleHand.onThePlay}
@@ -267,6 +276,7 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
           )}
         </>
       )}
+      {playingGame && <RiftboundGame deck={deck} onClose={() => setPlayingGame(false)} />}
     </Modal>
   )
 }

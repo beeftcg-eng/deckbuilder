@@ -232,7 +232,8 @@ export function mulligan(state: GameState, side: Side, handIndexes: number[]): G
   p.hand.push(...p.deck.splice(0, aside.length))
   p.deck.push(...aside)
   s.kept.push(side)
-  log(s, side, 'info', aside.length ? `Mulliganed ${aside.length}.` : 'Kept.')
+  const who = side === 0 ? 'You' : 'Opponent'
+  log(s, side, 'info', aside.length ? `${who} mulliganed ${aside.length}.` : `${who} kept.`)
   return s.kept.length === 2 ? startTurn(s) : s
 }
 
