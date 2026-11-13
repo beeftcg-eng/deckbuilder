@@ -24,6 +24,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { recordHealth } from './health.ts'
+import { type OnePieceExtrasFile, type OnePieceListing } from '../src/shared/games/onepieceExtras.ts'
 import { pokemonKey, pokemonPromoKey, riftboundKey, splitYugiohCode, yugiohExactKey, yugiohKey, onepieceSetKey, type OnePieceSetsFile, type PriceFile, type RiftboundExtra, type RiftboundPrintingsFile } from '../src/shared/priceKeys.ts'
 import { getAdapter } from '../src/shared/games/registry.ts'
 import { listingsMissingType } from '../src/shared/games/riftboundExtras.ts'
@@ -263,6 +264,46 @@ try {
   console.log(`onepiece sets: ${Object.keys(sets).length} release dates`)
 } catch (err) {
   console.warn(`::warning::onepiece set dates skipped: ${err instanceof Error ? err.message : err}`)
+}
+// The newest One Piece sets' listings (games/onepieceExtras.ts), for the cards optcgapi doesn't have yet: every
+// set group (no space in its abbreviation, as above) TCGplayer published in the last four months or will soon.
+try {
+  const since = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString()
+  const groups = (await groupsOf(CATEGORY.onepiece)).filter((g) => g.abbreviation && !/\s/.test(g.abbreviation.trim()) && (g.publishedOn ?? '') >= since)
+  const listings: OnePieceListing[] = []
+  for (const group of groups) {
+    const [products, byProduct] = await Promise.all([
+      getJson<{ results: Product[] }>(`${BASE}/${CATEGORY.onepiece}/${group.groupId}/products`),
+      groupPrices(CATEGORY.onepiece, group.groupId),
+    ])
+    for (const p of products.results) {
+      const number = extended(p, 'Number')
+      if (!number) continue
+      listings.push({
+        productId: p.productId,
+        name: p.name,
+        number: number.trim(),
+        rarity: extended(p, 'Rarity') ?? null,
+        cardType: extended(p, 'CardType') ?? null,
+        color: extended(p, 'Color') ?? null,
+        cost: extended(p, 'Cost') ?? null,
+        power: extended(p, 'Power') ?? null,
+        counter: extended(p, 'Counterplus') ?? null,
+        life: extended(p, 'Life') ?? null,
+        attribute: extended(p, 'Attribute') ?? null,
+        subtypes: extended(p, 'Subtypes') ?? null,
+        description: extended(p, 'Description') ?? null,
+        set: group.abbreviation!.trim(),
+        setName: group.name,
+        released: group.publishedOn?.slice(0, 10) ?? null,
+        price: byProduct.any.get(p.productId) ?? null,
+      })
+    }
+  }
+  await writeFile(join(out, 'onepiece-extras.json'), JSON.stringify({ updatedAt: new Date().toISOString(), listings } satisfies OnePieceExtrasFile))
+  console.log(`onepiece extras: ${listings.length} listings from ${groups.length} recent sets`)
+} catch (err) {
+  console.warn(`::warning::onepiece extras skipped: ${err instanceof Error ? err.message : err}`)
 }
 const todaysPrices = new Map<string, Record<string, number>>()
 for (const [game, build] of Object.entries({ riftbound, pokemon, yugioh, onepiece: byCardId('onepiece'), mtg: byCardId('mtg') })) {

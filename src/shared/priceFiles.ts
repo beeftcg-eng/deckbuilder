@@ -5,6 +5,7 @@
  */
 import type { Card, GameId } from './types'
 import { fetchJson } from './games/fetchUtil'
+import { readOnePieceExtras, type OnePieceListing } from './games/onepieceExtras'
 import { PRICE_FILES_URL, type OnePieceSetsFile, type PriceFile, type RiftboundExtra, type RiftboundPrintingsFile } from './priceKeys'
 
 export type PriceMaps = Pick<PriceFile, 'prices' | 'foilPrices'>
@@ -25,6 +26,15 @@ export async function loadRiftboundPrintings(): Promise<RiftboundExtra[] | null>
     return file && Array.isArray(file.products) ? file.products : null
   } catch {
     return null
+  }
+}
+
+/** TCGplayer's listings of the newest One Piece sets (games/onepieceExtras.ts), or [] when the file can't be loaded. */
+export async function loadOnePieceExtras(): Promise<OnePieceListing[]> {
+  try {
+    return readOnePieceExtras(await fetchJson<unknown>(`${PRICE_FILES_URL}/onepiece-extras.json`, 3))
+  } catch {
+    return []
   }
 }
 

@@ -1,9 +1,10 @@
 import type { Card, DeckRules, Deck, Format } from '../types'
 import type { GameAdapter, FetchProgress, GuidedStage } from './types'
 import { fetchJson } from './fetchUtil'
+import { extraOnePieceCards } from './onepieceExtras'
 import { t } from '../i18n'
 import { PROMO_SET_ID } from './onepiecePromos'
-import { loadOnePieceSetDates } from '../priceFiles'
+import { loadOnePieceSetDates, loadOnePieceExtras } from '../priceFiles'
 import { onepieceSetKey } from '../priceKeys'
 
 const API_BASE = 'https://www.optcgapi.com/api'
@@ -141,6 +142,8 @@ export function normalizeDon(raw: OnePieceDonCard): Card {
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
   // Each set's release date (OnePieceSetsFile), which the card source doesn't have: optional, never throws.
   const setDatesLoading = loadOnePieceSetDates()
+  // Cards of new sets optcgapi doesn't have yet, from TCGplayer's listings (onepieceExtras.ts): optional, never throws.
+  const extrasLoading = loadOnePieceExtras()
   const sets = await fetchJson<OnePieceSet[]>(`${API_BASE}/allSets/`)
 
   // Starter/structure decks (ST-01, ST-02, ...) live under a completely
@@ -211,7 +214,8 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
   ])
 
   const setDates = await setDatesLoading
-  const cards = bySet.flat()
+  const fetched = bySet.flat()
+  const cards = [...fetched, ...extraOnePieceCards(await extrasLoading, fetched)]
   if (!setDates) return cards
   return cards.map((card) => {
     const setReleased = setDates[onepieceSetKey(card.setId)]
