@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { rulesForFormat } from '../shared/games/rules'
@@ -58,65 +58,62 @@ export function CompareDecksModal({
     setTimeout(() => setCopied(false), 1500)
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal compare-modal" role="dialog" aria-modal="true" aria-label={t.compare.title(deck.name)} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.compare.title(deck.name)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-
-        <div className="compare-source" role="group" aria-label={t.compare.with}>
-          <button className={`btn ${source === 'deck' ? 'btn-primary' : ''}`} aria-pressed={source === 'deck'} disabled={!others.length} onClick={() => setSource('deck')}>
-            {t.compare.anotherDeck}
-          </button>
-          <button className={`btn ${source === 'paste' ? 'btn-primary' : ''}`} aria-pressed={source === 'paste'} onClick={() => setSource('paste')}>
-            {t.compare.pasteList}
-          </button>
-        </div>
-        {source === 'deck' ? (
-          <select value={otherId} onChange={(e) => setOtherId(e.target.value)} aria-label={t.compare.anotherDeck}>
-            {others.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <textarea className="compare-paste" rows={6} placeholder={t.compare.pastePlaceholder(adapter.shortName)} value={text} onChange={(e) => setText(e.target.value)} />
-        )}
-
-        {diff && (
-          <>
-            <div className="compare-summary">
-              <span>
-                {t.compare.heading(fromName, toName)}
-                {diff.added || diff.removed ? (
-                  <>
-                    {' '}
-                    <b className="compare-in">+{diff.added}</b> <b className="compare-out">−{diff.removed}</b>
-                  </>
-                ) : null}
-              </span>
-              <span className="compare-tools">
-                <button className="btn" onClick={() => setReversed(!reversed)} title={t.compare.swapTitle}>
-                  ⇄ {t.compare.swap}
-                </button>
-                {(diff.added > 0 || diff.removed > 0) && (
-                  <button className="btn" onClick={() => void copy()}>
-                    {copied ? t.common.copied : t.compare.copy}
-                  </button>
-                )}
-              </span>
-            </div>
-            <DeckDiffList diff={diff} />
-          </>
-        )}
-        {!diff && source === 'paste' && text.trim() && <p className="text-dim">{t.compare.noCards(adapter.shortName)}</p>}
+  return (
+    <Modal label={t.compare.title(deck.name)} className="compare-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.compare.title(deck.name)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
       </div>
-    </div>,
-    document.body,
+
+      <div className="compare-source" role="group" aria-label={t.compare.with}>
+        <button className={`btn ${source === 'deck' ? 'btn-primary' : ''}`} aria-pressed={source === 'deck'} disabled={!others.length} onClick={() => setSource('deck')}>
+          {t.compare.anotherDeck}
+        </button>
+        <button className={`btn ${source === 'paste' ? 'btn-primary' : ''}`} aria-pressed={source === 'paste'} onClick={() => setSource('paste')}>
+          {t.compare.pasteList}
+        </button>
+      </div>
+      {source === 'deck' ? (
+        <select value={otherId} onChange={(e) => setOtherId(e.target.value)} aria-label={t.compare.anotherDeck}>
+          {others.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <textarea className="compare-paste" rows={6} placeholder={t.compare.pastePlaceholder(adapter.shortName)} value={text} onChange={(e) => setText(e.target.value)} />
+      )}
+
+      {diff && (
+        <>
+          <div className="compare-summary">
+            <span>
+              {t.compare.heading(fromName, toName)}
+              {diff.added || diff.removed ? (
+                <>
+                  {' '}
+                  <b className="compare-in">+{diff.added}</b> <b className="compare-out">−{diff.removed}</b>
+                </>
+              ) : null}
+            </span>
+            <span className="compare-tools">
+              <button className="btn" onClick={() => setReversed(!reversed)} title={t.compare.swapTitle}>
+                ⇄ {t.compare.swap}
+              </button>
+              {(diff.added > 0 || diff.removed > 0) && (
+                <button className="btn" onClick={() => void copy()}>
+                  {copied ? t.common.copied : t.compare.copy}
+                </button>
+              )}
+            </span>
+          </div>
+          <DeckDiffList diff={diff} />
+        </>
+      )}
+      {!diff && source === 'paste' && text.trim() && <p className="text-dim">{t.compare.noCards(adapter.shortName)}</p>}
+    </Modal>
   )
 }

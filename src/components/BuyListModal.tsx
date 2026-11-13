@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { ownedIndexOf, useAppStore } from '../state/useAppStore'
 import { formatPrice } from '../shared/collection'
 import { buyList, massEntryText, MASS_ENTRY_URL, withCheapestPrintings, type BuyMode } from '../shared/buyList'
@@ -51,71 +51,68 @@ export function BuyListModal({ deck, cardsById, onClose, editable = false }: { d
     setMessage(t.buyList.wishlisted(n))
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal import-modal buy-modal" role="dialog" aria-modal="true" aria-label={t.buyList.title(deck.name)} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.buyList.title(deck.name)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-
-        {list.rows.length === 0 ? (
-          <div>{t.buyList.complete}</div>
-        ) : (
-          <>
-            <div className="fv-modes" role="group">
-              {(['cheapest', 'deck'] as const).map((m) => (
-                <button key={m} className={mode === m ? 'btn btn-primary' : 'btn'} aria-pressed={mode === m} onClick={() => setMode(m)}>
-                  {m === 'cheapest' ? t.buyList.cheapest : t.buyList.deckPrintings}
-                </button>
-              ))}
-            </div>
-            <div className="import-summary">
-              <Rich text={t.buyList.summary(copies, formatPrice(list.total))} />
-              {list.unpricedCopies > 0 && <span className="text-dim">{t.buyList.unpriced(list.unpricedCopies)}</span>}
-              {mode === 'cheapest' && saved >= 0.5 && <div className="text-dim">{t.buyList.saves(formatPrice(saved))}</div>}
-            </div>
-            <div className="buy-rows">
-              {list.rows.map(({ card, deckCard, quantity, unitPrice }) => (
-                <div key={card.id} className="buy-row">
-                  {card.imageUrlSmall ? <img className="deck-entry-thumb" src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="deck-entry-thumb" />}
-                  <span className="buy-qty">{quantity}×</span>
-                  <span className="buy-name">
-                    {card.name}
-                    <span className="text-dim">
-                      {' '}
-                      {card.setCode} · {card.number}
-                      {card.id !== deckCard.id ? ` · ${t.buyList.instead(`${deckCard.setCode} ${deckCard.number}`)}` : ''}
-                    </span>
-                  </span>
-                  <span className="buy-price">{unitPrice != null ? formatPrice(unitPrice * quantity) : '—'}</span>
-                </div>
-              ))}
-            </div>
-            <div className="import-fields buy-actions">
-              <button className="btn btn-primary" onClick={() => void copyMassEntry()}>
-                {t.buyList.copyMassEntry}
-              </button>
-              <button className="btn" onClick={() => void window.api.system.openExternal(MASS_ENTRY_URL)}>
-                {t.buyList.openTcgplayer}
-              </button>
-              <button className="btn" onClick={() => void addToWishlist()}>
-                {t.buyList.wishlist}
-              </button>
-            </div>
-            {cheaper && cheaper.changedCopies > 0 && cheaper.before - cheaper.after >= 0.5 && (
-              <button className="btn" title={t.buyList.switchTitle} onClick={() => void switchPrintings()}>
-                {t.buyList.switchButton(formatPrice(cheaper.before - cheaper.after))}
-              </button>
-            )}
-            {message && <div className="text-dim">{message}</div>}
-            <div className="text-dim proxy-note">{t.buyList.note}</div>
-          </>
-        )}
+  return (
+    <Modal label={t.buyList.title(deck.name)} className="import-modal buy-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.buyList.title(deck.name)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
       </div>
-    </div>,
-    document.body,
+
+      {list.rows.length === 0 ? (
+        <div>{t.buyList.complete}</div>
+      ) : (
+        <>
+          <div className="fv-modes" role="group">
+            {(['cheapest', 'deck'] as const).map((m) => (
+              <button key={m} className={mode === m ? 'btn btn-primary' : 'btn'} aria-pressed={mode === m} onClick={() => setMode(m)}>
+                {m === 'cheapest' ? t.buyList.cheapest : t.buyList.deckPrintings}
+              </button>
+            ))}
+          </div>
+          <div className="import-summary">
+            <Rich text={t.buyList.summary(copies, formatPrice(list.total))} />
+            {list.unpricedCopies > 0 && <span className="text-dim">{t.buyList.unpriced(list.unpricedCopies)}</span>}
+            {mode === 'cheapest' && saved >= 0.5 && <div className="text-dim">{t.buyList.saves(formatPrice(saved))}</div>}
+          </div>
+          <div className="buy-rows">
+            {list.rows.map(({ card, deckCard, quantity, unitPrice }) => (
+              <div key={card.id} className="buy-row">
+                {card.imageUrlSmall ? <img className="deck-entry-thumb" src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="deck-entry-thumb" />}
+                <span className="buy-qty">{quantity}×</span>
+                <span className="buy-name">
+                  {card.name}
+                  <span className="text-dim">
+                    {' '}
+                    {card.setCode} · {card.number}
+                    {card.id !== deckCard.id ? ` · ${t.buyList.instead(`${deckCard.setCode} ${deckCard.number}`)}` : ''}
+                  </span>
+                </span>
+                <span className="buy-price">{unitPrice != null ? formatPrice(unitPrice * quantity) : '—'}</span>
+              </div>
+            ))}
+          </div>
+          <div className="import-fields buy-actions">
+            <button className="btn btn-primary" onClick={() => void copyMassEntry()}>
+              {t.buyList.copyMassEntry}
+            </button>
+            <button className="btn" onClick={() => void window.api.system.openExternal(MASS_ENTRY_URL)}>
+              {t.buyList.openTcgplayer}
+            </button>
+            <button className="btn" onClick={() => void addToWishlist()}>
+              {t.buyList.wishlist}
+            </button>
+          </div>
+          {cheaper && cheaper.changedCopies > 0 && cheaper.before - cheaper.after >= 0.5 && (
+            <button className="btn" title={t.buyList.switchTitle} onClick={() => void switchPrintings()}>
+              {t.buyList.switchButton(formatPrice(cheaper.before - cheaper.after))}
+            </button>
+          )}
+          {message && <div className="text-dim">{message}</div>}
+          <div className="text-dim proxy-note">{t.buyList.note}</div>
+        </>
+      )}
+    </Modal>
   )
 }

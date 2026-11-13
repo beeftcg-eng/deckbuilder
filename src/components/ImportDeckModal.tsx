@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore, useCardsById } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { detectFormatFromHeadings, parseDecklistText } from '../shared/importDeck'
@@ -106,89 +106,86 @@ export function ImportDeckModal({ gameId, onClose, initialText = '', initialName
     }
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal import-modal" role="dialog" aria-modal="true" aria-label={t.importDeck.title(adapter.shortName)} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.importDeck.title(adapter.shortName)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.cancel}
-          </button>
-        </div>
+  return (
+    <Modal label={t.importDeck.title(adapter.shortName)} className="import-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.importDeck.title(adapter.shortName)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.cancel}
+        </button>
+      </div>
 
-        {!catalogReady ? (
-          <div className="text-dim">{t.importDeck.noData(adapter.shortName)}</div>
-        ) : (
-          <>
-            <textarea
-              className="export-textarea"
-              autoFocus
-              placeholder={`${t.importDeck.placeholder}\n${t.share.importHint}\n${t.importDeck.linkHint}`}
-              value={text}
-              onChange={(e) => {
-                setText(e.target.value)
-                setFromSite(null)
-              }}
-            />
+      {!catalogReady ? (
+        <div className="text-dim">{t.importDeck.noData(adapter.shortName)}</div>
+      ) : (
+        <>
+          <textarea
+            className="export-textarea"
+            autoFocus
+            placeholder={`${t.importDeck.placeholder}\n${t.share.importHint}\n${t.importDeck.linkHint}`}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value)
+              setFromSite(null)
+            }}
+          />
 
-            {siteTarget ? (
-              <div className="import-summary">
-                {siteTarget.gameId === gameId ? (
-                  <button className="btn btn-primary" disabled={fetching} onClick={() => void fetchFromSite()}>
-                    {fetching ? t.importDeck.fetching : t.importDeck.fetchLink}
-                  </button>
-                ) : (
-                  <span className="sync-error">{t.importDeck.linkOtherGame(getAdapter(siteTarget.gameId).shortName)}</span>
-                )}
-              </div>
-            ) : shareToken ? (
-              <div className="import-summary">
-                <button className="btn btn-primary" onClick={openShareLink}>
-                  {t.share.openLink}
+          {siteTarget ? (
+            <div className="import-summary">
+              {siteTarget.gameId === gameId ? (
+                <button className="btn btn-primary" disabled={fetching} onClick={() => void fetchFromSite()}>
+                  {fetching ? t.importDeck.fetching : t.importDeck.fetchLink}
                 </button>
-              </div>
-            ) : deckCode ? (
-              <div className="import-summary">
-                <span>{t.importDeck.deckCodeFound} </span>
-                <button className="btn btn-primary" onClick={readDeckCode}>
-                  {t.importDeck.readDeckCode}
-                </button>
-              </div>
-            ) : text.trim() && (
-              <div className="import-summary">
-                <div>
-                  <Rich text={t.importDeck.recognised(parsed.matchedCopies)} />
-                  {parsed.unmatched.length > 0 && <span className="sync-error">{t.importDeck.unmatched(parsed.unmatched.length)}</span>}
-                </div>
-                {parsed.unmatched.length > 0 && (
-                  <ul className="import-unmatched">
-                    {parsed.unmatched.slice(0, MAX_UNMATCHED_SHOWN).map((line, i) => (
-                      <li key={i}>{line}</li>
-                    ))}
-                    {parsed.unmatched.length > MAX_UNMATCHED_SHOWN && <li>{t.importDeck.andMore(parsed.unmatched.length - MAX_UNMATCHED_SHOWN)}</li>}
-                  </ul>
-                )}
-              </div>
-            )}
-
-            <div className="import-fields">
-              <input value={name} onChange={(e) => setNameDraft(e.target.value)} placeholder={t.importDeck.deckName} aria-label={t.importDeck.deckName} />
-              <select value={formatId} aria-label={t.deckEditor.formatLabel} onChange={(e) => setFormatDraft(e.target.value)}>
-                {formats.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {formatLabel(gameId, f)}
-                  </option>
-                ))}
-              </select>
-              <button className="btn btn-primary" disabled={parsed.matchedCopies === 0 || importing} onClick={handleImport}>
-                {importing ? t.importDeck.importing : t.importDeck.import}
+              ) : (
+                <span className="sync-error">{t.importDeck.linkOtherGame(getAdapter(siteTarget.gameId).shortName)}</span>
+              )}
+            </div>
+          ) : shareToken ? (
+            <div className="import-summary">
+              <button className="btn btn-primary" onClick={openShareLink}>
+                {t.share.openLink}
               </button>
             </div>
-            {error && <div className="sync-error">{t.importDeck.failed(error)}</div>}
-          </>
-        )}
-      </div>
-    </div>,
-    document.body,
+          ) : deckCode ? (
+            <div className="import-summary">
+              <span>{t.importDeck.deckCodeFound} </span>
+              <button className="btn btn-primary" onClick={readDeckCode}>
+                {t.importDeck.readDeckCode}
+              </button>
+            </div>
+          ) : text.trim() && (
+            <div className="import-summary">
+              <div>
+                <Rich text={t.importDeck.recognised(parsed.matchedCopies)} />
+                {parsed.unmatched.length > 0 && <span className="sync-error">{t.importDeck.unmatched(parsed.unmatched.length)}</span>}
+              </div>
+              {parsed.unmatched.length > 0 && (
+                <ul className="import-unmatched">
+                  {parsed.unmatched.slice(0, MAX_UNMATCHED_SHOWN).map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                  {parsed.unmatched.length > MAX_UNMATCHED_SHOWN && <li>{t.importDeck.andMore(parsed.unmatched.length - MAX_UNMATCHED_SHOWN)}</li>}
+                </ul>
+              )}
+            </div>
+          )}
+
+          <div className="import-fields">
+            <input value={name} onChange={(e) => setNameDraft(e.target.value)} placeholder={t.importDeck.deckName} aria-label={t.importDeck.deckName} />
+            <select value={formatId} aria-label={t.deckEditor.formatLabel} onChange={(e) => setFormatDraft(e.target.value)}>
+              {formats.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {formatLabel(gameId, f)}
+                </option>
+              ))}
+            </select>
+            <button className="btn btn-primary" disabled={parsed.matchedCopies === 0 || importing} onClick={handleImport}>
+              {importing ? t.importDeck.importing : t.importDeck.import}
+            </button>
+          </div>
+          {error && <div className="sync-error">{t.importDeck.failed(error)}</div>}
+        </>
+      )}
+    </Modal>
   )
 }

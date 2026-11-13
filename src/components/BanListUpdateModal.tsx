@@ -1,4 +1,4 @@
-import { createPortal } from 'react-dom'
+import { Modal } from './Modal'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { t } from '../shared/i18n'
@@ -49,24 +49,21 @@ export function BanListUpdateModal() {
   const dismiss = useAppStore((s) => s.dismissBanListUpdates)
   const blocked = useAppStore((s) => s.showTour || !!s.announcement)
   if (!updates.length || blocked) return null
-  return createPortal(
-    <div className="modal-overlay" onClick={dismiss}>
-      <div className="modal announcement-modal banlist-update-modal" role="dialog" aria-modal="true" aria-label={t.banLists.title} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.banLists.title}</span>
-        </div>
-        <div className="banlist-update-body">
-          {updates.map((u) => (
-            <Update key={`${u.gameId}:${u.formatId}`} update={u} />
-          ))}
-        </div>
-        <div className="announcement-actions">
-          <button className="btn btn-primary" onClick={dismiss}>
-            {t.banLists.ok}
-          </button>
-        </div>
+  return (
+    <Modal label={t.banLists.title} className="announcement-modal banlist-update-modal" onClose={dismiss}>
+      <div className="modal-header">
+        <span>{t.banLists.title}</span>
       </div>
-    </div>,
-    document.body,
+      <div className="banlist-update-body">
+        {updates.map((u) => (
+          <Update key={`${u.gameId}:${u.formatId}`} update={u} />
+        ))}
+      </div>
+      <div className="announcement-actions">
+        <button className="btn btn-primary" onClick={dismiss}>
+          {t.banLists.ok}
+        </button>
+      </div>
+    </Modal>
   )
 }

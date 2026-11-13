@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { importCollectionCsv } from '../shared/collectionImport'
@@ -57,69 +57,66 @@ export function CollectionImportModal({ gameId, onClose, onImported }: { gameId:
     }
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal import-modal" role="dialog" aria-modal="true" aria-label={t.collectionImport.title(adapter.shortName)} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.collectionImport.title(adapter.shortName)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.cancel}
-          </button>
-        </div>
-
-        {!cards || cards.length === 0 ? (
-          <div className="text-dim">{t.collection.noData(adapter.shortName)}</div>
-        ) : (
-          <>
-            <div className="text-dim">
-              <Rich text={t.collectionImport.intro} />
-            </div>
-            <div>
-              <input ref={fileInput} type="file" accept=".csv,.tsv,.txt,text/csv" hidden onChange={(e) => void chooseFile(e.target.files?.[0])} />
-              <button className="btn" onClick={() => fileInput.current?.click()}>
-                {t.collectionImport.chooseFile}
-              </button>
-            </div>
-            <textarea className="export-textarea" placeholder={t.collectionImport.placeholder} value={text} onChange={(e) => setText(e.target.value)} />
-
-            {result && (
-              <div className="import-summary">
-                {!result.recognised ? (
-                  <div className="sync-error">{t.collectionImport.noHeader}</div>
-                ) : (
-                  <>
-                    <div>
-                      {result.source && <span className="text-dim">{t.collectionImport.source(result.source)} </span>}
-                      <Rich text={t.collectionImport.found(result.copies, result.items.length)} />
-                    </div>
-                    {result.byNameCopies > 0 && <div className="text-dim">{t.collectionImport.byName(result.byNameCopies)}</div>}
-                    {result.otherGameRows > 0 && <div className="text-dim">{t.collectionImport.otherGame(result.otherGameRows)}</div>}
-                    {result.unmatched.length > 0 && (
-                      <>
-                        <div className="sync-error">{t.collectionImport.unmatched(result.unmatched.length)}</div>
-                        <ul className="import-unmatched">
-                          {result.unmatched.slice(0, MAX_UNMATCHED_SHOWN).map((line, i) => (
-                            <li key={i}>{line}</li>
-                          ))}
-                          {result.unmatched.length > MAX_UNMATCHED_SHOWN && <li>{t.importDeck.andMore(result.unmatched.length - MAX_UNMATCHED_SHOWN)}</li>}
-                        </ul>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
-            <div className="import-fields">
-              <button className="btn btn-primary" disabled={!result || result.copies === 0 || importing} onClick={handleImport}>
-                {importing ? t.collectionImport.adding : t.collectionImport.add(result?.copies ?? 0)}
-              </button>
-            </div>
-            {error && <div className="sync-error">{t.collectionImport.failed(error)}</div>}
-          </>
-        )}
+  return (
+    <Modal label={t.collectionImport.title(adapter.shortName)} className="import-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.collectionImport.title(adapter.shortName)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.cancel}
+        </button>
       </div>
-    </div>,
-    document.body,
+
+      {!cards || cards.length === 0 ? (
+        <div className="text-dim">{t.collection.noData(adapter.shortName)}</div>
+      ) : (
+        <>
+          <div className="text-dim">
+            <Rich text={t.collectionImport.intro} />
+          </div>
+          <div>
+            <input ref={fileInput} type="file" accept=".csv,.tsv,.txt,text/csv" hidden onChange={(e) => void chooseFile(e.target.files?.[0])} />
+            <button className="btn" onClick={() => fileInput.current?.click()}>
+              {t.collectionImport.chooseFile}
+            </button>
+          </div>
+          <textarea className="export-textarea" placeholder={t.collectionImport.placeholder} value={text} onChange={(e) => setText(e.target.value)} />
+
+          {result && (
+            <div className="import-summary">
+              {!result.recognised ? (
+                <div className="sync-error">{t.collectionImport.noHeader}</div>
+              ) : (
+                <>
+                  <div>
+                    {result.source && <span className="text-dim">{t.collectionImport.source(result.source)} </span>}
+                    <Rich text={t.collectionImport.found(result.copies, result.items.length)} />
+                  </div>
+                  {result.byNameCopies > 0 && <div className="text-dim">{t.collectionImport.byName(result.byNameCopies)}</div>}
+                  {result.otherGameRows > 0 && <div className="text-dim">{t.collectionImport.otherGame(result.otherGameRows)}</div>}
+                  {result.unmatched.length > 0 && (
+                    <>
+                      <div className="sync-error">{t.collectionImport.unmatched(result.unmatched.length)}</div>
+                      <ul className="import-unmatched">
+                        {result.unmatched.slice(0, MAX_UNMATCHED_SHOWN).map((line, i) => (
+                          <li key={i}>{line}</li>
+                        ))}
+                        {result.unmatched.length > MAX_UNMATCHED_SHOWN && <li>{t.importDeck.andMore(result.unmatched.length - MAX_UNMATCHED_SHOWN)}</li>}
+                      </ul>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="import-fields">
+            <button className="btn btn-primary" disabled={!result || result.copies === 0 || importing} onClick={handleImport}>
+              {importing ? t.collectionImport.adding : t.collectionImport.add(result?.copies ?? 0)}
+            </button>
+          </div>
+          {error && <div className="sync-error">{t.collectionImport.failed(error)}</div>}
+        </>
+      )}
+    </Modal>
   )
 }

@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import type { PatchNote } from '../shared/patchNotes'
 import { getLanguage, t } from '../shared/i18n'
 
@@ -70,44 +70,41 @@ export function PatchNotesModal({ onClose }: Props) {
     }
   }, [])
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal patch-notes-modal" role="dialog" aria-modal="true" aria-label={t.patchNotes.title} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.patchNotes.title}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-        <div className="patch-notes-body">
-          {error && <div className="sync-error">{t.patchNotes.loadFailed(error)}</div>}
-          {!error && !notes && <div className="text-dim">{t.common.loading}</div>}
-          {notes?.map((note) => (
-            <div key={note.version} className="patch-note">
-              <div className="patch-note-header">
-                <b>{note.name}</b>
-                <span className="text-dim">{formatDate(note.publishedAt)}</span>
-              </div>
-              {toBlocks(note.body).map((block, i) =>
-                block.kind === 'heading' ? (
-                  <h4 key={i} className="patch-note-heading">
-                    {block.text}
-                  </h4>
-                ) : block.kind === 'list' ? (
-                  <ul key={i} className="patch-note-list">
-                    {block.items.map((item, j) => (
-                      <li key={j}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p key={i}>{block.text}</p>
-                ),
-              )}
-            </div>
-          ))}
-        </div>
+  return (
+    <Modal label={t.patchNotes.title} className="patch-notes-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.patchNotes.title}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
       </div>
-    </div>,
-    document.body,
+      <div className="patch-notes-body">
+        {error && <div className="sync-error">{t.patchNotes.loadFailed(error)}</div>}
+        {!error && !notes && <div className="text-dim">{t.common.loading}</div>}
+        {notes?.map((note) => (
+          <div key={note.version} className="patch-note">
+            <div className="patch-note-header">
+              <b>{note.name}</b>
+              <span className="text-dim">{formatDate(note.publishedAt)}</span>
+            </div>
+            {toBlocks(note.body).map((block, i) =>
+              block.kind === 'heading' ? (
+                <h4 key={i} className="patch-note-heading">
+                  {block.text}
+                </h4>
+              ) : block.kind === 'list' ? (
+                <ul key={i} className="patch-note-list">
+                  {block.items.map((item, j) => (
+                    <li key={j}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p key={i}>{block.text}</p>
+              ),
+            )}
+          </div>
+        ))}
+      </div>
+    </Modal>
   )
 }

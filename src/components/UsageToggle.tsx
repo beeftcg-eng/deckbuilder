@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { pendingUsage } from '../shared/usage'
 import { t } from '../shared/i18n'
@@ -28,38 +28,35 @@ export function UsageToggle() {
 
 function UsageDetails({ on, onClose }: { on: boolean; onClose: () => void }) {
   const days = Object.entries(pendingUsage()).sort(([a], [b]) => b.localeCompare(a))
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal usage-modal" role="dialog" aria-modal="true" aria-label={t.usage.detailsTitle} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.usage.detailsTitle}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-        <p>{t.usage.explain}</p>
-        {!on ? (
-          <p className="text-dim">{t.usage.off}</p>
-        ) : days.length === 0 ? (
-          <p className="text-dim">{t.usage.nothingYet}</p>
-        ) : (
-          days.map(([day, counts]) => (
-            <section key={day}>
-              <h3 className="usage-day">{day}</h3>
-              <ul className="usage-counts">
-                {Object.entries(counts)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([feature, n]) => (
-                    <li key={feature}>
-                      <code>{feature}</code> × {n}
-                    </li>
-                  ))}
-              </ul>
-            </section>
-          ))
-        )}
+  return (
+    <Modal label={t.usage.detailsTitle} className="usage-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.usage.detailsTitle}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
       </div>
-    </div>,
-    document.body,
+      <p>{t.usage.explain}</p>
+      {!on ? (
+        <p className="text-dim">{t.usage.off}</p>
+      ) : days.length === 0 ? (
+        <p className="text-dim">{t.usage.nothingYet}</p>
+      ) : (
+        days.map(([day, counts]) => (
+          <section key={day}>
+            <h3 className="usage-day">{day}</h3>
+            <ul className="usage-counts">
+              {Object.entries(counts)
+                .sort((a, b) => b[1] - a[1])
+                .map(([feature, n]) => (
+                  <li key={feature}>
+                    <code>{feature}</code> × {n}
+                  </li>
+                ))}
+            </ul>
+          </section>
+        ))
+      )}
+    </Modal>
   )
 }

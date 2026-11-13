@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore, useCardsById, useOwnedIndex } from '../state/useAppStore'
 import { useCommunityLists } from '../state/communityLists'
 import type { CommunityList } from '../shared/communityLists'
@@ -119,187 +119,184 @@ export function CommunityListsModal({
 
   const asOf = file ? new Date(file.updatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : null
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal community-modal" role="dialog" aria-modal="true" aria-label={t.communityLists.title} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.communityLists.title}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-        <div className="community-source text-dim">
-          <span>
-            <Rich text={t.communityLists.source(gameId)} />
-            {asOf && <span className="community-updated"> {loading ? t.communityLists.refreshing : t.communityLists.updated(asOf)}</span>}
-          </span>
-          <button className="btn" onClick={() => void window.api.system.openExternal(game.sourceUrl)}>
-            {t.communityLists.openSource(gameId)}
-          </button>
-        </div>
-        {offline && asOf && (
-          <div className="community-error">
-            <span className="community-offline">{t.communityLists.offline(asOf)}</span>
-            <button className="btn" onClick={retry}>
-              {t.communityLists.retry}
-            </button>
-          </div>
-        )}
-
-        {cardsById.size === 0 ? (
-          <div className="text-dim">{t.importDeck.noData(getAdapter(gameId).shortName)}</div>
-        ) : error && !lists ? (
-          <div className="community-error">
-            <span className="sync-error">{error}</span>
-            <button className="btn" onClick={retry}>
-              {t.communityLists.retry}
-            </button>
-          </div>
-        ) : !lists ? (
-          <div className="text-dim">{t.communityLists.loading}</div>
-        ) : lists.length === 0 ? (
-          <div className="text-dim">{t.communityLists.empty}</div>
-        ) : (
-          <>
-            <div className="community-toolbar">
-              <div className="compare-source" role="tablist" aria-label={t.communityLists.title}>
-                {TABS.map((id) => (
-                  <button
-                    key={id}
-                    id={`community-tab-${id}`}
-                    role="tab"
-                    aria-selected={tab === id}
-                    aria-controls="community-panel"
-                    tabIndex={tab === id ? 0 : -1}
-                    className={`btn ${tab === id ? 'btn-primary' : ''}`}
-                    onClick={() => setTab(id)}
-                    onKeyDown={(e) => {
-                      // The tab pattern: arrow keys move between tabs, Home/End to the ends.
-                      const i = TABS.indexOf(id)
-                      const next = e.key === 'ArrowRight' ? TABS[(i + 1) % TABS.length] : e.key === 'ArrowLeft' ? TABS[(i + TABS.length - 1) % TABS.length] : e.key === 'Home' ? TABS[0] : e.key === 'End' ? TABS[TABS.length - 1] : null
-                      if (!next) return
-                      e.preventDefault()
-                      setTab(next)
-                      document.getElementById(`community-tab-${next}`)?.focus()
-                    }}
-                  >
-                    {TAB_LABEL(id)}
-                  </button>
-                ))}
-              </div>
-              {tab === 'lists' && (
-                <>
-                  <select
-                    value={legend}
-                    aria-label={t.communityLists.legend(gameId)}
-                    onChange={(e) => {
-                      setLegend(e.target.value)
-                      setShown(PAGE)
-                      setOpenId(null)
-                    }}
-                  >
-                    <option value="">{t.communityLists.allLegends(gameId, lists.length)}</option>
-                    {legends.map((m) => (
-                      <option key={m.legendId} value={m.legendId}>
-                        {m.legendName} ({m.lists})
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="community-sort"
-                    value={sort}
-                    aria-label={t.communityLists.sortLabel}
-                    onChange={(e) => {
-                      setSort(e.target.value as Sort)
-                      setShown(PAGE)
-                      setOpenId(null)
-                    }}
-                  >
-                    <option value="newest">{t.communityLists.sortNewest}</option>
-                    <option value="owned">{t.communityLists.sortOwned}</option>
-                    <option value="cheapest">{t.communityLists.sortCheapest}</option>
-                  </select>
-                </>
-              )}
-            </div>
-
-            <div id="community-panel" role="tabpanel" aria-labelledby={`community-tab-${tab}`} className="community-panel">
-              {tab === 'events' ? (
-                <CommunityEventsView
-                  lists={lists}
-                  results={myResults}
-                  index={index}
-                  onLegend={(id) => {
-                    setLegend(id)
-                    setTab('meta')
-                  }}
-                />
-              ) : tab === 'meta' ? (
-                <CommunityMetaView
-                  gameId={gameId}
-                  lists={lists}
-                  decks={decks}
-                  cardsById={cardsById}
-                  index={index}
-                  records={records}
-                  legend={legend}
-                  onLegend={setLegend}
-                  onImportNewest={(list) => {
-                    const text = textFor(list)
-                    if (text) onImport(text, listName(list))
-                  }}
-                  onStartFromCore={(id, name) => void startFromCore(id, name)}
-                />
-              ) : (
-                <div className="community-scroll">
-                  {groups.map((group) => {
-                    const first = group.lists[0]
-                    return (
-                      <section key={group.key || 'all'} className="community-event-group">
-                        {sort === 'newest' && (
-                          <header className="community-event-header">
-                            <span className="community-event-name">{first.eventName}</span>
-                            <span className="community-event-meta">
-                              {[first.players != null ? t.communityLists.players(first.players) : null, first.date ? new Date(first.date).toLocaleDateString() : null]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </span>
-                          </header>
-                        )}
-                        <ul className="community-list">
-                          {group.lists.map((list) => (
-                            <CommunityListRow
-                              key={list.id}
-                              list={list}
-                              deck={decks.get(list.id)}
-                              legendCard={game.artCard(index, list)}
-                              ownership={ownership.get(list.id)}
-                              cardsById={cardsById}
-                              index={index}
-                              showEvent={sort !== 'newest'}
-                              open={openId === list.id}
-                              onToggle={() => setOpenId(openId === list.id ? null : list.id)}
-                              myDecks={myGameDecks}
-                              onImport={onImport}
-                              onCompare={onCompare}
-                            />
-                          ))}
-                        </ul>
-                      </section>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-            {tab === 'lists' && filtered.length > shown && (
-              <button className="btn" onClick={() => setShown((n) => n + PAGE)}>
-                {t.communityLists.showMore(Math.min(PAGE, filtered.length - shown))}
-              </button>
-            )}
-          </>
-        )}
+  return (
+    <Modal label={t.communityLists.title} className="community-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.communityLists.title}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
       </div>
-    </div>,
-    document.body,
+      <div className="community-source text-dim">
+        <span>
+          <Rich text={t.communityLists.source(gameId)} />
+          {asOf && <span className="community-updated"> {loading ? t.communityLists.refreshing : t.communityLists.updated(asOf)}</span>}
+        </span>
+        <button className="btn" onClick={() => void window.api.system.openExternal(game.sourceUrl)}>
+          {t.communityLists.openSource(gameId)}
+        </button>
+      </div>
+      {offline && asOf && (
+        <div className="community-error">
+          <span className="community-offline">{t.communityLists.offline(asOf)}</span>
+          <button className="btn" onClick={retry}>
+            {t.communityLists.retry}
+          </button>
+        </div>
+      )}
+
+      {cardsById.size === 0 ? (
+        <div className="text-dim">{t.importDeck.noData(getAdapter(gameId).shortName)}</div>
+      ) : error && !lists ? (
+        <div className="community-error">
+          <span className="sync-error">{error}</span>
+          <button className="btn" onClick={retry}>
+            {t.communityLists.retry}
+          </button>
+        </div>
+      ) : !lists ? (
+        <div className="text-dim">{t.communityLists.loading}</div>
+      ) : lists.length === 0 ? (
+        <div className="text-dim">{t.communityLists.empty}</div>
+      ) : (
+        <>
+          <div className="community-toolbar">
+            <div className="compare-source" role="tablist" aria-label={t.communityLists.title}>
+              {TABS.map((id) => (
+                <button
+                  key={id}
+                  id={`community-tab-${id}`}
+                  role="tab"
+                  aria-selected={tab === id}
+                  aria-controls="community-panel"
+                  tabIndex={tab === id ? 0 : -1}
+                  className={`btn ${tab === id ? 'btn-primary' : ''}`}
+                  onClick={() => setTab(id)}
+                  onKeyDown={(e) => {
+                    // The tab pattern: arrow keys move between tabs, Home/End to the ends.
+                    const i = TABS.indexOf(id)
+                    const next = e.key === 'ArrowRight' ? TABS[(i + 1) % TABS.length] : e.key === 'ArrowLeft' ? TABS[(i + TABS.length - 1) % TABS.length] : e.key === 'Home' ? TABS[0] : e.key === 'End' ? TABS[TABS.length - 1] : null
+                    if (!next) return
+                    e.preventDefault()
+                    setTab(next)
+                    document.getElementById(`community-tab-${next}`)?.focus()
+                  }}
+                >
+                  {TAB_LABEL(id)}
+                </button>
+              ))}
+            </div>
+            {tab === 'lists' && (
+              <>
+                <select
+                  value={legend}
+                  aria-label={t.communityLists.legend(gameId)}
+                  onChange={(e) => {
+                    setLegend(e.target.value)
+                    setShown(PAGE)
+                    setOpenId(null)
+                  }}
+                >
+                  <option value="">{t.communityLists.allLegends(gameId, lists.length)}</option>
+                  {legends.map((m) => (
+                    <option key={m.legendId} value={m.legendId}>
+                      {m.legendName} ({m.lists})
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="community-sort"
+                  value={sort}
+                  aria-label={t.communityLists.sortLabel}
+                  onChange={(e) => {
+                    setSort(e.target.value as Sort)
+                    setShown(PAGE)
+                    setOpenId(null)
+                  }}
+                >
+                  <option value="newest">{t.communityLists.sortNewest}</option>
+                  <option value="owned">{t.communityLists.sortOwned}</option>
+                  <option value="cheapest">{t.communityLists.sortCheapest}</option>
+                </select>
+              </>
+            )}
+          </div>
+
+          <div id="community-panel" role="tabpanel" aria-labelledby={`community-tab-${tab}`} className="community-panel">
+            {tab === 'events' ? (
+              <CommunityEventsView
+                lists={lists}
+                results={myResults}
+                index={index}
+                onLegend={(id) => {
+                  setLegend(id)
+                  setTab('meta')
+                }}
+              />
+            ) : tab === 'meta' ? (
+              <CommunityMetaView
+                gameId={gameId}
+                lists={lists}
+                decks={decks}
+                cardsById={cardsById}
+                index={index}
+                records={records}
+                legend={legend}
+                onLegend={setLegend}
+                onImportNewest={(list) => {
+                  const text = textFor(list)
+                  if (text) onImport(text, listName(list))
+                }}
+                onStartFromCore={(id, name) => void startFromCore(id, name)}
+              />
+            ) : (
+              <div className="community-scroll">
+                {groups.map((group) => {
+                  const first = group.lists[0]
+                  return (
+                    <section key={group.key || 'all'} className="community-event-group">
+                      {sort === 'newest' && (
+                        <header className="community-event-header">
+                          <span className="community-event-name">{first.eventName}</span>
+                          <span className="community-event-meta">
+                            {[first.players != null ? t.communityLists.players(first.players) : null, first.date ? new Date(first.date).toLocaleDateString() : null]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </header>
+                      )}
+                      <ul className="community-list">
+                        {group.lists.map((list) => (
+                          <CommunityListRow
+                            key={list.id}
+                            list={list}
+                            deck={decks.get(list.id)}
+                            legendCard={game.artCard(index, list)}
+                            ownership={ownership.get(list.id)}
+                            cardsById={cardsById}
+                            index={index}
+                            showEvent={sort !== 'newest'}
+                            open={openId === list.id}
+                            onToggle={() => setOpenId(openId === list.id ? null : list.id)}
+                            myDecks={myGameDecks}
+                            onImport={onImport}
+                            onCompare={onCompare}
+                          />
+                        ))}
+                      </ul>
+                    </section>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          {tab === 'lists' && filtered.length > shown && (
+            <button className="btn" onClick={() => setShown((n) => n + PAGE)}>
+              {t.communityLists.showMore(Math.min(PAGE, filtered.length - shown))}
+            </button>
+          )}
+        </>
+      )}
+    </Modal>
   )
 }

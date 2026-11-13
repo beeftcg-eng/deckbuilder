@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { GAME_LIST, getAdapter } from '../shared/games/registry'
 import { isCommunityGame } from '../shared/communityGames'
@@ -199,56 +199,53 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
   // A group's heading above its first item.
   const headings = results.map((item, i) => (i === 0 || results[i - 1].group !== item.group ? t.palette.groups[item.group] : null))
-  return createPortal(
-    <div className="modal-overlay palette-overlay" onClick={onClose}>
-      <div className="modal palette" role="dialog" aria-modal="true" aria-label={t.palette.label} onClick={(e) => e.stopPropagation()}>
-        <input
-          ref={inputRef}
-          className="palette-input"
-          type="text"
-          role="combobox"
-          aria-expanded="true"
-          aria-controls="palette-results"
-          aria-activedescendant={results[clamped] ? `palette-item-${clamped}` : undefined}
-          aria-label={t.palette.placeholder}
-          placeholder={t.palette.placeholder}
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            setActive(0)
-          }}
-          onKeyDown={onKeyDown}
-        />
-        <ul id="palette-results" ref={listRef} className="palette-results" role="listbox" aria-label={t.palette.label}>
-          {results.length === 0 && <li className="palette-empty text-dim">{t.palette.none}</li>}
-          {results.map((item, i) => {
-            const heading = headings[i]
-            return (
-              <li key={item.id} role="presentation">
-                {heading && (
-                  <div className="palette-group" aria-hidden>
-                    {heading}
-                  </div>
-                )}
-                <div
-                  id={`palette-item-${i}`}
-                  data-index={i}
-                  role="option"
-                  aria-selected={i === clamped}
-                  className={`palette-item ${i === clamped ? 'active' : ''}`}
-                  onMouseMove={() => i !== clamped && setActive(i)}
-                  onClick={() => choose(item)}
-                >
-                  <span className="palette-label">{item.label}</span>
-                  {item.detail && <span className="palette-detail text-dim">{item.detail}</span>}
+  return (
+    <Modal label={t.palette.label} className="palette" overlayClassName="palette-overlay" onClose={onClose}>
+      <input
+        ref={inputRef}
+        className="palette-input"
+        type="text"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="palette-results"
+        aria-activedescendant={results[clamped] ? `palette-item-${clamped}` : undefined}
+        aria-label={t.palette.placeholder}
+        placeholder={t.palette.placeholder}
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setActive(0)
+        }}
+        onKeyDown={onKeyDown}
+      />
+      <ul id="palette-results" ref={listRef} className="palette-results" role="listbox" aria-label={t.palette.label}>
+        {results.length === 0 && <li className="palette-empty text-dim">{t.palette.none}</li>}
+        {results.map((item, i) => {
+          const heading = headings[i]
+          return (
+            <li key={item.id} role="presentation">
+              {heading && (
+                <div className="palette-group" aria-hidden>
+                  {heading}
                 </div>
-              </li>
-            )
-          })}
-        </ul>
-        <div className="palette-hint text-dim desktop-only">{t.palette.hint}</div>
-      </div>
-    </div>,
-    document.body,
+              )}
+              <div
+                id={`palette-item-${i}`}
+                data-index={i}
+                role="option"
+                aria-selected={i === clamped}
+                className={`palette-item ${i === clamped ? 'active' : ''}`}
+                onMouseMove={() => i !== clamped && setActive(i)}
+                onClick={() => choose(item)}
+              >
+                <span className="palette-label">{item.label}</span>
+                {item.detail && <span className="palette-detail text-dim">{item.detail}</span>}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      <div className="palette-hint text-dim desktop-only">{t.palette.hint}</div>
+    </Modal>
   )
 }

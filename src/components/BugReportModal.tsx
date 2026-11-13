@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { MAX_MESSAGE, reportAsText, sendBugReport, type BugReport } from '../shared/bugReport'
 import { recentErrors } from '../lib/errorLog'
@@ -73,58 +73,55 @@ export function BugReportModal({ onClose }: { onClose: () => void }) {
     setCopied(true)
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <form className="modal bug-report-modal" role="dialog" aria-modal="true" aria-label={t.bugReport.title} onClick={(e) => e.stopPropagation()} onSubmit={send}>
-        <div className="modal-header">
-          <span>{t.bugReport.title}</span>
-          <button type="button" className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-        {state === 'sent' ? (
-          <p className="bug-report-sent">{t.bugReport.sent}</p>
-        ) : (
-          <>
-            <p className="text-dim bug-report-intro">{t.bugReport.intro}</p>
-            <textarea
-              className="bug-report-message"
-              rows={6}
-              maxLength={MAX_MESSAGE}
-              autoFocus
-              placeholder={t.bugReport.placeholder}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-            <label className="bug-report-field">
-              <span className="text-dim">{t.bugReport.contact}</span>
-              <input type="text" maxLength={200} value={contact} onChange={(e) => setContact(e.target.value)} />
-            </label>
-            <label className="bug-report-check">
-              <input type="checkbox" checked={includeDetails} onChange={(e) => setIncludeDetails(e.target.checked)} />
-              {t.bugReport.details}
-            </label>
-            {includeDetails && (
-              <details className="bug-report-details">
-                <summary className="text-dim">{t.bugReport.showDetails}</summary>
-                <pre>{JSON.stringify(details, null, 2)}</pre>
-              </details>
-            )}
-            {state === 'failed' && <div className="sync-error">{error}</div>}
-            <div className="bug-report-actions">
-              {state === 'failed' && report.message && (
-                <button type="button" className="btn" onClick={copy}>
-                  {copied ? t.common.copied : t.bugReport.copy}
-                </button>
-              )}
-              <button type="submit" className="btn btn-primary" disabled={state === 'sending'}>
-                {state === 'sending' ? t.bugReport.sending : t.bugReport.send}
+  return (
+    <Modal label={t.bugReport.title} className="bug-report-modal" onClose={onClose} as="form" onSubmit={send}>
+      <div className="modal-header">
+        <span>{t.bugReport.title}</span>
+        <button type="button" className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
+      </div>
+      {state === 'sent' ? (
+        <p className="bug-report-sent">{t.bugReport.sent}</p>
+      ) : (
+        <>
+          <p className="text-dim bug-report-intro">{t.bugReport.intro}</p>
+          <textarea
+            className="bug-report-message"
+            rows={6}
+            maxLength={MAX_MESSAGE}
+            autoFocus
+            placeholder={t.bugReport.placeholder}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <label className="bug-report-field">
+            <span className="text-dim">{t.bugReport.contact}</span>
+            <input type="text" maxLength={200} value={contact} onChange={(e) => setContact(e.target.value)} />
+          </label>
+          <label className="bug-report-check">
+            <input type="checkbox" checked={includeDetails} onChange={(e) => setIncludeDetails(e.target.checked)} />
+            {t.bugReport.details}
+          </label>
+          {includeDetails && (
+            <details className="bug-report-details">
+              <summary className="text-dim">{t.bugReport.showDetails}</summary>
+              <pre>{JSON.stringify(details, null, 2)}</pre>
+            </details>
+          )}
+          {state === 'failed' && <div className="sync-error">{error}</div>}
+          <div className="bug-report-actions">
+            {state === 'failed' && report.message && (
+              <button type="button" className="btn" onClick={copy}>
+                {copied ? t.common.copied : t.bugReport.copy}
               </button>
-            </div>
-          </>
-        )}
-      </form>
-    </div>,
-    document.body,
+            )}
+            <button type="submit" className="btn btn-primary" disabled={state === 'sending'}>
+              {state === 'sending' ? t.bugReport.sending : t.bugReport.send}
+            </button>
+          </div>
+        </>
+      )}
+    </Modal>
   )
 }

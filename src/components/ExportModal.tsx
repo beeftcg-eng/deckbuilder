@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import type { Card, Deck, Format } from '../shared/types'
 import { getAdapter } from '../shared/games/registry'
 import { buildExportText } from '../shared/export'
@@ -106,75 +106,72 @@ export function ExportModal({ deck, format, cardsById, onClose }: Props) {
     await window.api.exportSaveImage(imageDataUrl, `${deck.name.replace(/[^a-z0-9-_ ]/gi, '_')}.${imageExtension(imageDataUrl)}`)
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal export-modal" role="dialog" aria-modal="true" aria-label={t.exportDeck.title(deck.name)} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.exportDeck.title(deck.name)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
+  return (
+    <Modal label={t.exportDeck.title(deck.name)} className="export-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.exportDeck.title(deck.name)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
+      </div>
+      <textarea className="export-textarea" readOnly value={text} />
+      <div className="export-actions">
+        <button className="btn" onClick={handleCopy}>
+          {copied ? t.common.copied : t.exportCommon.copyToClipboard}
+        </button>
+        <button className="btn" onClick={handleSaveFile}>
+          {t.exportCommon.saveTxt}
+        </button>
+        <button className="btn btn-primary" onClick={handlePaste} disabled={pasting}>
+          {pasting ? t.exportCommon.uploading : t.exportCommon.pasteLink}
+        </button>
+        <button className="btn" onClick={handleGenerateImage} disabled={generatingImage}>
+          {generatingImage ? t.exportCommon.rendering : t.exportCommon.exportImage}
+        </button>
+        {deck.gameId === 'riftbound' && (
+          <button className="btn" onClick={() => void handleCopyCode()} title={t.exportDeck.deckCodeTitle}>
+            {codeCopied ? t.exportDeck.deckCodeCopied : t.exportDeck.copyDeckCode}
           </button>
-        </div>
-        <textarea className="export-textarea" readOnly value={text} />
-        <div className="export-actions">
-          <button className="btn" onClick={handleCopy}>
-            {copied ? t.common.copied : t.exportCommon.copyToClipboard}
-          </button>
-          <button className="btn" onClick={handleSaveFile}>
-            {t.exportCommon.saveTxt}
-          </button>
-          <button className="btn btn-primary" onClick={handlePaste} disabled={pasting}>
-            {pasting ? t.exportCommon.uploading : t.exportCommon.pasteLink}
-          </button>
-          <button className="btn" onClick={handleGenerateImage} disabled={generatingImage}>
-            {generatingImage ? t.exportCommon.rendering : t.exportCommon.exportImage}
-          </button>
-          {deck.gameId === 'riftbound' && (
-            <button className="btn" onClick={() => void handleCopyCode()} title={t.exportDeck.deckCodeTitle}>
-              {codeCopied ? t.exportDeck.deckCodeCopied : t.exportDeck.copyDeckCode}
-            </button>
-          )}
-          {deck.gameId === 'riftbound' && (
-            <button className="btn" onClick={toggleQr} aria-pressed={qr != null}>
-              {qr ? t.exportDeck.hideQr : t.exportDeck.showQr}
-            </button>
-          )}
-        </div>
-        {pasteUrl && (
-          <div className="paste-result">
-            <input readOnly value={pasteUrl} onFocus={(e) => e.currentTarget.select()} />
-            <button className="btn" onClick={() => window.api.clipboard.writeText(pasteUrl)}>
-              {t.common.copyLink}
-            </button>
-            <button className="btn" onClick={() => window.api.system.openExternal(pasteUrl)}>
-              {t.common.open}
-            </button>
-          </div>
         )}
-        {codeError && <div className="sync-error">{t.exportDeck.deckCodeFailed(codeError)}</div>}
-        {qr && (
-          <div className="export-qr">
-            {/* Always black on white, whatever the theme: that's what camera apps read best. */}
-            <svg viewBox={`-4 -4 ${qr.size + 8} ${qr.size + 8}`} shapeRendering="crispEdges" role="img" aria-label={t.exportDeck.qrLabel}>
-              <rect x={-4} y={-4} width={qr.size + 8} height={qr.size + 8} fill="#fff" />
-              <path d={qr.path} fill="#000" />
-            </svg>
-            <span className="text-dim">{t.exportDeck.qrHint}</span>
-          </div>
-        )}
-        {pasteError && <div className="sync-error">{t.exportCommon.uploadFailed(pasteError)}</div>}
-        {imageError && <div className="sync-error">{t.exportCommon.imageFailed(imageError)}</div>}
-        {imageNote && <div className="text-dim">{imageNote}</div>}
-        {imageDataUrl && (
-          <div className="image-preview">
-            <img src={imageDataUrl} alt={t.exportDeck.imageAlt(deck.name)} />
-            <button className="btn btn-primary" onClick={handleSaveImage}>
-              {t.exportCommon.saveImage((dataUrlBytes(imageDataUrl) / 1048576).toFixed(1))}
-            </button>
-          </div>
+        {deck.gameId === 'riftbound' && (
+          <button className="btn" onClick={toggleQr} aria-pressed={qr != null}>
+            {qr ? t.exportDeck.hideQr : t.exportDeck.showQr}
+          </button>
         )}
       </div>
-    </div>,
-    document.body,
+      {pasteUrl && (
+        <div className="paste-result">
+          <input readOnly value={pasteUrl} onFocus={(e) => e.currentTarget.select()} />
+          <button className="btn" onClick={() => window.api.clipboard.writeText(pasteUrl)}>
+            {t.common.copyLink}
+          </button>
+          <button className="btn" onClick={() => window.api.system.openExternal(pasteUrl)}>
+            {t.common.open}
+          </button>
+        </div>
+      )}
+      {codeError && <div className="sync-error">{t.exportDeck.deckCodeFailed(codeError)}</div>}
+      {qr && (
+        <div className="export-qr">
+          {/* Always black on white, whatever the theme: that's what camera apps read best. */}
+          <svg viewBox={`-4 -4 ${qr.size + 8} ${qr.size + 8}`} shapeRendering="crispEdges" role="img" aria-label={t.exportDeck.qrLabel}>
+            <rect x={-4} y={-4} width={qr.size + 8} height={qr.size + 8} fill="#fff" />
+            <path d={qr.path} fill="#000" />
+          </svg>
+          <span className="text-dim">{t.exportDeck.qrHint}</span>
+        </div>
+      )}
+      {pasteError && <div className="sync-error">{t.exportCommon.uploadFailed(pasteError)}</div>}
+      {imageError && <div className="sync-error">{t.exportCommon.imageFailed(imageError)}</div>}
+      {imageNote && <div className="text-dim">{imageNote}</div>}
+      {imageDataUrl && (
+        <div className="image-preview">
+          <img src={imageDataUrl} alt={t.exportDeck.imageAlt(deck.name)} />
+          <button className="btn btn-primary" onClick={handleSaveImage}>
+            {t.exportCommon.saveImage((dataUrlBytes(imageDataUrl) / 1048576).toFixed(1))}
+          </button>
+        </div>
+      )}
+    </Modal>
   )
 }

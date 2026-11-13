@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { allTags, parseTags, tagsOf } from '../shared/deckTags'
 import type { Card, Deck } from '../shared/types'
@@ -16,40 +16,37 @@ export function CardTagsModal({ deck, card, onClose }: { deck: Deck; card: Card;
     onClose()
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal card-tags-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={t.tags.title(card.name)}>
-        <div className="modal-header">
-          <span>{t.tags.title(card.name)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.cancel}
-          </button>
-        </div>
-        <form
-          className="card-tags-form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            void save()
-          }}
-        >
-          <input className="search-input" autoFocus value={text} placeholder={t.tags.placeholder} onChange={(e) => setText(e.target.value)} />
-          <button className="btn btn-primary" type="submit">
-            {t.tags.save}
-          </button>
-        </form>
-        {suggestions.length > 0 && (
-          <div className="card-tags-suggestions">
-            <span className="text-dim">{t.tags.used}</span>
-            {suggestions.slice(0, 20).map((tag) => (
-              <button key={tag} className="stat-chip" onClick={() => setText(current.length ? `${current.join(', ')}, ${tag}` : tag)}>
-                + {tag}
-              </button>
-            ))}
-          </div>
-        )}
-        <p className="text-dim">{t.tags.help}</p>
+  return (
+    <Modal label={t.tags.title(card.name)} className="card-tags-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.tags.title(card.name)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.cancel}
+        </button>
       </div>
-    </div>,
-    document.body,
+      <form
+        className="card-tags-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void save()
+        }}
+      >
+        <input className="search-input" autoFocus value={text} placeholder={t.tags.placeholder} onChange={(e) => setText(e.target.value)} />
+        <button className="btn btn-primary" type="submit">
+          {t.tags.save}
+        </button>
+      </form>
+      {suggestions.length > 0 && (
+        <div className="card-tags-suggestions">
+          <span className="text-dim">{t.tags.used}</span>
+          {suggestions.slice(0, 20).map((tag) => (
+            <button key={tag} className="stat-chip" onClick={() => setText(current.length ? `${current.join(', ')}, ${tag}` : tag)}>
+              + {tag}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="text-dim">{t.tags.help}</p>
+    </Modal>
   )
 }

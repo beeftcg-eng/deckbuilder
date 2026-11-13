@@ -163,3 +163,19 @@ test.describe('phone layout', () => {
     expect(await offScreen(app), 'the import window').toEqual([])
   })
 })
+
+test('windows work from the keyboard: focus goes in, stays in, and comes back', async ({ app, isMobile }) => {
+  test.skip(isMobile, 'A keyboard check.')
+  const opener = app.getByRole('button', { name: 'Import', exact: true })
+  await opener.focus()
+  await app.keyboard.press('Enter')
+  const dialog = app.getByRole('dialog', { name: /Import/ })
+  await expect(dialog.locator('textarea')).toBeFocused()
+  // Shift+Tab from the first control wraps to the window's last one, still inside it.
+  await app.keyboard.press('Shift+Tab')
+  await app.keyboard.press('Shift+Tab')
+  expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true)
+  await app.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(opener).toBeFocused()
+})

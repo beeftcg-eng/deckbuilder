@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import type { Card, Deck } from '../shared/types'
 import { cardsSeenBy, chanceAtLeast, expandZone, shuffled } from '../shared/sampleHand'
 import { poolKey } from '../shared/collection'
@@ -109,164 +109,161 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
 
   const percent = (p: number) => `${(p * 100).toFixed(p >= 0.995 || p < 0.005 ? 0 : 1)}%`
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal sample-hand-modal" role="dialog" aria-modal="true" aria-label={t.sampleHand.title(deck.name)} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.sampleHand.title(deck.name)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
+  return (
+    <Modal label={t.sampleHand.title(deck.name)} className="sample-hand-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.sampleHand.title(deck.name)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
+      </div>
 
-        {cards.length === 0 ? (
-          <div className="text-dim">{t.sampleHand.empty}</div>
-        ) : (
-          <>
-            <div className="practice-tabs">
-              <div className="practice-tablist" role="tablist">
-                {(['practice', 'odds'] as const).map((tb) => (
-                  <button key={tb} role="tab" aria-selected={tab === tb} className={`btn ${tab === tb ? 'btn-primary' : ''}`} onClick={() => setTab(tb)}>
-                    {tb === 'practice' ? t.sampleHand.practiceTab : t.sampleHand.oddsTab}
+      {cards.length === 0 ? (
+        <div className="text-dim">{t.sampleHand.empty}</div>
+      ) : (
+        <>
+          <div className="practice-tabs">
+            <div className="practice-tablist" role="tablist">
+              {(['practice', 'odds'] as const).map((tb) => (
+                <button key={tb} role="tab" aria-selected={tab === tb} className={`btn ${tab === tb ? 'btn-primary' : ''}`} onClick={() => setTab(tb)}>
+                  {tb === 'practice' ? t.sampleHand.practiceTab : t.sampleHand.oddsTab}
+                </button>
+              ))}
+            </div>
+            <label className="practice-play" title={t.sampleHand.onThePlayTitle}>
+              <input type="checkbox" checked={onThePlay} onChange={(e) => setOnThePlay(e.target.checked)} />
+              {t.sampleHand.onThePlay}
+            </label>
+          </div>
+
+          {tab === 'practice' ? (
+            <>
+              <div className="sample-hand-actions">
+                <button className="btn btn-primary" onClick={() => setState(deal(cards, handSize, 0))}>
+                  {t.sampleHand.newHand(handSize)}
+                </button>
+                <button className="btn" onClick={() => setState(deal(cards, handSize, state.mulligans + 1))}>
+                  {t.sampleHand.mulligan}
+                </button>
+                <button className="btn" disabled={state.library.length === 0} onClick={nextTurn}>
+                  {t.sampleHand.nextTurn}
+                </button>
+                <button className="btn" disabled={state.library.length === 0} onClick={draw}>
+                  {t.sampleHand.draw}
+                </button>
+              </div>
+              <div className="text-dim practice-status">
+                {state.turn === 0 ? t.sampleHand.opening : t.sampleHand.turn(state.turn)}
+                {' · '}
+                {t.sampleHand.status(state.hand.length, state.library.length)}
+                {state.mulligans > 0 && ` · ${t.sampleHand.mulligans(state.mulligans)}`}
+                {state.bottomed > 0 && ` · ${t.sampleHand.bottomed(state.bottomed)}`}
+                {state.discard.length > 0 && ` · ${t.sampleHand.discarded(state.discard.length)}`}
+              </div>
+              {rule && (
+                <div className={`practice-resources ${paysCosts && left < 0 ? 'over' : ''}`} role="status">
+                  {paysCosts ? t.sampleHand.resourcesLeft(deck.gameId, Math.max(0, left), total) : t.sampleHand.resourcesCount(deck.gameId, total)}
+                  {paysCosts && left < 0 && ` · ${t.sampleHand.overspent(-left)}`}
+                </div>
+              )}
+              <div className="practice-tap" role="group" aria-label={t.sampleHand.tapLabel}>
+                <span className="text-dim">{t.sampleHand.tapLabel}</span>
+                {TAP_ACTIONS.filter((a) => a !== 'play' || rule).map((a) => (
+                  <button key={a} className={`btn ${tapAction === a ? 'btn-primary' : ''}`} aria-pressed={tapAction === a} onClick={() => setTapAction(a)}>
+                    {a === 'play' ? t.sampleHand.tapPlay : a === 'discard' ? t.sampleHand.tapDiscard : t.sampleHand.tapBottom}
                   </button>
                 ))}
               </div>
-              <label className="practice-play" title={t.sampleHand.onThePlayTitle}>
-                <input type="checkbox" checked={onThePlay} onChange={(e) => setOnThePlay(e.target.checked)} />
-                {t.sampleHand.onThePlay}
-              </label>
-            </div>
-
-            {tab === 'practice' ? (
-              <>
-                <div className="sample-hand-actions">
-                  <button className="btn btn-primary" onClick={() => setState(deal(cards, handSize, 0))}>
-                    {t.sampleHand.newHand(handSize)}
+              <div className="sample-hand-grid">
+                {state.hand.map((card, i) => {
+                  const cost = paysCosts ? playCost(rule, card) : null
+                  const tooDear = tapAction === 'play' && cost != null && cost > left
+                  return (
+                  <button
+                    className={`sample-hand-card ${tooDear ? 'unaffordable' : ''}`}
+                    key={`${card.id}-${i}`}
+                    title={
+                      tapAction === 'play'
+                        ? t.sampleHand.playTitle(card.name, cost)
+                        : tapAction === 'discard'
+                          ? t.sampleHand.discardTitle(card.name)
+                          : t.sampleHand.bottomTitle(card.name)
+                    }
+                    onClick={() => (tapAction === 'play' ? play(i) : tapAction === 'discard' ? discard(i) : bottom(i))}
+                  >
+                    {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <div className="card-tile-placeholder">{card.name}</div>}
                   </button>
-                  <button className="btn" onClick={() => setState(deal(cards, handSize, state.mulligans + 1))}>
-                    {t.sampleHand.mulligan}
-                  </button>
-                  <button className="btn" disabled={state.library.length === 0} onClick={nextTurn}>
-                    {t.sampleHand.nextTurn}
-                  </button>
-                  <button className="btn" disabled={state.library.length === 0} onClick={draw}>
-                    {t.sampleHand.draw}
-                  </button>
-                </div>
-                <div className="text-dim practice-status">
-                  {state.turn === 0 ? t.sampleHand.opening : t.sampleHand.turn(state.turn)}
-                  {' · '}
-                  {t.sampleHand.status(state.hand.length, state.library.length)}
-                  {state.mulligans > 0 && ` · ${t.sampleHand.mulligans(state.mulligans)}`}
-                  {state.bottomed > 0 && ` · ${t.sampleHand.bottomed(state.bottomed)}`}
-                  {state.discard.length > 0 && ` · ${t.sampleHand.discarded(state.discard.length)}`}
-                </div>
-                {rule && (
-                  <div className={`practice-resources ${paysCosts && left < 0 ? 'over' : ''}`} role="status">
-                    {paysCosts ? t.sampleHand.resourcesLeft(deck.gameId, Math.max(0, left), total) : t.sampleHand.resourcesCount(deck.gameId, total)}
-                    {paysCosts && left < 0 && ` · ${t.sampleHand.overspent(-left)}`}
-                  </div>
-                )}
-                <div className="practice-tap" role="group" aria-label={t.sampleHand.tapLabel}>
-                  <span className="text-dim">{t.sampleHand.tapLabel}</span>
-                  {TAP_ACTIONS.filter((a) => a !== 'play' || rule).map((a) => (
-                    <button key={a} className={`btn ${tapAction === a ? 'btn-primary' : ''}`} aria-pressed={tapAction === a} onClick={() => setTapAction(a)}>
-                      {a === 'play' ? t.sampleHand.tapPlay : a === 'discard' ? t.sampleHand.tapDiscard : t.sampleHand.tapBottom}
-                    </button>
-                  ))}
-                </div>
-                <div className="sample-hand-grid">
-                  {state.hand.map((card, i) => {
-                    const cost = paysCosts ? playCost(rule, card) : null
-                    const tooDear = tapAction === 'play' && cost != null && cost > left
-                    return (
-                    <button
-                      className={`sample-hand-card ${tooDear ? 'unaffordable' : ''}`}
-                      key={`${card.id}-${i}`}
-                      title={
-                        tapAction === 'play'
-                          ? t.sampleHand.playTitle(card.name, cost)
-                          : tapAction === 'discard'
-                            ? t.sampleHand.discardTitle(card.name)
-                            : t.sampleHand.bottomTitle(card.name)
-                      }
-                      onClick={() => (tapAction === 'play' ? play(i) : tapAction === 'discard' ? discard(i) : bottom(i))}
-                    >
-                      {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <div className="card-tile-placeholder">{card.name}</div>}
-                    </button>
-                    )
-                  })}
-                </div>
-                {state.inPlay.length > 0 && (
-                  <div className="practice-discard practice-in-play">
-                    <div className="text-dim">{t.sampleHand.inPlay(state.inPlay.length)}</div>
-                    <div className="practice-discard-row">
-                      {state.inPlay.map((card, i) => (
-                        <button className="practice-discard-card" key={`${card.id}-p${i}`} title={t.sampleHand.unplayTitle(card.name)} onClick={() => unplay(i)}>
-                          {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <span>{card.name}</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {state.discard.length > 0 && (
-                  <div className="practice-discard">
-                    <div className="text-dim">{t.sampleHand.discardPile(state.discard.length)}</div>
-                    <div className="practice-discard-row">
-                      {state.discard.map((card, i) => (
-                        <button className="practice-discard-card" key={`${card.id}-d${i}`} title={t.sampleHand.recoverTitle(card.name)} onClick={() => recover(i)}>
-                          {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <span>{card.name}</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="odds">
-                <div className="odds-controls">
-                  <label>
-                    {t.sampleHand.atLeast}{' '}
-                    <select value={atLeast} onChange={(e) => setAtLeast(Number(e.target.value))}>
-                      {[1, 2, 3, 4].map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <span className="text-dim">{picked.size ? t.sampleHand.pickedCopies(pickedCopies, cards.length) : t.sampleHand.pickCards}</span>
-                </div>
-                {picked.size > 0 && (
-                  <table className="odds-table">
-                    <tbody>
-                      {TURNS.map((turn) => (
-                        <tr key={turn}>
-                          <th>{turn === 0 ? t.sampleHand.opening : t.sampleHand.byTurn(turn)}</th>
-                          <td>{percent(chanceAtLeast(cards.length, pickedCopies, cardsSeenBy(handSize, turn, onThePlay), atLeast))}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-                <ul className="odds-cards">
-                  {kinds.map((k) => (
-                    <li key={k.key}>
-                      <label>
-                        <input type="checkbox" checked={picked.has(k.key)} onChange={() => togglePick(k.key)} />
-                        <span className="odds-copies">{k.copies}×</span>
-                        <span className="odds-name">{k.card.name}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-dim odds-note">{t.sampleHand.oddsNote}</p>
+                  )
+                })}
               </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>,
-    document.body,
+              {state.inPlay.length > 0 && (
+                <div className="practice-discard practice-in-play">
+                  <div className="text-dim">{t.sampleHand.inPlay(state.inPlay.length)}</div>
+                  <div className="practice-discard-row">
+                    {state.inPlay.map((card, i) => (
+                      <button className="practice-discard-card" key={`${card.id}-p${i}`} title={t.sampleHand.unplayTitle(card.name)} onClick={() => unplay(i)}>
+                        {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <span>{card.name}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {state.discard.length > 0 && (
+                <div className="practice-discard">
+                  <div className="text-dim">{t.sampleHand.discardPile(state.discard.length)}</div>
+                  <div className="practice-discard-row">
+                    {state.discard.map((card, i) => (
+                      <button className="practice-discard-card" key={`${card.id}-d${i}`} title={t.sampleHand.recoverTitle(card.name)} onClick={() => recover(i)}>
+                        {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} /> : <span>{card.name}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="odds">
+              <div className="odds-controls">
+                <label>
+                  {t.sampleHand.atLeast}{' '}
+                  <select value={atLeast} onChange={(e) => setAtLeast(Number(e.target.value))}>
+                    {[1, 2, 3, 4].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <span className="text-dim">{picked.size ? t.sampleHand.pickedCopies(pickedCopies, cards.length) : t.sampleHand.pickCards}</span>
+              </div>
+              {picked.size > 0 && (
+                <table className="odds-table">
+                  <tbody>
+                    {TURNS.map((turn) => (
+                      <tr key={turn}>
+                        <th>{turn === 0 ? t.sampleHand.opening : t.sampleHand.byTurn(turn)}</th>
+                        <td>{percent(chanceAtLeast(cards.length, pickedCopies, cardsSeenBy(handSize, turn, onThePlay), atLeast))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <ul className="odds-cards">
+                {kinds.map((k) => (
+                  <li key={k.key}>
+                    <label>
+                      <input type="checkbox" checked={picked.has(k.key)} onChange={() => togglePick(k.key)} />
+                      <span className="odds-copies">{k.copies}×</span>
+                      <span className="odds-name">{k.card.name}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-dim odds-note">{t.sampleHand.oddsNote}</p>
+            </div>
+          )}
+        </>
+      )}
+    </Modal>
   )
 }

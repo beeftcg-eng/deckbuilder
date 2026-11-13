@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { CONDITIONS, FINISHES, normalizeDetails, type Condition, type CopyDetail, type Finish } from '../shared/copyDetails'
 import { formatPrice } from '../shared/collection'
@@ -42,63 +42,60 @@ export function CopyDetailsModal({ card, onClose }: Props) {
     onClose()
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal copy-details-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={t.copyDetails.title(card.name)}>
-        <div className="modal-header">
-          <span>{t.copyDetails.title(card.name)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.cancel}
-          </button>
-        </div>
-        <p className="text-dim">{t.copyDetails.intro(owned)}</p>
-        {card.price != null && (
-          <p className="text-dim">{card.foilPrice != null && card.foilPrice > 0 ? t.copyDetails.foilPrice(formatPrice(card.foilPrice)) : t.copyDetails.noFoilPrice}</p>
-        )}
-        <div className="copy-details-rows">
-          {rows.map((row, i) => (
-            <div key={i} className="copy-details-row">
-              <select value={row.finish} onChange={(e) => change(i, { finish: e.target.value as Finish })}>
-                {FINISHES.map((f) => (
-                  <option key={f} value={f}>
-                    {t.copyDetails.finishes[f]}
-                  </option>
-                ))}
-              </select>
-              <select value={row.condition} onChange={(e) => change(i, { condition: e.target.value as Condition })}>
-                {CONDITIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {t.copyDetails.conditions[c]}
-                  </option>
-                ))}
-              </select>
-              <div className="stepper">
-                <button className="btn stepper-btn" onClick={() => change(i, { quantity: Math.max(0, row.quantity - 1) })}>
-                  −
-                </button>
-                <span className="stepper-value">{row.quantity}</span>
-                <button className="btn stepper-btn" onClick={() => change(i, { quantity: row.quantity + 1 })}>
-                  +
-                </button>
-              </div>
-              <button className="deck-row-delete" title={t.copyDetails.remove} aria-label={t.copyDetails.remove} onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
-                ×
+  return (
+    <Modal label={t.copyDetails.title(card.name)} className="copy-details-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.copyDetails.title(card.name)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.cancel}
+        </button>
+      </div>
+      <p className="text-dim">{t.copyDetails.intro(owned)}</p>
+      {card.price != null && (
+        <p className="text-dim">{card.foilPrice != null && card.foilPrice > 0 ? t.copyDetails.foilPrice(formatPrice(card.foilPrice)) : t.copyDetails.noFoilPrice}</p>
+      )}
+      <div className="copy-details-rows">
+        {rows.map((row, i) => (
+          <div key={i} className="copy-details-row">
+            <select value={row.finish} onChange={(e) => change(i, { finish: e.target.value as Finish })}>
+              {FINISHES.map((f) => (
+                <option key={f} value={f}>
+                  {t.copyDetails.finishes[f]}
+                </option>
+              ))}
+            </select>
+            <select value={row.condition} onChange={(e) => change(i, { condition: e.target.value as Condition })}>
+              {CONDITIONS.map((c) => (
+                <option key={c} value={c}>
+                  {t.copyDetails.conditions[c]}
+                </option>
+              ))}
+            </select>
+            <div className="stepper">
+              <button className="btn stepper-btn" onClick={() => change(i, { quantity: Math.max(0, row.quantity - 1) })}>
+                −
+              </button>
+              <span className="stepper-value">{row.quantity}</span>
+              <button className="btn stepper-btn" onClick={() => change(i, { quantity: row.quantity + 1 })}>
+                +
               </button>
             </div>
-          ))}
-          <div className="copy-details-row text-dim">{t.copyDetails.plainRow(Math.max(0, plain))}</div>
-        </div>
-        {tooMany && <div className="sync-error">{t.copyDetails.tooMany(owned)}</div>}
-        <div className="copy-details-actions">
-          <button className="btn" onClick={add} disabled={plain <= 0}>
-            {t.copyDetails.add}
-          </button>
-          <button className="btn btn-primary" onClick={save} disabled={tooMany}>
-            {t.copyDetails.save}
-          </button>
-        </div>
+            <button className="deck-row-delete" title={t.copyDetails.remove} aria-label={t.copyDetails.remove} onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
+              ×
+            </button>
+          </div>
+        ))}
+        <div className="copy-details-row text-dim">{t.copyDetails.plainRow(Math.max(0, plain))}</div>
       </div>
-    </div>,
-    document.body,
+      {tooMany && <div className="sync-error">{t.copyDetails.tooMany(owned)}</div>}
+      <div className="copy-details-actions">
+        <button className="btn" onClick={add} disabled={plain <= 0}>
+          {t.copyDetails.add}
+        </button>
+        <button className="btn btn-primary" onClick={save} disabled={tooMany}>
+          {t.copyDetails.save}
+        </button>
+      </div>
+    </Modal>
   )
 }

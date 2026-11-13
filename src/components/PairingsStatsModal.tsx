@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useEffect, useMemo, useState, type MouseEvent } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { PAIRINGS_APP_URL, deckStatsFor, deckVersionsOf, type OpponentLine, type StatLine } from '../shared/pairingsRecord'
 import type { Deck, PairingsVersion } from '../shared/types'
@@ -238,33 +238,28 @@ export function PairingsStatsModal({ deck, onClose }: { deck: Deck; onClose: () 
   // its backdrop would otherwise close this window too.
   return (
     <>
-      {createPortal(
-        <div className="modal-overlay" onClick={onClose}>
-          <div className="modal ps-modal" role="dialog" aria-label={t.deckStatsModal.title(deck.name)} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <span>{t.deckStatsModal.title(deck.name)}</span>
-              <span className="ps-header-tools">
-                {config.connected && (
-                  <button className="btn" onClick={() => void loadRecords()} disabled={loading} title={t.pairingsStrip.refreshTitle}>
-                    {loading ? '…' : '↻'}
-                  </button>
-                )}
-                <button className="btn" onClick={onClose}>
-                  {t.common.close}
-                </button>
-              </span>
-            </div>
-            <div className="text-dim">
-              {t.deckStatsModal.from}{' '}
-              <a href={PAIRINGS_APP_URL} onClick={openPairings}>
-                {t.deckStatsModal.openPairings}
-              </a>
-            </div>
-            <div className="ps-body">{body}</div>
-          </div>
-        </div>,
-        document.body,
-      )}
+      <Modal label={t.deckStatsModal.title(deck.name)} className="ps-modal" onClose={onClose}>
+        <div className="modal-header">
+          <span>{t.deckStatsModal.title(deck.name)}</span>
+          <span className="ps-header-tools">
+            {config.connected && (
+              <button className="btn" onClick={() => void loadRecords()} disabled={loading} title={t.pairingsStrip.refreshTitle}>
+                {loading ? '…' : '↻'}
+              </button>
+            )}
+            <button className="btn" onClick={onClose}>
+              {t.common.close}
+            </button>
+          </span>
+        </div>
+        <div className="text-dim">
+          {t.deckStatsModal.from}{' '}
+          <a href={PAIRINGS_APP_URL} onClick={openPairings}>
+            {t.deckStatsModal.openPairings}
+          </a>
+        </div>
+        <div className="ps-body">{body}</div>
+      </Modal>
       {showAccount && <PairingsAccountModal onClose={() => setShowAccount(false)} />}
     </>
   )

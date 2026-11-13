@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import { rulesForFormat } from '../shared/games/rules'
@@ -50,75 +50,72 @@ export function DeckHistoryModal({ deck, cardsById, onClose }: { deck: Deck; car
     if (confirm(t.history.deleteConfirm)) void deleteDeckVersion(deck.id, version.id)
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal compare-modal history-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={t.history.title(deck.name)}>
-        <div className="modal-header">
-          <span>{t.history.title(deck.name)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-        <p className="text-dim">{versions.length ? t.history.intro : t.history.none}</p>
-
-        <form
-          className="history-save"
-          onSubmit={(e) => {
-            e.preventDefault()
-            void saveNow()
-          }}
-        >
-          <input className="search-input" value={name} maxLength={80} placeholder={t.history.namePlaceholder} onChange={(e) => setName(e.target.value)} />
-          <button className="btn btn-primary" type="submit">
-            {t.history.saveNow}
-          </button>
-        </form>
-        {flash && <div className="text-dim">{flash}</div>}
-
-        {selected && diff && (
-          <div className="history-body">
-            <ul className="history-list">
-              {versions.map((v) => (
-                <li key={v.id}>
-                  <button className={v.id === selected.id ? 'btn btn-primary' : 'btn'} aria-pressed={v.id === selected.id} onClick={() => setSelectedId(v.id)}>
-                    <span>{when(v)}</span>
-                    {v.name ? (
-                      <span className="text-dim">{new Date(v.at).toLocaleDateString(getLanguage())}</span>
-                    ) : (
-                      <span className="text-dim">{t.history.auto}</span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="history-detail">
-              <div className="compare-summary">
-                <span>
-                  {t.history.changesFrom(when(selected))}{' '}
-                  {diff.added || diff.removed ? (
-                    <>
-                      <b className="compare-in">+{diff.added}</b> <b className="compare-out">−{diff.removed}</b>
-                    </>
-                  ) : null}
-                </span>
-                <span className="compare-tools">
-                  <button className="btn" disabled={Boolean(deck.locked)} title={deck.locked ? t.history.locked : undefined} onClick={() => void restore(selected)}>
-                    {t.history.restore}
-                  </button>
-                  <button className="btn" onClick={() => rename(selected)}>
-                    {t.history.rename}
-                  </button>
-                  <button className="btn" onClick={() => remove(selected)}>
-                    {t.history.delete}
-                  </button>
-                </span>
-              </div>
-              <DeckDiffList diff={diff} />
-            </div>
-          </div>
-        )}
+  return (
+    <Modal label={t.history.title(deck.name)} className="compare-modal history-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.history.title(deck.name)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
       </div>
-    </div>,
-    document.body,
+      <p className="text-dim">{versions.length ? t.history.intro : t.history.none}</p>
+
+      <form
+        className="history-save"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void saveNow()
+        }}
+      >
+        <input className="search-input" value={name} maxLength={80} placeholder={t.history.namePlaceholder} onChange={(e) => setName(e.target.value)} />
+        <button className="btn btn-primary" type="submit">
+          {t.history.saveNow}
+        </button>
+      </form>
+      {flash && <div className="text-dim">{flash}</div>}
+
+      {selected && diff && (
+        <div className="history-body">
+          <ul className="history-list">
+            {versions.map((v) => (
+              <li key={v.id}>
+                <button className={v.id === selected.id ? 'btn btn-primary' : 'btn'} aria-pressed={v.id === selected.id} onClick={() => setSelectedId(v.id)}>
+                  <span>{when(v)}</span>
+                  {v.name ? (
+                    <span className="text-dim">{new Date(v.at).toLocaleDateString(getLanguage())}</span>
+                  ) : (
+                    <span className="text-dim">{t.history.auto}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="history-detail">
+            <div className="compare-summary">
+              <span>
+                {t.history.changesFrom(when(selected))}{' '}
+                {diff.added || diff.removed ? (
+                  <>
+                    <b className="compare-in">+{diff.added}</b> <b className="compare-out">−{diff.removed}</b>
+                  </>
+                ) : null}
+              </span>
+              <span className="compare-tools">
+                <button className="btn" disabled={Boolean(deck.locked)} title={deck.locked ? t.history.locked : undefined} onClick={() => void restore(selected)}>
+                  {t.history.restore}
+                </button>
+                <button className="btn" onClick={() => rename(selected)}>
+                  {t.history.rename}
+                </button>
+                <button className="btn" onClick={() => remove(selected)}>
+                  {t.history.delete}
+                </button>
+              </span>
+            </div>
+            <DeckDiffList diff={diff} />
+          </div>
+        </div>
+      )}
+    </Modal>
   )
 }

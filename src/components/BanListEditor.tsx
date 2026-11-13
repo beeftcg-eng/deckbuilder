@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { getAdapter } from '../shared/games/registry'
 import type { Card, Format, GameId } from '../shared/types'
@@ -184,113 +184,110 @@ export function BanListEditor({ gameId, initialFormatId, onClose }: Props) {
     )
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal banlist-modal" role="dialog" aria-modal="true" aria-label={t.banList.title(adapter.shortName)} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.banList.title(adapter.shortName)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.cancel}
-          </button>
-        </div>
+  return (
+    <Modal label={t.banList.title(adapter.shortName)} className="banlist-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.banList.title(adapter.shortName)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.cancel}
+        </button>
+      </div>
 
-        {draft.length > 1 && (
-          <select value={active.id} onChange={(e) => setActiveId(e.target.value)}>
-            {draft.map((f) => (
-              <option key={f.id} value={f.id}>
-                {formatLabel(gameId, f)}
-              </option>
+      {draft.length > 1 && (
+        <select value={active.id} onChange={(e) => setActiveId(e.target.value)}>
+          {draft.map((f) => (
+            <option key={f.id} value={f.id}>
+              {formatLabel(gameId, f)}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {cards.length === 0 && <div className="text-dim">{t.banList.noCards(adapter.shortName)}</div>}
+
+      <div className="banlist-body">
+        {renderKeyList('bannedCardIds', t.banList.banned, t.banList.banSearch)}
+        {renderKeyList('restrictedCardIds', t.banList.restricted, t.banList.restrictSearch)}
+
+        <section className="banlist-section">
+          <h3>
+            {t.banList.bannedPairs} ({active.bannedPairs.length})
+          </h3>
+          <ul className="banlist-items">
+            {active.bannedPairs.length === 0 && <li className="text-dim">{t.banList.none}</li>}
+            {active.bannedPairs.map(([a, b], i) => (
+              <li key={`${a}-${b}-${i}`}>
+                <span>
+                  {nameForKey(a)} + {nameForKey(b)}
+                </span>
+                <button
+                  className="deck-row-delete"
+                  title={t.banList.remove}
+                  onClick={() => edit((f) => ({ ...f, bannedPairs: f.bannedPairs.filter((_, index) => index !== i) }))}
+                >
+                  ×
+                </button>
+              </li>
             ))}
-          </select>
-        )}
+          </ul>
+          <div className="pair-picker">
+            <div>{pairA ? <b>{pairA.name}</b> : <CardPicker cards={cards} placeholder={t.banList.firstCard} onPick={setPairA} />}</div>
+            <div>{pairB ? <b>{pairB.name}</b> : <CardPicker cards={cards} placeholder={t.banList.secondCard} onPick={setPairB} />}</div>
+            <button className="btn" disabled={!pairA || !pairB || pairA.sourceId === pairB.sourceId} onClick={addPair}>
+              {t.banList.addPair}
+            </button>
+          </div>
+        </section>
 
-        {cards.length === 0 && <div className="text-dim">{t.banList.noCards(adapter.shortName)}</div>}
-
-        <div className="banlist-body">
-          {renderKeyList('bannedCardIds', t.banList.banned, t.banList.banSearch)}
-          {renderKeyList('restrictedCardIds', t.banList.restricted, t.banList.restrictSearch)}
-
+        {hasSetList && (
           <section className="banlist-section">
             <h3>
-              {t.banList.bannedPairs} ({active.bannedPairs.length})
+              {t.banList.legalSets} ({legalSets.length}){' '}
+              <span className="text-dim">{active.legalSetIds ? t.banList.legalSetsHelp : t.banList.illegalSetsHelp}</span>
             </h3>
-            <ul className="banlist-items">
-              {active.bannedPairs.length === 0 && <li className="text-dim">{t.banList.none}</li>}
-              {active.bannedPairs.map(([a, b], i) => (
-                <li key={`${a}-${b}-${i}`}>
+            <div className="set-checklist">
+              {sets.map(([id, name]) => (
+                <label key={id}>
+                  <input type="checkbox" checked={isSetLegal(active, id)} onChange={() => toggleSet(id)} />
                   <span>
-                    {nameForKey(a)} + {nameForKey(b)}
+                    {name} <span className="text-dim">{id}</span>
                   </span>
-                  <button
-                    className="deck-row-delete"
-                    title={t.banList.remove}
-                    onClick={() => edit((f) => ({ ...f, bannedPairs: f.bannedPairs.filter((_, index) => index !== i) }))}
-                  >
-                    ×
-                  </button>
-                </li>
+                </label>
               ))}
-            </ul>
-            <div className="pair-picker">
-              <div>{pairA ? <b>{pairA.name}</b> : <CardPicker cards={cards} placeholder={t.banList.firstCard} onPick={setPairA} />}</div>
-              <div>{pairB ? <b>{pairB.name}</b> : <CardPicker cards={cards} placeholder={t.banList.secondCard} onPick={setPairB} />}</div>
-              <button className="btn" disabled={!pairA || !pairB || pairA.sourceId === pairB.sourceId} onClick={addPair}>
-                {t.banList.addPair}
-              </button>
             </div>
           </section>
+        )}
 
-          {hasSetList && (
-            <section className="banlist-section">
-              <h3>
-                {t.banList.legalSets} ({legalSets.length}){' '}
-                <span className="text-dim">{active.legalSetIds ? t.banList.legalSetsHelp : t.banList.illegalSetsHelp}</span>
-              </h3>
-              <div className="set-checklist">
-                {sets.map(([id, name]) => (
-                  <label key={id}>
-                    <input type="checkbox" checked={isSetLegal(active, id)} onChange={() => toggleSet(id)} />
-                    <span>
-                      {name} <span className="text-dim">{id}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {hasSetList && legalSets.length > 0 && (
-            <section className="banlist-section">
-              <h3>
-                {t.rotation.editorTitle} <span className="text-dim">{t.rotation.editorHelp}</span>
-              </h3>
-              <label className="rotation-date">
-                <span className="text-dim">{t.rotation.date}</span>
-                <input type="date" value={active.nextRotation?.date ?? ''} onChange={(e) => setRotationDate(e.target.value)} />
-              </label>
-              <div className="set-checklist">
-                {legalSets.map(([id, name]) => (
-                  <label key={id}>
-                    <input type="checkbox" checked={active.nextRotation?.leavingSetIds.includes(id) ?? false} onChange={() => toggleLeaving(id)} />
-                    <span>
-                      {name} <span className="text-dim">{id}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-
-        {error && <div className="sync-error">{t.banList.saveFailed(error)}</div>}
-        <div className="export-actions">
-          <button className="btn btn-primary" disabled={saving} onClick={handleSave}>
-            {saving ? t.banList.saving : t.banList.save}
-          </button>
-          <span className="text-dim">{t.banList.appliesNow}</span>
-        </div>
+        {hasSetList && legalSets.length > 0 && (
+          <section className="banlist-section">
+            <h3>
+              {t.rotation.editorTitle} <span className="text-dim">{t.rotation.editorHelp}</span>
+            </h3>
+            <label className="rotation-date">
+              <span className="text-dim">{t.rotation.date}</span>
+              <input type="date" value={active.nextRotation?.date ?? ''} onChange={(e) => setRotationDate(e.target.value)} />
+            </label>
+            <div className="set-checklist">
+              {legalSets.map(([id, name]) => (
+                <label key={id}>
+                  <input type="checkbox" checked={active.nextRotation?.leavingSetIds.includes(id) ?? false} onChange={() => toggleLeaving(id)} />
+                  <span>
+                    {name} <span className="text-dim">{id}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
-    </div>,
-    document.body,
+
+      {error && <div className="sync-error">{t.banList.saveFailed(error)}</div>}
+      <div className="export-actions">
+        <button className="btn btn-primary" disabled={saving} onClick={handleSave}>
+          {saving ? t.banList.saving : t.banList.save}
+        </button>
+        <span className="text-dim">{t.banList.appliesNow}</span>
+      </div>
+    </Modal>
   )
 }

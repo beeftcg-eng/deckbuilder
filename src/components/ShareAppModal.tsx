@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { SHARE_BASE_URL } from '../shared/deckShare'
 import { qrPath } from '../lib/qrCode'
 import { t } from '../shared/i18n'
@@ -34,35 +34,32 @@ export function ShareAppModal({ onClose }: { onClose: () => void }) {
   }
 
   const box = size + MARGIN * 2
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal share-modal share-app-modal" role="dialog" aria-modal="true" aria-label={t.shareApp.title} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.shareApp.title}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-        <p className="share-intro">{t.shareApp.intro}</p>
-        {/* Always black on white, whatever the theme: that's what camera apps read best. */}
-        <svg className="share-app-qr" viewBox={`${-MARGIN} ${-MARGIN} ${box} ${box}`} shapeRendering="crispEdges" role="img" aria-label={t.shareApp.qrLabel}>
-          <rect x={-MARGIN} y={-MARGIN} width={box} height={box} fill="#fff" />
-          <path d={path} fill="#000" />
-        </svg>
-        <p className="text-dim share-app-hint">{t.shareApp.hint}</p>
-        <input className="share-link" readOnly value={APP_URL} onFocus={(e) => e.currentTarget.select()} />
-        <div className="share-actions">
-          <button className="btn btn-primary" onClick={copy}>
-            {copied ? t.common.copied : t.common.copyLink}
-          </button>
-          {canNativeShare && (
-            <button className="btn" onClick={nativeShare}>
-              {t.share.shareVia}
-            </button>
-          )}
-        </div>
+  return (
+    <Modal label={t.shareApp.title} className="share-modal share-app-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.shareApp.title}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
       </div>
-    </div>,
-    document.body,
+      <p className="share-intro">{t.shareApp.intro}</p>
+      {/* Always black on white, whatever the theme: that's what camera apps read best. */}
+      <svg className="share-app-qr" viewBox={`${-MARGIN} ${-MARGIN} ${box} ${box}`} shapeRendering="crispEdges" role="img" aria-label={t.shareApp.qrLabel}>
+        <rect x={-MARGIN} y={-MARGIN} width={box} height={box} fill="#fff" />
+        <path d={path} fill="#000" />
+      </svg>
+      <p className="text-dim share-app-hint">{t.shareApp.hint}</p>
+      <input className="share-link" readOnly value={APP_URL} onFocus={(e) => e.currentTarget.select()} />
+      <div className="share-actions">
+        <button className="btn btn-primary" onClick={copy}>
+          {copied ? t.common.copied : t.common.copyLink}
+        </button>
+        {canNativeShare && (
+          <button className="btn" onClick={nativeShare}>
+            {t.share.shareVia}
+          </button>
+        )}
+      </div>
+    </Modal>
   )
 }

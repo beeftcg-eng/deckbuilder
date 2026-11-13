@@ -1,4 +1,4 @@
-import { createPortal } from 'react-dom'
+import { Modal } from './Modal'
 import { t } from '../shared/i18n'
 
 /** The desktop keyboard shortcuts (App.tsx), opened with ? or from the sidebar. */
@@ -12,29 +12,26 @@ export function ShortcutsModal({ onClose }: { onClose: () => void }) {
     ['Esc', t.shortcuts.close],
     ['?', t.shortcuts.help],
   ]
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal shortcuts-modal" role="dialog" aria-modal="true" aria-label={t.shortcuts.title} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.shortcuts.title}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-        <table className="shortcuts-table">
-          <tbody>
-            {rows.map(([key, what]) => (
-              <tr key={key}>
-                <td>
-                  <kbd>{key}</kbd>
-                </td>
-                <td>{what}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  return (
+    <Modal label={t.shortcuts.title} className="shortcuts-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.shortcuts.title}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
       </div>
-    </div>,
-    document.body,
+      <table className="shortcuts-table">
+        <tbody>
+          {rows.map(([key, what]) => (
+            <tr key={key}>
+              <td>
+                <kbd>{key}</kbd>
+              </td>
+              <td>{what}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Modal>
   )
 }

@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { deckMoveProblem, type MoveEnd } from '../shared/cardMoves'
 import { getAdapter } from '../shared/games/registry'
@@ -44,58 +44,55 @@ export function MoveCardsModal({ from, card, available, onClose }: Props) {
     if (moved) onClose()
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal move-cards-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={t.moveCards.title(card.name)}>
-        <div className="modal-header">
-          <span>{t.moveCards.title(card.name)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.cancel}
-          </button>
-        </div>
-        {!target ? (
-          <div className="text-dim">{t.moveCards.nowhere(getAdapter(card.gameId).shortName)}</div>
-        ) : (
-          <div className="move-cards-form">
-            <label>
-              <span className="text-dim">{t.moveCards.to}</span>
-              <select id="move-target" value={target} onChange={(e) => setTarget(e.target.value)}>
-                {targetBinders.length > 0 && (
-                  <optgroup label={t.moveCards.binders}>
-                    {targetBinders.map((b) => (
-                      <option key={b.id} value={`binder:${b.id}`}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {targetDecks.length > 0 && (
-                  <optgroup label={t.moveCards.decks}>
-                    {targetDecks.map((d) => (
-                      <option key={d.id} value={`deck:${d.id}`}>
-                        {d.locked ? '🔒 ' : ''}
-                        {d.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </label>
-            <label>
-              <span className="text-dim">{t.moveCards.copiesOf(available)}</span>
-              <input id="move-quantity" type="number" min={1} max={available} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
-            </label>
-            <div className="text-dim">{kind === 'deck' ? t.moveCards.explainDeck(fromName) : t.moveCards.explainBinder(fromName)}</div>
-            {problem && <div className="sync-error">{problem}</div>}
-            <div className="wishlist-actions">
-              <button className="btn btn-primary" onClick={move} disabled={busy || !!problem}>
-                {t.moveCards.move(n)}
-              </button>
-            </div>
-          </div>
-        )}
+  return (
+    <Modal label={t.moveCards.title(card.name)} className="move-cards-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.moveCards.title(card.name)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.cancel}
+        </button>
       </div>
-    </div>,
-    document.body,
+      {!target ? (
+        <div className="text-dim">{t.moveCards.nowhere(getAdapter(card.gameId).shortName)}</div>
+      ) : (
+        <div className="move-cards-form">
+          <label>
+            <span className="text-dim">{t.moveCards.to}</span>
+            <select id="move-target" value={target} onChange={(e) => setTarget(e.target.value)}>
+              {targetBinders.length > 0 && (
+                <optgroup label={t.moveCards.binders}>
+                  {targetBinders.map((b) => (
+                    <option key={b.id} value={`binder:${b.id}`}>
+                      {b.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {targetDecks.length > 0 && (
+                <optgroup label={t.moveCards.decks}>
+                  {targetDecks.map((d) => (
+                    <option key={d.id} value={`deck:${d.id}`}>
+                      {d.locked ? '🔒 ' : ''}
+                      {d.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </label>
+          <label>
+            <span className="text-dim">{t.moveCards.copiesOf(available)}</span>
+            <input id="move-quantity" type="number" min={1} max={available} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
+          </label>
+          <div className="text-dim">{kind === 'deck' ? t.moveCards.explainDeck(fromName) : t.moveCards.explainBinder(fromName)}</div>
+          {problem && <div className="sync-error">{problem}</div>}
+          <div className="wishlist-actions">
+            <button className="btn btn-primary" onClick={move} disabled={busy || !!problem}>
+              {t.moveCards.move(n)}
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
   )
 }

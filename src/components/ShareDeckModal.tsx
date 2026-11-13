@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useAppStore } from '../state/useAppStore'
 import { isNotSyncedError, shareUrl } from '../shared/deckShare'
 import type { Deck } from '../shared/types'
@@ -71,57 +71,54 @@ export function ShareDeckModal({ deck, onClose }: { deck: Deck; onClose: () => v
   // so a click in it would otherwise reach this overlay and close the share dialog too.
   if (showAccount) return <PawmodoroAccountModal onClose={() => setShowAccount(false)} />
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal share-modal" role="dialog" aria-modal="true" aria-label={`${t.share.title}: ${deck.name}`} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>
-            {t.share.title}: {deck.name}
-          </span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
+  return (
+    <Modal label={`${t.share.title}: ${deck.name}`} className="share-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>
+          {t.share.title}: {deck.name}
+        </span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
+      </div>
+      <p className="share-intro">{t.share.intro}</p>
+
+      {link ? (
+        <>
+          <input className="share-link" readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
+          <div className="share-actions">
+            <button className="btn btn-primary" onClick={copy}>
+              {copied ? t.share.copied : t.share.copy}
+            </button>
+            {canNativeShare && (
+              <button className="btn" onClick={nativeShare}>
+                {t.share.shareVia}
+              </button>
+            )}
+            {connected && (
+              <button className="btn btn-danger" disabled={busy} onClick={stop}>
+                {t.share.stop}
+              </button>
+            )}
+          </div>
+        </>
+      ) : connected ? (
+        <div className="share-actions">
+          <button className="btn btn-primary" disabled={busy} onClick={create}>
+            {busy ? t.share.creating : t.share.create}
           </button>
         </div>
-        <p className="share-intro">{t.share.intro}</p>
-
-        {link ? (
-          <>
-            <input className="share-link" readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
-            <div className="share-actions">
-              <button className="btn btn-primary" onClick={copy}>
-                {copied ? t.share.copied : t.share.copy}
-              </button>
-              {canNativeShare && (
-                <button className="btn" onClick={nativeShare}>
-                  {t.share.shareVia}
-                </button>
-              )}
-              {connected && (
-                <button className="btn btn-danger" disabled={busy} onClick={stop}>
-                  {t.share.stop}
-                </button>
-              )}
-            </div>
-          </>
-        ) : connected ? (
+      ) : (
+        <>
+          <p className="text-dim">{t.share.needAccount}</p>
           <div className="share-actions">
-            <button className="btn btn-primary" disabled={busy} onClick={create}>
-              {busy ? t.share.creating : t.share.create}
+            <button className="btn btn-primary" onClick={() => setShowAccount(true)}>
+              {t.share.logIn}
             </button>
           </div>
-        ) : (
-          <>
-            <p className="text-dim">{t.share.needAccount}</p>
-            <div className="share-actions">
-              <button className="btn btn-primary" onClick={() => setShowAccount(true)}>
-                {t.share.logIn}
-              </button>
-            </div>
-          </>
-        )}
-        {message && <p className="share-message">{message}</p>}
-      </div>
-    </div>,
-    document.body,
+        </>
+      )}
+      {message && <p className="share-message">{message}</p>}
+    </Modal>
   )
 }

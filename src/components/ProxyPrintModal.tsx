@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { ownedIndexOf, useAppStore, useCardsById } from '../state/useAppStore'
 import { useProxyList } from '../state/proxyList'
 import { getAdapter } from '../shared/games/registry'
@@ -84,66 +84,63 @@ export function ProxyPrintModal(props: Props) {
     }
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal import-modal proxy-modal" role="dialog" aria-modal="true" aria-label={props.deck ? t.proxies.title(deck.name) : t.proxies.listTitle(adapter.shortName)} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{props.deck ? t.proxies.title(deck.name) : t.proxies.listTitle(adapter.shortName)}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-        <div className="text-dim">
-          <Rich text={t.proxies.intro} />
-        </div>
-
-        {!props.deck &&
-          (cardsById.size === 0 ? (
-            <div className="text-dim">{t.importDeck.noData(adapter.shortName)}</div>
-          ) : (
-            <PrintList gameId={gameId} cardsById={cardsById} />
-          ))}
-
-        <label className="proxy-option">
-          <span>{t.proxies.paper}</span>
-          <select value={paper} onChange={(e) => setPaper(e.target.value as Paper)}>
-            <option value="letter">{t.proxies.letter}</option>
-            <option value="a4">{t.proxies.a4}</option>
-          </select>
-        </label>
-
-        {zones.length > 1 && (
-          <div className="proxy-option">
-            <span>{t.proxies.zones}</span>
-            <div className="proxy-zones">
-              {zones.map((z) => (
-                <label key={z.id}>
-                  <input type="checkbox" checked={zoneIds?.has(z.id) ?? true} onChange={() => toggleZone(z.id)} /> {zoneLabel(z.label)}
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <label className="proxy-option">
-          <input type="checkbox" checked={missingOnly} onChange={(e) => setMissingOnly(e.target.checked)} /> {t.proxies.missingOnly}
-        </label>
-
-        <div className="import-summary">
-          {total > 0 ? t.proxies.summary(total, pages) : props.deck ? t.proxies.nothing : t.proxies.listEmpty}
-          {!props.deck && total % perPage > 0 && ` ${t.proxies.roomLeft(perPage - (total % perPage))}`}
-        </div>
-
-        <div className="import-fields">
-          <button className="btn btn-primary" disabled={total === 0 || progress !== null} onClick={handleMake}>
-            {progress ? t.proxies.making(progress.done, progress.total) : t.proxies.make}
-          </button>
-        </div>
-        {message && <div className={message.error ? 'sync-error' : 'text-dim'}>{message.text}</div>}
-        <div className="text-dim proxy-note">{t.proxies.note}</div>
+  return (
+    <Modal label={props.deck ? t.proxies.title(deck.name) : t.proxies.listTitle(adapter.shortName)} className="import-modal proxy-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{props.deck ? t.proxies.title(deck.name) : t.proxies.listTitle(adapter.shortName)}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
       </div>
-    </div>,
-    document.body,
+      <div className="text-dim">
+        <Rich text={t.proxies.intro} />
+      </div>
+
+      {!props.deck &&
+        (cardsById.size === 0 ? (
+          <div className="text-dim">{t.importDeck.noData(adapter.shortName)}</div>
+        ) : (
+          <PrintList gameId={gameId} cardsById={cardsById} />
+        ))}
+
+      <label className="proxy-option">
+        <span>{t.proxies.paper}</span>
+        <select value={paper} onChange={(e) => setPaper(e.target.value as Paper)}>
+          <option value="letter">{t.proxies.letter}</option>
+          <option value="a4">{t.proxies.a4}</option>
+        </select>
+      </label>
+
+      {zones.length > 1 && (
+        <div className="proxy-option">
+          <span>{t.proxies.zones}</span>
+          <div className="proxy-zones">
+            {zones.map((z) => (
+              <label key={z.id}>
+                <input type="checkbox" checked={zoneIds?.has(z.id) ?? true} onChange={() => toggleZone(z.id)} /> {zoneLabel(z.label)}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <label className="proxy-option">
+        <input type="checkbox" checked={missingOnly} onChange={(e) => setMissingOnly(e.target.checked)} /> {t.proxies.missingOnly}
+      </label>
+
+      <div className="import-summary">
+        {total > 0 ? t.proxies.summary(total, pages) : props.deck ? t.proxies.nothing : t.proxies.listEmpty}
+        {!props.deck && total % perPage > 0 && ` ${t.proxies.roomLeft(perPage - (total % perPage))}`}
+      </div>
+
+      <div className="import-fields">
+        <button className="btn btn-primary" disabled={total === 0 || progress !== null} onClick={handleMake}>
+          {progress ? t.proxies.making(progress.done, progress.total) : t.proxies.make}
+        </button>
+      </div>
+      {message && <div className={message.error ? 'sync-error' : 'text-dim'}>{message.text}</div>}
+      <div className="text-dim proxy-note">{t.proxies.note}</div>
+    </Modal>
   )
 }
 

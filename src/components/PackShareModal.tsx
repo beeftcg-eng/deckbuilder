@@ -1,5 +1,5 @@
+import { Modal } from './Modal'
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { renderPackOpeningImage } from '../lib/packOpeningImage'
 import { openingSummaryText, type PackOpening } from '../shared/packOpenings'
 import { dataUrlBytes, imageExtension } from '../shared/exportImage'
@@ -54,39 +54,36 @@ export function PackShareModal(props: { opening: PackOpening; lookup: (cardId: s
     }
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal export-modal" role="dialog" aria-modal="true" aria-label={t.packs.shareHeading} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span>{t.packs.shareHeading}</span>
-          <button className="btn" onClick={onClose}>
-            {t.common.close}
-          </button>
-        </div>
-        <div className="export-actions">
-          {file && (
-            <button className="btn btn-primary" onClick={() => void shareFile()}>
-              {t.packs.shareNative}
-            </button>
-          )}
-          {imageDataUrl && (
-            <button className={file ? 'btn' : 'btn btn-primary'} onClick={() => void window.api.exportSaveImage(imageDataUrl, fileName(opening, imageDataUrl))}>
-              {t.exportCommon.saveImage((dataUrlBytes(imageDataUrl) / 1048576).toFixed(1))}
-            </button>
-          )}
-          <button className="btn" onClick={() => void copyText()}>
-            {copied ? t.common.copied : t.packs.copySummary}
-          </button>
-        </div>
-        {imageError && <div className="sync-error">{t.exportCommon.imageFailed(imageError)}</div>}
-        {!imageDataUrl && !imageError && <div className="text-dim">{t.packs.rendering}</div>}
-        {imageDataUrl && (
-          <div className="image-preview">
-            <img src={imageDataUrl} alt={t.packs.imageAlt} />
-          </div>
-        )}
+  return (
+    <Modal label={t.packs.shareHeading} className="export-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{t.packs.shareHeading}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
       </div>
-    </div>,
-    document.body,
+      <div className="export-actions">
+        {file && (
+          <button className="btn btn-primary" onClick={() => void shareFile()}>
+            {t.packs.shareNative}
+          </button>
+        )}
+        {imageDataUrl && (
+          <button className={file ? 'btn' : 'btn btn-primary'} onClick={() => void window.api.exportSaveImage(imageDataUrl, fileName(opening, imageDataUrl))}>
+            {t.exportCommon.saveImage((dataUrlBytes(imageDataUrl) / 1048576).toFixed(1))}
+          </button>
+        )}
+        <button className="btn" onClick={() => void copyText()}>
+          {copied ? t.common.copied : t.packs.copySummary}
+        </button>
+      </div>
+      {imageError && <div className="sync-error">{t.exportCommon.imageFailed(imageError)}</div>}
+      {!imageDataUrl && !imageError && <div className="text-dim">{t.packs.rendering}</div>}
+      {imageDataUrl && (
+        <div className="image-preview">
+          <img src={imageDataUrl} alt={t.packs.imageAlt} />
+        </div>
+      )}
+    </Modal>
   )
 }
