@@ -5750,3 +5750,23 @@
     padding: 6px 0 0;
   }
 }
+
+.rb-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+.rb-showdown {
+  background: var(--danger-dim);
+}
+
+.rb-unit.targetable {
+  outline: 2px dashed var(--accent);
+  cursor: crosshair;
+}

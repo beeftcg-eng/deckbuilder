@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { applyTool, canPlay, endTurn, move, mulligan, newGame, play, runeCount, type DeckSetup, type GameState } from './riftbound'
-import { BOT, botMulligan, botTurn, damageSpell, setupFromDeck } from './riftboundBot'
+import { applyTool, canPlay, endTurn, move, mulligan, newGame, pass, play, runeCount, type DeckSetup, type GameState } from './riftbound'
+import { BOT, botAct, botMulligan, botShouldAct, setupFromDeck, type Level } from './riftboundBot'
 import { makeCard, makeDeck } from '../testFixtures'
+import { scriptOf } from './riftboundEffects'
 
 function seeded(seed: number) {
   return () => {
@@ -93,12 +94,13 @@ describe('playing, moving and scoring', () => {
     s = applyTool(s, { kind: 'control', battlefield: 0, side: 1 })
     const state = structuredClone(s)
     state.battlefields[0].units = [
-      { uid: 't', card: tank, owner: 1, might: 3, bonus: 0, damage: 0, exhausted: false, stunned: false, keywords: { assault: 0, shield: 0, tank: true, backline: false, ganking: false, accelerate: false, temporary: false } },
-      { uid: 's', card: small, owner: 1, might: 1, bonus: 0, damage: 0, exhausted: false, stunned: false, keywords: { assault: 0, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false } },
+      { uid: 't', card: tank, owner: 1, might: 3, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: { assault: 0, shield: 0, tank: true, backline: false, ganking: false, accelerate: false, temporary: false } },
+      { uid: 's', card: small, owner: 1, might: 1, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: { assault: 0, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false } },
     ]
-    state.players[0].base = [{ uid: 'a', card: attacker, owner: 0, might: 2, bonus: 0, damage: 0, exhausted: false, stunned: false, keywords: { assault: 2, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false } }]
+    state.players[0].base = [{ uid: 'a', card: attacker, owner: 0, might: 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: { assault: 2, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false } }]
     // 4 Might (2 + Assault 2) kills the 3-Might Tank first and 1 left hits Small (1): both die.
-    const after = move(state, 0, ['a'], 0)
+    // Straight to combat (no showdown window).
+    const after = move(state, 0, ['a'], 0, true)
     expect(after.battlefields[0].units.filter((u) => u.owner === 1)).toHaveLength(0)
     // Their 4 Might killed the attacker (2), so nobody holds it: it stays theirs.
     expect(after.players[0].base).toHaveLength(0)
@@ -123,14 +125,69 @@ describe('playing, moving and scoring', () => {
     expect(s.winner).toBe(0)
   })
 
-  it('logs a spell with its text for you to resolve', () => {
-    const bolt = makeCard('riftbound', { name: 'Bolt', category: 'Spell', cost: '1', colors: ['Fury'], text: 'Deal 3 to a unit.' })
-    let s = started(setup(Array.from({ length: 40 }, () => bolt)))
+  it('logs a spell it can\'t read, for you to resolve', () => {
+    const odd = makeCard('riftbound', { name: 'Odd', category: 'Spell', cost: '1', colors: ['Fury'], text: 'Swap the Might of two units at the same battlefield this turn.' })
+    let s = started(setup(Array.from({ length: 40 }, () => odd)))
     s = play(s, 0, 0)
     expect(s.players[0].trash).toHaveLength(1)
-    expect(s.log.at(-1)).toMatchObject({ kind: 'spell', card: { name: 'Bolt' } })
-    expect(damageSpell(bolt)).toBe(3)
-    expect(canPlay(s, 1, bolt)).toBe(false) // not their turn
+    expect(s.log.at(-1)).toMatchObject({ kind: 'spell', card: { name: 'Odd' } })
+    expect(canPlay(s, 1, odd)).toBe(false) // not their turn
+  })
+})
+
+describe('card text the game runs', () => {
+  const bolt = makeCard('riftbound', { name: 'Bolt', category: 'Spell', cost: '1', colors: ['Fury'], text: 'Deal 3 to a unit.' })
+  const rally = makeCard('riftbound', { name: 'Rally', category: 'Spell', cost: '0', colors: ['Fury'], text: '[Action] (Play on your turn or in showdowns.)Give a friendly unit +3 Might this turn.' })
+  const scout = unit('Scout', 1, 1, { text: 'When you play me, draw 1.' })
+  const bomber = unit('Bomber', 1, 2, { text: '[Deathknell] — Play two 1 :rb_might: Recruit unit tokens to your base.' })
+
+  it('reads the common wordings', () => {
+    expect(scriptOf(bolt)).toMatchObject({ full: true, spell: [{ kind: 'damage', amount: 3, target: { who: 'any', all: false } }] })
+    expect(scriptOf(rally)).toMatchObject({ full: true, timing: 'action', spell: [{ kind: 'might', amount: 3, target: { who: 'friendly' } }] })
+    expect(scriptOf(scout).abilities).toEqual([{ trigger: 'play', effects: [{ kind: 'draw', amount: 1 }] }])
+    expect(scriptOf(bomber).abilities[0]).toMatchObject({ trigger: 'death', effects: [{ kind: 'token', count: 2, might: 1, name: 'Recruit' }] })
+    expect(scriptOf(makeCard('riftbound', { name: 'X', category: 'Spell', text: 'Counter a spell.' })).full).toBe(false)
+    expect(scriptOf(makeCard('riftbound', { name: 'Y', category: 'Spell', text: 'Give enemy units -2 :rb_might: this turn, to a minimum of 1 :rb_might:.' })).spell[0]).toMatchObject({ kind: 'might', amount: -2, floor: 1, target: { who: 'enemy', all: true } })
+  })
+
+  it('resolves a spell at the unit you pick, and the unit dies', () => {
+    let s = started(setup(Array.from({ length: 40 }, () => bolt)), setup(Array.from({ length: 40 }, () => scout)))
+    s = endTurn(s) // their turn: they play a Scout and draw from it
+    const handBefore = s.players[1].hand.length
+    s = play(s, 1, 0)
+    expect(s.players[1].hand).toHaveLength(handBefore) // played one, drew one
+    s = endTurn(s)
+    const target = s.players[1].base[0].uid
+    s = play(s, 0, 0, { targets: [target] })
+    expect(s.players[1].base).toHaveLength(0)
+    expect(s.players[1].trash.map((c) => c.name)).toContain('Scout')
+  })
+
+  it('runs Deathknell: tokens when the unit dies', () => {
+    let s = started(setup(Array.from({ length: 40 }, () => bomber)))
+    s = play(s, 0, 0)
+    s = applyTool(s, { kind: 'kill', unit: s.players[0].base[0].uid })
+    expect(s.players[0].base.map((u) => u.card.name)).toEqual(['Recruit token', 'Recruit token'])
+  })
+
+  it('opens a showdown: an Action cast changes the fight, two passes and combat happens', () => {
+    let s = started(setup(Array.from({ length: 40 }, () => unit('Two', 2, 2))), setup(Array.from({ length: 40 }, () => rally)))
+    s = applyTool(s, { kind: 'control', battlefield: 0, side: 1 })
+    // A 2-Might attacker against a 2-Might defender, by hand.
+    const state = structuredClone(s)
+    state.battlefields[0].units = [{ uid: 'd', card: unit('Guard', 2, 2), owner: 1, might: 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: { assault: 0, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false } }]
+    state.players[0].base = [{ uid: 'a', card: unit('Two', 2, 2), owner: 0, might: 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: { assault: 0, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false } }]
+    let t = move(state, 0, ['a'], 0)
+    expect(t.showdown).toMatchObject({ battlefield: 0, attacker: 0, focus: 1 })
+    expect(canPlay(t, 1, rally)).toBe(true) // the defender may answer with an Action
+    t = play(t, 1, 0, { targets: ['d'] })
+    expect(t.showdown?.focus).toBe(0)
+    t = pass(t, 0)
+    t = pass(t, 1)
+    expect(t.showdown).toBeNull()
+    // 5 Might against 2: the attacker died, the Guard stayed.
+    expect(t.players[0].base).toHaveLength(0)
+    expect(t.battlefields[0].units.map((u) => u.uid)).toEqual(['d'])
   })
 })
 
@@ -143,15 +200,30 @@ describe('the bot', () => {
     expect(s.log.some((l) => l.side === BOT && l.text === 'Opponent mulliganed 2.')).toBe(true)
   })
 
-  it('plays, takes battlefields and wins a game where you only end your turns', () => {
+  it.each(['easy', 'normal', 'hard'] as Level[])('%s: plays, takes battlefields and wins a game where you only end your turns', (level) => {
     let s = started()
-    for (let i = 0; i < 40 && s.phase !== 'over'; i++) {
-      s = endTurn(s)
-      const steps = botTurn(s)
-      if (steps.length) s = steps.at(-1)!
+    for (let i = 0; i < 400 && s.phase !== 'over'; i++) {
+      if (botShouldAct(s, BOT)) s = botAct(s, BOT, level, undefined, seeded(9))
+      else if (s.showdown) s = pass(s, s.showdown.focus)
+      else s = endTurn(s)
     }
     expect(s.winner).toBe(BOT)
     expect(s.players[1].points).toBeGreaterThanOrEqual(8)
+  })
+
+  it('answers an attack with an Action on Hard', () => {
+    const rally = makeCard('riftbound', { name: 'Rally', category: 'Spell', cost: '0', colors: ['Fury'], text: '[Action] Give a friendly unit +3 Might this turn.' })
+    let s = started(setup(Array.from({ length: 40 }, () => unit('Two', 2, 2))), setup(Array.from({ length: 40 }, () => rally)))
+    const state = structuredClone(s)
+    const k = { assault: 0, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false }
+    state.battlefields[0] = { ...state.battlefields[0], controller: 1, units: [{ uid: 'd', card: unit('Guard', 2, 2), owner: 1, might: 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: k }] }
+    state.players[0].base = [{ uid: 'a', card: unit('Two', 2, 2), owner: 0, might: 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: k }]
+    s = move(state, 0, ['a'], 0)
+    expect(botShouldAct(s, BOT)).toBe(true)
+    const hard = botAct(s, BOT, 'hard')
+    expect(hard.players[1].trash.map((c) => c.name)).toEqual(['Rally'])
+    const normal = botAct(s, BOT, 'normal')
+    expect(normal.showdown?.passes).toBe(1)
   })
 
   it('reads a deck: Legend, Chosen Champion out of the main deck, battlefields and runes', () => {

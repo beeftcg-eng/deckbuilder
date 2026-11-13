@@ -9,10 +9,14 @@ import {
   canMove,
   canPlay,
   combatMight,
+  mightNow,
   costOf,
   endTurn,
   isUnit,
   keywordsOf,
+  legalTargets,
+  pass,
+  playChoices,
   move as moveUnits,
   mulligan,
   newGame,
@@ -23,7 +27,8 @@ import {
   type Tool,
   type Unit,
 } from '../../shared/practice/riftbound'
-import { BOT, botMulligan, botTurn, setupFromDeck } from '../../shared/practice/riftboundBot'
+import { BOT, botAct, botMulligan, botShouldAct, setupFromDeck, type Level } from '../../shared/practice/riftboundBot'
+import { describeEffect, scriptOf, type Effect } from '../../shared/practice/riftboundEffects'
 import { DOMAIN_COLORS } from '../../lib/domainColors'
 import type { Card, Deck } from '../../shared/types'
 import { t } from '../../shared/i18n'
@@ -39,33 +44,29 @@ type Opponent = { kind: 'none' } | { kind: 'legend'; legendId: string }
 /**
  * A Riftbound practice game (shared/practice/riftbound.ts) on a real board: against nobody, or
  * against the bot playing a recent Community list (riftboundBot.ts). You play your side by hand.
- * The game runs turns, paying, moves, combat and scoring; card effects are yours to apply with the
- * tools on a selected unit or the side bars.
+ * The game runs turns, paying, moves, showdowns, combat and scoring, and the card text it can read;
+ * anything else is yours to apply with the tools on a selected unit or the side bars.
  */
 export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => void }) {
   const cardsById = useCardsById('riftbound')
   const [game, setGame] = useState<GameState | null>(null)
   const [history, setHistory] = useState<GameState[]>([])
   const [botRunning, setBotRunning] = useState(false)
+  const [level, setLevel] = useState<Level>('normal')
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
-  /** Shows a new state; when it's the bot's turn, plays it out one step at a time. */
-  function show(next: GameState) {
+  /**
+   * Shows a new state; while the bot has a move (its turn, or a showdown waiting on it), it makes
+   * them one at a time, stopping when a showdown waits on you.
+   */
+  function show(next: GameState, botLevel = level) {
     setGame(next)
-    if (next.phase !== 'main' || next.active !== BOT) return
-    const steps = botTurn(next)
-    if (!steps.length) return
-    setBotRunning(true)
-    steps.forEach((step, i) => {
-      timers.current.push(
-        setTimeout(() => {
-          setGame(step)
-          if (i === steps.length - 1) setBotRunning(false)
-        }, (i + 1) * BOT_STEP_MS),
-      )
-    })
+    const bots = !next.players[BOT].empty && botShouldAct(next, BOT)
+    setBotRunning(bots)
+    if (!bots) return
+    timers.current.push(setTimeout(() => show(botAct(next, BOT, botLevel), botLevel), BOT_STEP_MS))
   }
 
   function update(next: GameState) {
@@ -74,7 +75,19 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
     show(next)
   }
 
-  if (!game) return <Setup deck={deck} cardsById={cardsById} onStart={show} onClose={onClose} />
+  if (!game) {
+    return (
+      <Setup
+        deck={deck}
+        cardsById={cardsById}
+        onStart={(g, l) => {
+          setLevel(l)
+          show(g, l)
+        }}
+        onClose={onClose}
+      />
+    )
+  }
 
   return (
     <Modal label={t.practiceGame.title(deck.name)} className="rb-game-modal" onClose={onClose}>
@@ -99,12 +112,18 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
 
 // ---------- choosing the opponent ----------
 
-function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: Map<string, Card>; onStart: (g: GameState) => void; onClose: () => void }) {
+function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: Map<string, Card>; onStart: (g: GameState, level: Level) => void; onClose: () => void }) {
   const { lists } = useCommunityLists('riftbound', true)
   const legends = useMemo(() => legendMeta(lists ?? []).slice(0, 30), [lists])
   const [opponent, setOpponent] = useState<Opponent>({ kind: 'none' })
   const [first, setFirst] = useState<'random' | 'me' | 'them'>('random')
+  const [level, setLevel] = useState<Level>('normal')
   const mine = useMemo(() => setupFromDeck(deck, cardsById), [deck, cardsById])
+  // How many of the deck's different cards the game runs by itself.
+  const coverage = useMemo(() => {
+    const distinct = [...new Map([...mine.main, ...(mine.champion ? [mine.champion] : [])].map((c) => [c.name, c])).values()]
+    return { auto: distinct.filter((c) => scriptOf(c).full).length, total: distinct.length }
+  }, [mine])
   const noMight = useMemo(() => mine.main.filter(isUnit).length > 0 && mine.main.filter(isUnit).every((c) => c.might == null), [mine])
   const problems = [
     !mine.legend && t.practiceGame.needLegend,
@@ -128,7 +147,7 @@ function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: M
     }
     let g = newGame(mine, them, { first: first === 'me' ? 0 : first === 'them' ? 1 : undefined })
     if (them) g = botMulligan(g)
-    onStart(g)
+    onStart(g, level)
   }
 
   return (
@@ -173,6 +192,17 @@ function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: M
               </select>
             </label>
           )}
+          {opponent.kind !== 'none' && (
+            <label className="rb-setup-row">
+              <span>{t.practiceGame.level}</span>
+              <select value={level} onChange={(e) => setLevel(e.target.value as Level)}>
+                <option value="easy">{t.practiceGame.easy}</option>
+                <option value="normal">{t.practiceGame.normal}</option>
+                <option value="hard">{t.practiceGame.hard}</option>
+              </select>
+            </label>
+          )}
+          <p className="text-dim">{t.practiceGame.coverage(coverage.auto, coverage.total)}</p>
           {noMight && <p className="text-dim">{t.practiceGame.noMight}</p>}
           <p className="text-dim">{opponent.kind === 'none' ? t.practiceGame.nobodyHelp : t.practiceGame.botHelp}</p>
           <div className="announcement-actions">
@@ -204,7 +234,12 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
   const [mulliganPick, setMulliganPick] = useState<number[]>([])
   const [detail, setDetail] = useState<Card | null>(null)
   const [showLog, setShowLog] = useState(true)
-  const yourTurn = game.phase === 'main' && game.active === 0 && !busy
+  /** A card being played that needs units picked for its effects: what's been picked so far. */
+  const [targeting, setTargeting] = useState<{ handIndex: number; options: { accelerate?: boolean; battlefield?: number }; effects: Effect[]; picks: (string | null)[] } | null>(null)
+  const showdown = game.showdown
+  const yourTurn = game.phase === 'main' && game.active === 0 && !busy && !showdown
+  /** You may play cards: your turn, or a showdown waiting on you. */
+  const yourMove = game.phase === 'main' && !busy && (showdown ? showdown.focus === 0 : game.active === 0)
   const goldfish = game.players[1].empty
   const units = useMemo(() => [...game.players[0].base, ...game.players[1].base, ...game.battlefields.flatMap((b) => b.units)], [game])
   const selectedUnits = units.filter((u) => selected.includes(u.uid))
@@ -216,7 +251,34 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
     setHandPick(null)
   }
   const tool = (tl: Tool) => act(applyTool(game, tl))
-  const toggle = (u: Unit) => setSelected((ids) => (ids.includes(u.uid) ? ids.filter((id) => id !== u.uid) : [...ids, u.uid]))
+  const targetEffect = targeting ? targeting.effects[targeting.picks.length] : undefined
+  const targetHere = targeting?.options.battlefield ?? showdown?.battlefield ?? null
+  const legalNow = targetEffect && 'target' in targetEffect ? legalTargets(game, 0, targetEffect.target, targetHere) : []
+  function pick(id: string | null) {
+    if (!targeting) return
+    const picks = [...targeting.picks, id]
+    if (picks.length < targeting.effects.length) setTargeting({ ...targeting, picks })
+    else {
+      setTargeting(null)
+      act(play(game, 0, targeting.handIndex, { ...targeting.options, targets: picks }))
+    }
+  }
+  /** Plays a card; one whose effects need units picked asks for them first. */
+  function playCard(handIndex: number, options: { accelerate?: boolean; battlefield?: number; free?: boolean }) {
+    const card = handIndex === -1 ? game.players[0].champion : game.players[0].hand[handIndex]
+    const choices = card && !options.free ? playChoices(card) : []
+    if (choices.length) {
+      setTargeting({ handIndex, options, effects: choices, picks: [] })
+      setHandPick(null)
+    } else act(play(game, 0, handIndex, options))
+  }
+  const toggle = (u: Unit) => {
+    if (targeting) {
+      if (legalNow.some((x) => x.uid === u.uid)) pick(u.uid)
+      return
+    }
+    setSelected((ids) => (ids.includes(u.uid) ? ids.filter((id) => id !== u.uid) : [...ids, u.uid]))
+  }
 
   const moveTo = (to: 'base' | number) => act(movePicked(game, mineSelected.map((u) => u.uid), to))
 
@@ -275,10 +337,33 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
         </span>
       </div>
 
+      {targeting && targetEffect && (
+        <div className="rb-prompt" role="status">
+          <span>{t.practiceGame.choose(describeEffect(targetEffect))}</span>
+          {!legalNow.length && <span className="text-dim">{t.practiceGame.noTargets}</span>}
+          <button className="btn" onClick={() => pick(null)}>
+            {t.practiceGame.skip}
+          </button>
+          <button className="btn" onClick={() => setTargeting(null)}>
+            {t.common.cancel}
+          </button>
+        </div>
+      )}
+      {showdown && (
+        <div className="rb-prompt rb-showdown" role="status">
+          <span>
+            {t.practiceGame.showdown(bfName(game, showdown.battlefield))}{' '}
+            {showdown.focus === 0 ? t.practiceGame.yourAnswer : t.practiceGame.theirAnswer}
+          </span>
+          <button className="btn btn-primary" disabled={showdown.focus !== 0 || busy} onClick={() => act(pass(game, 0))}>
+            {t.practiceGame.pass}
+          </button>
+        </div>
+      )}
       <div className={`rb-main ${showLog ? 'with-log' : ''}`}>
         <div className="rb-field">
           {!goldfish && <PlayerBar game={game} side={1} onTool={tool} />}
-          {!goldfish && <Base game={game} side={1} selected={selected} onUnit={toggle} onDetail={setDetail} />}
+          {!goldfish && <Base game={game} side={1} selected={selected} targetable={legalNow.map((u) => u.uid)} onUnit={toggle} onDetail={setDetail} />}
 
           <div className="rb-battlefields">
             {game.battlefields.map((bf, i) => (
@@ -291,12 +376,12 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
                 </header>
                 <div className="rb-units theirs">
                   {bf.units.filter((u) => u.owner === 1).map((u) => (
-                    <UnitChip key={u.uid} unit={u} selected={selected.includes(u.uid)} onClick={() => toggle(u)} onDetail={() => setDetail(u.card)} />
+                    <UnitChip key={u.uid} unit={u} targetable={legalNow.some((x) => x.uid === u.uid)} selected={selected.includes(u.uid)} onClick={() => toggle(u)} onDetail={() => setDetail(u.card)} />
                   ))}
                 </div>
                 <div className="rb-units mine">
                   {bf.units.filter((u) => u.owner === 0).map((u) => (
-                    <UnitChip key={u.uid} unit={u} selected={selected.includes(u.uid)} onClick={() => toggle(u)} onDetail={() => setDetail(u.card)} />
+                    <UnitChip key={u.uid} unit={u} targetable={legalNow.some((x) => x.uid === u.uid)} selected={selected.includes(u.uid)} onClick={() => toggle(u)} onDetail={() => setDetail(u.card)} />
                   ))}
                 </div>
                 {mineSelected.length > 0 && yourTurn && (
@@ -308,13 +393,13 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
             ))}
           </div>
 
-          <Base game={game} side={0} selected={selected} onUnit={toggle} onDetail={setDetail} />
+          <Base game={game} side={0} selected={selected} targetable={legalNow.map((u) => u.uid)} onUnit={toggle} onDetail={setDetail} />
           {mineSelected.length > 0 && yourTurn && (
             <button className="btn rb-move-base" disabled={!canMove(game, 0, mineSelected.map((u) => u.uid), 'base')} onClick={() => moveTo('base')}>
               {t.practiceGame.moveBase}
             </button>
           )}
-          <PlayerBar game={game} side={0} onTool={tool} onPlayChampion={yourTurn ? () => act(play(game, 0, -1)) : undefined} />
+          <PlayerBar game={game} side={0} onTool={tool} onPlayChampion={yourTurn ? () => playCard(-1, {}) : undefined} />
 
           {selectedUnits.length === 1 && <UnitTools unit={selectedUnits[0]} onTool={tool} onDone={() => setSelected([])} />}
 
@@ -322,7 +407,7 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
             {game.players[0].hand.map((card, i) => (
               <div key={`${card.id}-${i}`} className="rb-hand-slot">
                 <button
-                  className={`rb-hand-card ${yourTurn && !canPlay(game, 0, card) ? 'unaffordable' : ''} ${handPick === i ? 'picked' : ''}`}
+                  className={`rb-hand-card ${yourMove && !canPlay(game, 0, card) ? 'unaffordable' : ''} ${handPick === i ? 'picked' : ''}`}
                   aria-expanded={handPick === i}
                   onClick={() => setHandPick(handPick === i ? null : i)}
                 >
@@ -332,8 +417,8 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
                   <HandMenu
                     game={game}
                     card={card}
-                    yourTurn={yourTurn}
-                    onPlay={(options) => act(play(game, 0, i, options))}
+                    yourTurn={yourMove}
+                    onPlay={(options) => playCard(i, options)}
                     onDiscard={() => tool({ kind: 'discard', side: 0, handIndex: i })}
                     onDetail={() => setDetail(card)}
                   />
@@ -360,15 +445,15 @@ function CardFace({ card }: { card: Card }) {
   return card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} loading="lazy" /> : <span className="rb-card-name">{card.name}</span>
 }
 
-function UnitChip({ unit, selected, onClick, onDetail }: { unit: Unit; selected: boolean; onClick: () => void; onDetail: () => void }) {
-  const might = unit.might + unit.bonus
+function UnitChip({ unit, selected, targetable, onClick, onDetail }: { unit: Unit; selected: boolean; targetable?: boolean; onClick: () => void; onDetail: () => void }) {
+  const might = mightNow(unit)
   const kw = unit.keywords
-  const tags = [kw.tank && 'Tank', kw.assault && `Assault ${kw.assault}`, kw.shield && `Shield ${kw.shield}`, kw.ganking && 'Ganking', kw.backline && 'Backline', kw.temporary && 'Temporary', unit.stunned && t.practiceGame.stunned]
+  const tags = [kw.tank && 'Tank', kw.assault && `Assault ${kw.assault}`, kw.shield && `Shield ${kw.shield}`, kw.ganking && 'Ganking', kw.backline && 'Backline', kw.temporary && 'Temporary', unit.stunned && t.practiceGame.stunned, unit.buffed && t.practiceGame.buffed, unit.temp !== 0 && t.practiceGame.thisTurn(unit.temp)]
     .filter(Boolean)
     .join(' · ')
   const color = DOMAIN_COLORS[unit.card.colors[0]] ?? 'var(--accent)'
   return (
-    <div className={`rb-unit ${unit.exhausted ? 'exhausted' : ''} ${selected ? 'selected' : ''} ${unit.owner === 0 ? 'mine' : 'theirs'}`} style={{ '--domain-a': color } as CSSProperties}>
+    <div className={`rb-unit ${unit.exhausted ? 'exhausted' : ''} ${selected ? 'selected' : ''} ${targetable ? 'targetable' : ''} ${unit.owner === 0 ? 'mine' : 'theirs'}`} style={{ '--domain-a': color } as CSSProperties}>
       <button className="rb-unit-main" aria-pressed={selected} onClick={onClick} title={unit.card.text ?? undefined}>
         <span className="rb-unit-name">{unit.card.name.replace(/\s*\([^)]*\)$/, '')}</span>
         <span className="rb-unit-might">
@@ -387,14 +472,14 @@ function UnitChip({ unit, selected, onClick, onDetail }: { unit: Unit; selected:
   )
 }
 
-function Base({ game, side, selected, onUnit, onDetail }: { game: GameState; side: Side; selected: string[]; onUnit: (u: Unit) => void; onDetail: (c: Card) => void }) {
+function Base({ game, side, selected, targetable, onUnit, onDetail }: { game: GameState; side: Side; selected: string[]; targetable: string[]; onUnit: (u: Unit) => void; onDetail: (c: Card) => void }) {
   const p = game.players[side]
   return (
     <section className={`rb-base ${side === 0 ? 'mine' : 'theirs'}`} aria-label={side === 0 ? t.practiceGame.yourBase : t.practiceGame.theirBase}>
       <span className="rb-zone-label text-dim">{side === 0 ? t.practiceGame.yourBase : t.practiceGame.theirBase}</span>
       <div className="rb-units">
         {p.base.map((u) => (
-          <UnitChip key={u.uid} unit={u} selected={selected.includes(u.uid)} onClick={() => onUnit(u)} onDetail={() => onDetail(u.card)} />
+          <UnitChip key={u.uid} unit={u} targetable={targetable.includes(u.uid)} selected={selected.includes(u.uid)} onClick={() => onUnit(u)} onDetail={() => onDetail(u.card)} />
         ))}
         {p.gear.map((g) => (
           <button key={g.uid} className="rb-gear" onClick={() => onDetail(g.card)}>
