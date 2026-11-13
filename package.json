@@ -18,6 +18,7 @@
     "build:web": "tsc -b && vitest run && vite build --config vite.web.config.ts",
     "lint": "oxlint",
     "check": "tsc -b && oxlint && vitest run",
+    "e2e": "playwright test",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -27,6 +28,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",

@@ -30,3 +30,24 @@ jobs:
           DECKBUILDER_SMOKE_TEST: "1"
           DECKBUILDER_DISABLE_UPDATES: "1"
         run: xvfb-run -a npx electron . --no-sandbox
+
+  # The phone app's build, driven in Chromium at desktop and phone sizes (e2e/, playwright.config.ts):
+  # importing, building, Ctrl+K, Practice, a ban list update, phone layout, and axe's WCAG 2.1 AA pass.
+  # Card data and outside files are fixtures, so it never depends on the network.
+  e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

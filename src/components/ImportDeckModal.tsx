@@ -172,8 +172,8 @@ export function ImportDeckModal({ gameId, onClose, initialText = '', initialName
             )}
 
             <div className="import-fields">
-              <input value={name} onChange={(e) => setNameDraft(e.target.value)} placeholder={t.importDeck.deckName} />
-              <select value={formatId} onChange={(e) => setFormatDraft(e.target.value)}>
+              <input value={name} onChange={(e) => setNameDraft(e.target.value)} placeholder={t.importDeck.deckName} aria-label={t.importDeck.deckName} />
+              <select value={formatId} aria-label={t.deckEditor.formatLabel} onChange={(e) => setFormatDraft(e.target.value)}>
                 {formats.map((f) => (
                   <option key={f.id} value={f.id}>
                     {formatLabel(gameId, f)}

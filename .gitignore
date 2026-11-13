@@ -44,3 +44,5 @@ flatpak/repo/
 flatpak/flathub-test/
 .health/
 .health-check/
+test-results/
+playwright-report/
