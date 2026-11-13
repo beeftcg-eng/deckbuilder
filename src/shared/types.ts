@@ -256,6 +256,11 @@ export interface Format {
    * process fills in the formats file's modified time when listing.
    */
   reviewedAt?: string
+  /**
+   * The published list (banLists.ts) this format was last merged with, so the next one can tell
+   * your own edits from official changes. Games whose lists aren't published don't have one.
+   */
+  published?: import('./banLists').PublishedFormat
 }
 
 export interface LegalityIssue {
@@ -351,6 +356,8 @@ export interface AppSettings {
   itemsSynced?: boolean
   /** Trade matches already announced on this device (tradeAlerts.ts). */
   tradeSeen?: string[]
+  /** The Yu-Gi-Oh! ban lists last applied on this device, by `yugioh:<format>` (banLists.ts). */
+  banListsSeen?: Record<string, import('./banLists').BanSnapshot>
 }
 
 /** A community list whose cost to finish you're watching: say so once when it drops to `target` (USD) or below. */

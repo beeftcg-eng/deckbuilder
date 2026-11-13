@@ -275,7 +275,7 @@ const defaultFormats: Format[] = [
     id: 'standard',
     label: 'Standard (current rotation + ban list)',
     description:
-      "Block 2 onward (OP-05 and later) as of the April 2026 rotation, which retired Block 1 (OP-01–OP-04 and starter decks ST-01–ST-09). New sets count as legal as soon as they're downloaded. Also applies the current official banned/restricted list as a snapshot from onepiece.gg. Bandai rotates the legal block window each April 1st (next: April 2027) — the rotated-out sets and the ban list are kept by hand, so re-check onepiece.gg then.",
+      "Block 2 onward (OP-05 and later) as of the April 2026 rotation, which retired Block 1 (OP-01–OP-04 and starter decks ST-01–ST-09). New sets count as legal as soon as they're downloaded. Also applies the current official banned/restricted list as a snapshot from onepiece.gg. Bandai rotates the legal block window each April 1st (next: April 2027). The ban list and rotation update themselves from the app's published list; your own edits in the ban list editor are kept.",
     illegalSetIds: ROTATED_OUT_SET_IDS,
     bannedCardIds: ['onepiece:OP06-116', 'onepiece:ST10-001', 'onepiece:OP06-086', 'onepiece:OP03-040', 'onepiece:OP06-047'],
     restrictedCardIds: [],

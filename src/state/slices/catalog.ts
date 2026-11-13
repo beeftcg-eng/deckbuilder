@@ -4,6 +4,8 @@ import { t } from '../../shared/i18n'
 import { getAdapter } from '../../shared/games/registry'
 import { withFixedLegendNames, withListingFixes } from '../../shared/games/riftboundExtras'
 import { errorMessage, type AppState } from '../storeUtils'
+import { applyYgoBanLists } from '../../shared/banLists'
+import { checkBanLists } from '../banListCheck'
 import type { StoreContext } from '../storeContext'
 
 /** Each game's card data: loading, syncing, formats, and Yu-Gi-Oh! artwork choices. */
@@ -14,6 +16,14 @@ export function createCatalogSlice(ctx: StoreContext) {
     syncMeta: {},
     syncProgress: {},
     formats: {},
+    banListUpdates: [],
+
+    checkBanLists: async () => {
+      const updates = await checkBanLists(get, set, persistSettings)
+      if (updates.length) set((s) => ({ banListUpdates: [...s.banListUpdates, ...updates] }))
+    },
+
+    dismissBanListUpdates: () => set({ banListUpdates: [] }),
 
     setArtChoice: (card, artId) => {
       const key = printingKey(card)
@@ -39,7 +49,10 @@ export function createCatalogSlice(ctx: StoreContext) {
       const loaded = await window.api.cards.load(gameId)
       if (gameId === 'yugioh') await loadArtMap().catch(() => undefined)
       // Card data saved before a fix to riftcodex's names or TCGplayer's listings gets it now, not at the next sync.
-      const cards = applyArtChoices(gameId === 'riftbound' ? withFixedLegendNames(withListingFixes(loaded)) : loaded, get().settings.artChoices)
+      const fixed = gameId === 'riftbound' ? withFixedLegendNames(withListingFixes(loaded)) : loaded
+      // A Yu-Gi-Oh! ban list published since these cards were downloaded counts now (banLists.ts).
+      const listed = gameId === 'yugioh' ? applyYgoBanLists(fixed, get().settings.banListsSeen, get().syncMeta.yugioh?.lastSynced ?? null) : fixed
+      const cards = applyArtChoices(listed, get().settings.artChoices)
       const byId = new Map(cards.map((c) => [c.id, c]))
       set((s) => ({ catalogs: { ...s.catalogs, [gameId]: { cards, byId } } }))
       // Card ids saved against older card data (Yu-Gi-Oh's changed in v0.12.0; Riftbound merged riftcodex's

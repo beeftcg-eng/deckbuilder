@@ -5065,3 +5065,65 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* Ban list updates (BanListUpdateModal.tsx) and the read-only list (BanListViewModal.tsx). */
+.banlist-update-modal {
+  max-width: 520px;
+}
+
+.banlist-update-body {
+  overflow-y: auto;
+  min-height: 0;
+  margin: 8px 0 16px;
+}
+
+.banlist-update h3,
+.banlist-group h3 {
+  font-size: 14px;
+  margin: 12px 0 6px;
+}
+
+.banlist-changes,
+.banlist-names {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+
+.banlist-to-banned {
+  color: var(--danger, #e5534b);
+}
+
+.banlist-to-legal {
+  color: var(--success, #57ab5a);
+}
+
+.banlist-decks {
+  margin-top: 10px;
+}
+
+.banlist-view-modal {
+  max-width: 520px;
+  overflow-y: auto;
+}
+
+.banlist-view-modal .search-input {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.banlist-names {
+  columns: 2 200px;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--text-dim, currentColor);
+}

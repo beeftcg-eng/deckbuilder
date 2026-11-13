@@ -18,6 +18,7 @@ on:
       - "package.json"
       - "scripts/build-prices.ts"
       - "scripts/build-community-lists.ts"
+      - "scripts/build-ban-lists.ts"
       - ".github/workflows/deploy-pwa.yml"
   workflow_dispatch: {}
   # Daily, so the TCGplayer price files (below) stay current even when nothing else changed.
@@ -79,6 +80,12 @@ jobs:
           for n in $(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq '.[].number'); do
             gh issue close "$n" --comment "Read again in $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
           done
+      # Ban lists (src/shared/banLists.ts): One Piece and Riftbound as kept in this repo, Yu-Gi-Oh!'s from
+      # YGOPRODeck. Published as banlists.json; every app merges it in at launch. When YGOPRODeck can't be
+      # read the file still goes out without Yu-Gi-Oh!, and the apps keep the list they have.
+      - name: Ban lists
+        continue-on-error: true
+        run: npx rolldown scripts/build-ban-lists.ts --platform node --format esm -o .banlists/build-ban-lists.mjs && node .banlists/build-ban-lists.mjs dist-web
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

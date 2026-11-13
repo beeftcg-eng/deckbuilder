@@ -22,9 +22,11 @@ interface Props {
    * reviewed (ISO), plus a way to open the editor. Omit for API-driven legality.
    */
   banList?: { reviewedAt: string | undefined; onEdit: () => void }
+  /** Opens the format's ban list (games whose legality comes with the card data). */
+  onViewList?: () => void
 }
 
-export function LegalityPanel({ result, banList }: Props) {
+export function LegalityPanel({ result, banList, onViewList }: Props) {
   const age = banList?.reviewedAt ? daysSince(banList.reviewedAt) : null
   const stale = age != null && age > STALE_AFTER_DAYS
 
@@ -39,6 +41,13 @@ export function LegalityPanel({ result, banList }: Props) {
             </li>
           ))}
         </ul>
+      )}
+      {onViewList && (
+        <div className="legality-banlist">
+          <button className="btn" onClick={onViewList}>
+            {t.banLists.viewList}
+          </button>
+        </div>
       )}
       {banList && (
         <div className="legality-banlist">

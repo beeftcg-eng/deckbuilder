@@ -24,6 +24,7 @@ const ProxyPrintModal = lazyModal(() => import('./ProxyPrintModal'), 'ProxyPrint
 const BuyListModal = lazyModal(() => import('./BuyListModal'), 'BuyListModal')
 const SampleHandModal = lazyModal(() => import('./SampleHandModal'), 'SampleHandModal')
 const BanListEditor = lazyModal(() => import('./BanListEditor'), 'BanListEditor')
+const BanListViewModal = lazyModal(() => import('./BanListViewModal'), 'BanListViewModal')
 const MoveCardsModal = lazyModal(() => import('./MoveCardsModal'), 'MoveCardsModal')
 // Riftbound's community-list code loads only for a Riftbound deck.
 const CommunityStartHint = lazyModal(() => import('./CommunityStartHint'), 'CommunityStartHint')
@@ -79,6 +80,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
   const [showProxies, setShowProxies] = useState(false)
   const [showBuyList, setShowBuyList] = useState(false)
   const [showBanList, setShowBanList] = useState(false)
+  const [viewingBanList, setViewingBanList] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [dragEntry, setDragEntry] = useState<{ zoneId: string; cardId: string } | null>(null)
@@ -232,6 +234,7 @@ function DeckEditor({ deck }: { deck: Deck }) {
         <LegalityPanel
           result={result}
           banList={adapter.legalitySource === 'local' ? { reviewedAt: format?.reviewedAt, onEdit: () => setShowBanList(true) } : undefined}
+          onViewList={adapter.legalitySource === 'api' && catalogs[deck.gameId] ? () => setViewingBanList(true) : undefined}
         />
       )}
 
@@ -391,6 +394,9 @@ function DeckEditor({ deck }: { deck: Deck }) {
       {showBuyList && <BuyListModal deck={deck} cardsById={cardsById} editable={!deck.locked} onClose={() => setShowBuyList(false)} />}
       {showProxies && <ProxyPrintModal deck={deck} cardsById={cardsById} onClose={() => setShowProxies(false)} />}
       {showSampleHand && <SampleHandModal deck={deck} cardsById={cardsById} handSize={adapter.openingHandSize} onClose={() => setShowSampleHand(false)} />}
+      {viewingBanList && format && catalogs[deck.gameId] && (
+        <BanListViewModal gameId={deck.gameId} format={format} cards={catalogs[deck.gameId]!.cards} onClose={() => setViewingBanList(false)} />
+      )}
       {showBanList && <BanListEditor gameId={deck.gameId} initialFormatId={deck.formatId} onClose={() => setShowBanList(false)} />}
     </div>
   )

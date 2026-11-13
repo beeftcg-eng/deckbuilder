@@ -759,13 +759,13 @@ export const es: Messages = {
     'onepiece:standard': {
       label: 'Standard (rotación actual + lista de prohibidas)',
       description:
-        'Del Bloque 2 en adelante (OP-05 y posteriores) según la rotación de abril de 2026, que retiró el Bloque 1 (OP-01–OP-04 y los mazos de inicio ST-01–ST-09). También aplica la lista oficial actual de cartas prohibidas y restringidas, tomada de onepiece.gg. Bandai rota el bloque legal cada 1 de abril (próxima: abril de 2027) — revisa onepiece.gg de vez en cuando; ninguna de las dos listas se actualiza sola.',
+        'Del Bloque 2 en adelante (OP-05 y posteriores) según la rotación de abril de 2026, que retiró el Bloque 1 (OP-01–OP-04 y los mazos de inicio ST-01–ST-09). También aplica la lista oficial actual de cartas prohibidas y restringidas, tomada de onepiece.gg. Bandai rota el bloque legal cada 1 de abril (próxima: abril de 2027). La lista de prohibidas y la rotación se actualizan solas con la lista que publica la app; tus propios cambios en el editor se conservan.',
     },
     'onepiece:unrestricted': { label: 'Todas las expansiones (sin lista de prohibidas)' },
     'riftbound:constructed': {
       label: 'Construido',
       description:
-        'Riftbound salió a finales de 2025 y todavía no tiene una lista oficial de cartas prohibidas. Habrá que actualizarla aquí si Riot/Riftbound Organized Play publica una.',
+        'Riftbound salió a finales de 2025 y todavía no tiene una lista oficial de cartas prohibidas. Cuando Riot publique una, llegará a la app sola; tus propios cambios en el editor se conservan.',
     },
     'mtg:standard': {
       description: 'Mínimo 60 cartas, hasta 15 en el banquillo, 4 copias. La legalidad de las cartas viene de los datos de Scryfall y se renueva con Actualizar datos de cartas.',
@@ -1243,6 +1243,28 @@ export const es: Messages = {
     hideRest: (n) => `Ocultar el resto de su colección (${n})`,
     theyHave: (cards) => `Tiene lo que buscas: ${cards}`,
     youHave: (cards) => `Tienes lo que busca: ${cards}`,
+  },
+
+  banLists: {
+    title: 'Nueva lista de prohibidas',
+    heading: (game, format) => `${game} — ${format}`,
+    viewList: 'Ver la lista…',
+    viewTitle: (game, format) => `${game} ${format}: lista de prohibidas`,
+    empty: 'Ninguna carta de los datos descargados está en esta lista.',
+    autoUpdates: 'Se actualiza sola con la lista que publica la app.',
+    filter: 'Buscar una carta…',
+    status: (game, status) =>
+      game === 'yugioh'
+        ? ({ banned: 'Prohibida', restricted: 'Limitada (1)', 'semi-restricted': 'Semilimitada (2)', legal: 'Ilimitada' } as Record<string, string>)[status] ?? status
+        : ({ banned: 'Prohibida', restricted: 'Restringida (1)', 'semi-restricted': 'Limitada a 2', legal: 'Ya no restringida' } as Record<string, string>)[status] ?? status,
+    change: (name, from, to) => `${name}: ${from} → ${to}`,
+    pairsAdded: 'Ya no se pueden jugar juntas:',
+    pairsRemoved: 'Se pueden volver a jugar juntas:',
+    setsOut: 'Expansiones que dejan de ser legales:',
+    setsBack: 'Expansiones legales de nuevo:',
+    decks: (n) => `${n === 1 ? 'Tu mazo' : 'Tus mazos'} que esto deja ilegal${n === 1 ? '' : 'es'}:`,
+    noDecks: 'Ninguno de tus mazos de este formato se ve afectado.',
+    ok: 'Entendido',
   },
 
   banList: {

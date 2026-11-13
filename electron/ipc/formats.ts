@@ -4,6 +4,7 @@ import type { Format, GameId } from '../../src/shared/types'
 import { GAME_LIST } from '../../src/shared/games/registry'
 import { migrateFormats } from '../../src/shared/formatMigration'
 import { formatsFile } from '../lib/paths'
+import { sanitizePublished } from '../../src/shared/banLists'
 import { isPlainObject, readJsonFile, withLock, writeJsonAtomic } from '../lib/jsonStore'
 
 type FormatsFile = Record<GameId, Format[]>
@@ -76,6 +77,7 @@ function sanitizeFormat(raw: Format, reviewedAt: string): Format {
           },
         }
       : {}),
+    ...(raw.published && sanitizePublished(raw.published) ? { published: sanitizePublished(raw.published) } : {}),
     reviewedAt,
   }
 }

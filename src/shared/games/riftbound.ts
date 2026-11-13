@@ -182,7 +182,7 @@ const defaultFormats: Format[] = [
     id: 'constructed',
     label: 'Constructed',
     description:
-      'Riftbound launched in late 2025 and has no official ban list yet. This will need updating here if Riot/Riftbound Organized Play ever publishes one.',
+      'Riftbound launched in late 2025 and has no official ban list yet. When Riot publishes one, it reaches the app by itself; your own edits in the ban list editor are kept.',
     bannedCardIds: [],
     restrictedCardIds: [],
     bannedPairs: [],

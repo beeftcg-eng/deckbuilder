@@ -30,6 +30,7 @@ release
 .ygo-art-cache.json
 .prices/
 .community/
+.banlists/
 
 # Personal backups (never commit real decks)
 backup/

@@ -33,7 +33,7 @@ function checkCount(zone: DeckZoneRule, total: number, issues: LegalityIssue[]) 
 // for a game like One Piece is unique *per printing*, so a reprint/foil/
 // alt-art of a banned card would otherwise slip through a card.id check
 // with a different id despite being the same banned card).
-function gameSourceKey(card: Card): string {
+export function gameSourceKey(card: Card): string {
   return `${card.gameId}:${card.sourceId}`
 }
 

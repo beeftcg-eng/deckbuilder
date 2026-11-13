@@ -759,13 +759,13 @@ export const pt: Messages = {
     'onepiece:standard': {
       label: 'Standard (rotação atual + lista de banidas)',
       description:
-        'Do Bloco 2 em diante (OP-05 e posteriores) pela rotação de abril de 2026, que tirou o Bloco 1 (OP-01–OP-04 e os decks iniciais ST-01–ST-09). Também aplica a lista oficial atual de cartas banidas e restritas, tirada do onepiece.gg. A Bandai roda o bloco legal todo 1º de abril (próxima: abril de 2027) — confira o onepiece.gg de vez em quando; nenhuma das duas listas se atualiza sozinha.',
+        'Do Bloco 2 em diante (OP-05 e posteriores) pela rotação de abril de 2026, que tirou o Bloco 1 (OP-01–OP-04 e os decks iniciais ST-01–ST-09). Também aplica a lista oficial atual de cartas banidas e restritas, tirada do onepiece.gg. A Bandai roda o bloco legal todo 1º de abril (próxima: abril de 2027). A lista de banidas e a rotação se atualizam sozinhas com a lista que o app publica; suas próprias mudanças no editor são mantidas.',
     },
     'onepiece:unrestricted': { label: 'Todas as coleções (sem lista de banidas)' },
     'riftbound:constructed': {
       label: 'Construído',
       description:
-        'O Riftbound saiu no fim de 2025 e ainda não tem uma lista oficial de cartas banidas. Ela precisará ser atualizada aqui se a Riot/Riftbound Organized Play publicar uma.',
+        'O Riftbound saiu no fim de 2025 e ainda não tem uma lista oficial de cartas banidas. Quando a Riot publicar uma, ela chega ao app sozinha; suas próprias mudanças no editor são mantidas.',
     },
     'mtg:standard': {
       description: 'Mínimo de 60 cartas, até 15 no sideboard, 4 cópias. A legalidade das cartas vem dos dados do Scryfall e é renovada com Atualizar dados de cartas.',
@@ -1243,6 +1243,28 @@ export const pt: Messages = {
     hideRest: (n) => `Esconder o resto da coleção (${n})`,
     theyHave: (cards) => `Tem o que você procura: ${cards}`,
     youHave: (cards) => `Você tem o que a pessoa procura: ${cards}`,
+  },
+
+  banLists: {
+    title: 'Nova lista de banidas',
+    heading: (game, format) => `${game} — ${format}`,
+    viewList: 'Ver a lista…',
+    viewTitle: (game, format) => `${game} ${format}: lista de banidas`,
+    empty: 'Nenhuma carta dos dados baixados está nesta lista.',
+    autoUpdates: 'Atualiza sozinha com a lista que o app publica.',
+    filter: 'Buscar uma carta…',
+    status: (game, status) =>
+      game === 'yugioh'
+        ? ({ banned: 'Proibida', restricted: 'Limitada (1)', 'semi-restricted': 'Semilimitada (2)', legal: 'Ilimitada' } as Record<string, string>)[status] ?? status
+        : ({ banned: 'Banida', restricted: 'Restrita (1)', 'semi-restricted': 'Limitada a 2', legal: 'Não é mais restrita' } as Record<string, string>)[status] ?? status,
+    change: (name, from, to) => `${name}: ${from} → ${to}`,
+    pairsAdded: 'Não podem mais ser jogadas juntas:',
+    pairsRemoved: 'Podem ser jogadas juntas de novo:',
+    setsOut: 'Coleções que deixam de ser legais:',
+    setsBack: 'Coleções legais de novo:',
+    decks: (n) => `${n === 1 ? 'Seu deck' : 'Seus decks'} que isso deixa ilega${n === 1 ? 'l' : 'is'}:`,
+    noDecks: 'Nenhum dos seus decks deste formato foi afetado.',
+    ok: 'Entendi',
   },
 
   banList: {

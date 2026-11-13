@@ -1,4 +1,5 @@
 import type { Announcement } from '../shared/announcement'
+import type { BanListUpdate } from '../shared/banLists'
 import type {
   AppSettings,
   Binder,
@@ -133,6 +134,11 @@ export interface AppState {
   syncCatalog: (gameId: GameId) => Promise<void>
   loadFormats: (gameId: GameId) => Promise<void>
   saveFormats: (gameId: GameId, formats: Format[]) => Promise<void>
+  /** Ban lists that changed since this device last saw them (banLists.ts), waiting to be shown. */
+  banListUpdates: BanListUpdate[]
+  /** Reads the published ban lists and applies them (banListCheck.ts). */
+  checkBanLists: () => Promise<void>
+  dismissBanListUpdates: () => void
   loadDecks: () => Promise<void>
   createDeck: (gameId: GameId) => Promise<void>
   duplicateDeck: (deckId: string) => Promise<void>

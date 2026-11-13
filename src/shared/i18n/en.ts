@@ -1207,6 +1207,29 @@ export const en = {
     youHave: (cards: string) => `You have what they want: ${cards}`,
   },
 
+  banLists: {
+    title: 'Ban list update',
+    heading: (game: string, format: string) => `${game} — ${format}`,
+    viewList: 'View the list…',
+    viewTitle: (game: string, format: string) => `${game} ${format}: the ban list`,
+    empty: 'No cards are on this list in the downloaded card data.',
+    autoUpdates: 'Updates by itself from the app’s published list.',
+    filter: 'Find a card…',
+    // Status names: Yu-Gi-Oh! calls them Forbidden / Limited / Semi-Limited, the others banned / restricted.
+    status: (game: string, status: string) =>
+      game === 'yugioh'
+        ? ({ banned: 'Forbidden', restricted: 'Limited (1)', 'semi-restricted': 'Semi-Limited (2)', legal: 'Unlimited' } as Record<string, string>)[status] ?? status
+        : ({ banned: 'Banned', restricted: 'Restricted (1)', 'semi-restricted': 'Limited to 2', legal: 'No longer restricted' } as Record<string, string>)[status] ?? status,
+    change: (name: string, from: string, to: string) => `${name}: ${from} → ${to}`,
+    pairsAdded: 'Can’t be played together now:',
+    pairsRemoved: 'Can be played together again:',
+    setsOut: 'Sets no longer legal:',
+    setsBack: 'Sets legal again:',
+    decks: (n: number) => `${n === 1 ? 'Your deck' : 'Your decks'} this makes illegal:`,
+    noDecks: 'None of your decks in this format are affected.',
+    ok: 'Got it',
+  },
+
   banList: {
     none: 'None',
     remove: 'Remove',

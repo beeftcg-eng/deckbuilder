@@ -91,6 +91,8 @@ export function createAppSlice(ctx: StoreContext) {
           ...GAME_LIST.map((adapter) => get().loadFormats(adapter.id)),
         ])
         flags.startupLoaded = true
+        // Ban lists published since the last launch (banLists.ts), once the formats and decks are in.
+        void get().checkBanLists().catch((err) => console.warn('Ban lists:', err))
         for (const gameId of Object.keys(get().catalogs) as GameId[]) recordValueOf(gameId)
         checkAlerts()
         // Prices: today's are applied to every downloaded game in the background (no re-download),
