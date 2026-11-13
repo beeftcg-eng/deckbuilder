@@ -46,3 +46,4 @@ flatpak/flathub-test/
 .health-check/
 test-results/
 playwright-report/
+.tune/

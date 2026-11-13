@@ -55,7 +55,12 @@ export interface Weights {
   reserve: number
 }
 
-/** Tuned by bot-vs-bot games (scripts/tune-riftbound-bot.ts). */
+/**
+ * Checked by bot-vs-bot games (scripts/tune-riftbound-bot.ts, 13 Nov 2026: 40 recent lists, 800-1000
+ * games per variant, each matchup played from both sides). No variant (each weight doubled or halved)
+ * beat these by more than noise (47-52%), so they stay. The levels are ordered: Normal beats Easy 60%,
+ * Hard beats Normal 53% and Easy 60%.
+ */
 export const DEFAULT_WEIGHTS: Weights = { points: 10, control: 6, might: 0.6, cards: 0.8, threat: 4, reserve: 0.3 }
 
 /** A deck (yours, or a Community list read with listDeck) as the game wants it. */
