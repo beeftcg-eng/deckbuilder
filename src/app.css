@@ -6047,3 +6047,103 @@
   margin: 4px 0;
   padding-left: 18px;
 }
+
+/* The practice board on a phone: the whole screen, the hand kept at the bottom, smaller cards. */
+@media (max-width: 720px) {
+  .rb-game-modal {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    padding: 6px;
+  }
+
+  .rb-topbar {
+    gap: 6px;
+  }
+
+  .rb-topbar-actions {
+    margin-left: 0;
+    gap: 4px;
+  }
+
+  .rb-topbar-actions .btn {
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+
+  .rb-score {
+    font-size: 16px;
+  }
+
+  .rb-battlefields {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .rb-bf {
+    min-height: 110px;
+    padding: 6px;
+  }
+
+  .rb-bf-art img {
+    width: 56px;
+  }
+
+  .rb-bf-art span {
+    font-size: 12px;
+  }
+
+  .rb-bf header select {
+    font-size: 12px;
+    padding: 2px 4px;
+    max-width: 50%;
+  }
+
+  .rb-unit-main {
+    width: 70px;
+  }
+
+  .rb-unit-art {
+    width: 62px;
+  }
+
+  .rb-unit-main .rb-unit-name,
+  .rb-unit-main .rb-unit-state {
+    max-width: 62px;
+  }
+
+  .rb-player {
+    gap: 4px 8px;
+    padding: 6px;
+    font-size: 13px;
+  }
+
+  .rb-player .btn {
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+
+  /* Your hand stays in view at the bottom while the board scrolls. */
+  .rb-hand {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 6px 0 2px;
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--border-strong);
+  }
+
+  .rb-hand-card {
+    width: 76px;
+  }
+
+  .rb-hand-menu {
+    width: 160px;
+  }
+
+  .rb-main.with-log {
+    grid-template-rows: 1fr 120px;
+  }
+}

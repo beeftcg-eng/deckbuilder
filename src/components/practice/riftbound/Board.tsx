@@ -35,7 +35,8 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
   const [handPick, setHandPick] = useState<number | null>(null)
   const [mulliganPick, setMulliganPick] = useState<number[]>([])
   const [detail, setDetail] = useState<Card | null>(null)
-  const [showLog, setShowLog] = useState(true)
+  // On a phone the log would take half the screen: it starts closed there.
+  const [showLog, setShowLog] = useState(() => typeof matchMedia !== 'function' || !matchMedia('(max-width: 720px)').matches)
   const [zones, setZones] = useState<'deck' | 'trash' | null>(null)
   /** A card being played that needs units picked for its effects: what's been picked so far. */
   const [targeting, setTargeting] = useState<{ handIndex: number; options: { accelerate?: boolean; battlefield?: number }; effects: Effect[]; picks: (string | null)[] } | null>(null)
