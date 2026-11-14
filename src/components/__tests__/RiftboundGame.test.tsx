@@ -22,6 +22,7 @@ describe('a Riftbound practice game', () => {
   it('plays alone: keep, play a unit, move it to a battlefield for a point, end the turn', async () => {
     useAppStore.setState({ catalogs: { riftbound: { cards, byId: new Map(cards.map((c) => [c.id, c])) } }, settings: {} } as never)
     render(<RiftboundGame deck={deck} onClose={() => {}} />)
+    fireEvent.change(screen.getByLabelText(t.practiceGame.rules), { target: { value: 'auto' } })
     fireEvent.click(screen.getByText(t.practiceGame.start))
     fireEvent.click(screen.getByText(t.practiceGame.keep))
     expect(screen.getAllByText(t.practiceGame.yourTurn(1)).length).toBeGreaterThan(0)
@@ -30,17 +31,37 @@ describe('a Riftbound practice game', () => {
     fireEvent.click(within(screen.getByLabelText(t.practiceGame.hand)).getAllByRole('button')[0])
     fireEvent.click(screen.getByText(t.practiceGame.play(1, 0)))
     const base = screen.getByLabelText(t.practiceGame.yourBase)
-    expect(within(base).getByText('Grunt')).toBeTruthy()
+    expect(within(base).getAllByRole('button', { name: /^Grunt/ }).length).toBeGreaterThan(0)
 
     // It entered exhausted; next turn it can move and conquer.
     fireEvent.click(screen.getByText(t.practiceGame.endTurn))
     expect(screen.getAllByText(t.practiceGame.yourTurn(2)).length).toBeGreaterThan(0)
-    fireEvent.click(within(screen.getByLabelText(t.practiceGame.yourBase)).getByText('Grunt'))
+    fireEvent.click(within(screen.getByLabelText(t.practiceGame.yourBase)).getAllByRole('button', { name: /^Grunt/ })[0])
     fireEvent.click(screen.getAllByText(t.practiceGame.moveHere(1))[0])
     expect(screen.getByText(t.practiceGame.points(1))).toBeTruthy()
 
     // Undo puts it back.
     fireEvent.click(screen.getByText(t.practiceGame.undo))
     expect(screen.getByText(t.practiceGame.points(0))).toBeTruthy()
+  })
+
+  it('by hand: start of turn, move with no fight or point, then set control and add the point yourself', () => {
+    useAppStore.setState({ catalogs: { riftbound: { cards, byId: new Map(cards.map((c) => [c.id, c])) } }, settings: {} } as never)
+    render(<RiftboundGame deck={deck} onClose={() => {}} />)
+    fireEvent.click(screen.getByText(t.practiceGame.start)) // By hand is the default
+    fireEvent.click(screen.getByText(t.practiceGame.keep))
+    // Nothing was channelled for you: start of turn does it.
+    expect(screen.getByLabelText(t.practiceGame.runesLabel(0, 0))).toBeTruthy()
+    fireEvent.click(screen.getByText(t.practiceGame.startOfTurn))
+    expect(screen.getByLabelText(t.practiceGame.runesLabel(2, 2))).toBeTruthy()
+    fireEvent.click(within(screen.getByLabelText(t.practiceGame.hand)).getAllByRole('button')[0])
+    fireEvent.click(screen.getByText(t.practiceGame.play(1, 0)))
+    // Exhausted or not, your unit goes where you say, and nothing is scored.
+    fireEvent.click(within(screen.getByLabelText(t.practiceGame.yourBase)).getAllByRole('button', { name: /^Grunt/ })[0])
+    fireEvent.click(screen.getAllByText(t.practiceGame.moveHere(1))[0])
+    expect(screen.getByText(t.practiceGame.points(0))).toBeTruthy()
+    fireEvent.change(screen.getAllByLabelText(/Who holds/)[0], { target: { value: '0' } })
+    fireEvent.click(screen.getByLabelText(t.practiceGame.pointPlus))
+    expect(screen.getByText(t.practiceGame.points(1))).toBeTruthy()
   })
 })

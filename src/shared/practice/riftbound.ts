@@ -115,6 +115,12 @@ export interface GameState {
   /** 'mulligan' until both players have kept, then 'main' (the active player's Main Phase), 'over' at the end. */
   phase: 'mulligan' | 'main' | 'over'
   showdown: Showdown | null
+  /**
+   * Sides playing by hand, like at a table: their turn steps (ready, channel, draw), moves (no
+   * combat or conquering), scoring and card text are theirs to do. The game still keeps the board,
+   * pays costs, and runs the other side.
+   */
+  manual: Side[]
   /** Sides that have finished their mulligan. */
   kept: Side[]
   winner: Side | null
@@ -243,7 +249,7 @@ function uid(state: GameState): string {
  * side brings none, so you get two of yours), four cards each, waiting for mulligans. `opponent` null
  * is playing alone: nobody on the other side.
  */
-export function newGame(you: DeckSetup, opponent: DeckSetup | null, options: { first?: Side; random?: () => number } = {}): GameState {
+export function newGame(you: DeckSetup, opponent: DeckSetup | null, options: { first?: Side; random?: () => number; manual?: boolean } = {}): GameState {
   const random = options.random ?? Math.random
   const players: [Player, Player] = [emptyPlayer(false), emptyPlayer(opponent == null)]
   const setups: [DeckSetup, DeckSetup | null] = [you, opponent]
@@ -268,6 +274,7 @@ export function newGame(you: DeckSetup, opponent: DeckSetup | null, options: { f
     first,
     phase: 'mulligan',
     showdown: null,
+    manual: options.manual ? [0] : [],
     kept: opponent ? [] : [1],
     winner: null,
     log: [],
@@ -546,6 +553,10 @@ function startTurn(state: GameState): GameState {
   const side = s.active
   const p = s.players[side]
   log(s, side, 'turn', side === 0 ? `Your turn ${s.turn}` : `Opponent's turn ${s.turn}`)
+  if (s.manual.includes(side)) {
+    log(s, side, 'info', 'Ready your cards, score what you hold, channel your runes and draw (Start of turn readies, channels and draws for you).')
+    return s
+  }
   // Awaken: ready everything.
   for (const u of allUnits(s, side)) u.exhausted = false
   for (const r of p.runes) r.exhausted = false
@@ -567,6 +578,25 @@ function startTurn(state: GameState): GameState {
   const channel = s.turn === 1 && side !== s.first ? 3 : 2
   for (let i = 0; i < channel && p.runeDeck.length; i++) p.runes.push({ uid: uid(s), domain: p.runeDeck.shift()!, exhausted: false })
   draw(s, side)
+  return s
+}
+
+/**
+ * The start of a turn played by hand, in one go: ready everything, Temporary units die, channel 2
+ * runes (3 on the second player's first turn) and draw 1. Holding is left to you (add the points).
+ */
+export function startOfTurn(state: GameState, side: Side): GameState {
+  if (state.phase !== 'main' || state.active !== side) return state
+  const s = clone(state)
+  const p = s.players[side]
+  for (const u of allUnits(s, side)) u.exhausted = false
+  for (const r of p.runes) r.exhausted = false
+  for (const g of p.gear) g.exhausted = false
+  for (const u of allUnits(s, side).filter((x) => x.keywords.temporary)) kill(s, u.uid, 'Temporary')
+  const channel = s.turn === 1 && side !== s.first ? 3 : 2
+  for (let i = 0; i < channel && p.runeDeck.length; i++) p.runes.push({ uid: uid(s), domain: p.runeDeck.shift()!, exhausted: false })
+  draw(s, side)
+  log(s, side, 'info', `${who(side)} readied, channelled ${channel} and drew 1.`)
   return s
 }
 
@@ -690,7 +720,8 @@ export function play(state: GameState, side: Side, handIndex: number, options: P
   }
   if (handIndex === -1) p.champion = null
   else p.hand.splice(handIndex, 1)
-  const script = scriptOf(card)
+  // Played by hand: the card's text is yours to resolve, so nothing of it runs.
+  const script = s.manual.includes(side) ? { ...scriptOf(card), spell: [], abilities: [], full: false } : scriptOf(card)
   const choose = fromPicks(side, options.targets)
   if (isUnit(card)) {
     const unit = newUnit(s, card, side, !accelerate && !script.entersReady)
@@ -706,12 +737,12 @@ export function play(state: GameState, side: Side, handIndex: number, options: P
       const here = whereIs(s, unit.uid)
       runEffects(s, side, a.effects, choose, typeof here === 'number' ? here : null, unit.uid)
     }
-    if (!script.full) log(s, side, 'spell', `${card.name} has text the game doesn't run: apply it with the tools if it matters.`, card)
+    if (!script.full && !s.manual.includes(side)) log(s, side, 'spell', `${card.name} has text the game doesn't run: apply it with the tools if it matters.`, card)
   } else if (isGear(card)) {
     p.gear.push({ uid: uid(s), card, exhausted: false })
     log(s, side, 'play', `${who(side)} played ${card.name}.`, card)
     for (const a of script.abilities.filter((x) => x.trigger === 'play')) runEffects(s, side, a.effects, choose, null)
-    if (!script.full) log(s, side, 'spell', `${card.name} has text the game doesn't run: apply it with the tools if it matters.`, card)
+    if (!script.full && !s.manual.includes(side)) log(s, side, 'spell', `${card.name} has text the game doesn't run: apply it with the tools if it matters.`, card)
   } else {
     p.trash.push(card)
     const here = s.showdown?.battlefield ?? null
@@ -736,10 +767,14 @@ export function play(state: GameState, side: Side, handIndex: number, options: P
 /** Whether `units` (all `side`'s, all ready) can make a standard move to `to`. */
 export function canMove(state: GameState, side: Side, unitUids: string[], to: 'base' | number): boolean {
   if (state.phase !== 'main' || state.showdown || state.active !== side || !unitUids.length) return false
+  // By hand, any of your units goes anywhere: the rules are yours to keep.
+  const manual = state.manual.includes(side)
   return unitUids.every((id) => {
     const unit = allUnits(state).find((u) => u.uid === id)
     const from = whereIs(state, id)
-    if (!unit || unit.owner !== side || unit.exhausted || from == null || from === to) return false
+    if (!unit || unit.owner !== side || from == null || from === to) return false
+    if (manual) return true
+    if (unit.exhausted) return false
     // Battlefield to battlefield needs Ganking.
     return from === 'base' || to === 'base' || unit.keywords.ganking
   })
@@ -756,6 +791,13 @@ export function move(state: GameState, side: Side, unitUids: string[], to: 'base
   const moving = unitUids.map((id) => takeUnit(s, id)!).filter(Boolean)
   for (const u of moving) u.exhausted = true
   const names = moving.map((u) => u.card.name).join(', ')
+  if (s.manual.includes(side)) {
+    // By hand: the units just go there. Fights, conquering and scoring are yours.
+    if (to === 'base') s.players[side].base.push(...moving)
+    else s.battlefields[to].units.push(...moving)
+    log(s, side, 'move', `${who(side)} moved ${names} to ${to === 'base' ? 'base' : bfName(s, to)}.`)
+    return s
+  }
   if (to === 'base') {
     s.players[side].base.push(...moving)
     log(s, side, 'move', `${who(side)} moved ${names} to base.`)
@@ -892,6 +934,8 @@ export type Tool =
   | { kind: 'channel'; side: Side }
   | { kind: 'readyRune'; side: Side }
   | { kind: 'control'; battlefield: number; side: Side | null }
+  | { kind: 'recall'; unit: string }
+  | { kind: 'readyAll'; side: Side }
 
 /** Applies a card effect by hand. Damage that reaches a unit's Might kills it. */
 export function applyTool(state: GameState, tool: Tool): GameState {
@@ -966,6 +1010,21 @@ export function applyTool(state: GameState, tool: Tool): GameState {
       const rune = s.players[tool.side].runes.find((r) => r.exhausted)
       if (!rune) return state
       rune.exhausted = false
+      break
+    }
+    case 'recall': {
+      const u = takeUnit(s, tool.unit)
+      if (!u) return state
+      s.players[u.owner].base.push(u)
+      log(s, u.owner, 'tool', `${u.card.name} went back to base.`)
+      break
+    }
+    case 'readyAll': {
+      const p = s.players[tool.side]
+      for (const u of allUnits(s, tool.side)) u.exhausted = false
+      for (const r of p.runes) r.exhausted = false
+      for (const g of p.gear) g.exhausted = false
+      log(s, tool.side, 'tool', 'Readied everything.')
       break
     }
     case 'control': {
