@@ -1,5 +1,5 @@
 import type { Card } from '../types'
-import { describeEffect, needsChoice, scriptOf, type Activated, type Effect, type Target, type Trigger, type TurnKeyword } from './riftboundEffects'
+import { describeEffect, needsChoice, scriptOf, sentences, type Activated, type Effect, type Target, type Trigger, type TurnKeyword } from './riftboundEffects'
 
 /**
  * A Riftbound practice game: the board, turns, paying with runes, moving, showdowns, combat and
@@ -35,6 +35,8 @@ export interface Keywords {
   ganking: boolean
   accelerate: boolean
   temporary: boolean
+  /** [Hunt N]: N XP when it conquers or holds. */
+  hunt?: number
 }
 
 export interface Unit {
@@ -58,6 +60,8 @@ export interface Unit {
   equipment?: { uid: string; card: Card }[]
   /** Keywords given this turn ([Assault 2] this turn...): added to its own until the turn ends. */
   turn?: Partial<Record<TurnKeyword, number>>
+  /** What its owner's Level gives it now (kept up to date by refreshLevels). */
+  lvl?: { might: number; keywords: Partial<Record<TurnKeyword, number>> }
 }
 
 export interface Rune {
@@ -126,6 +130,8 @@ export interface ChainItem {
   ability?: number
   /** The unit using the ability, when it's a unit's. */
   source?: string
+  /** A triggered ability ("When you play me", a Legend's "When you play a unit"): what it does. */
+  effects?: Effect[]
 }
 
 /** Cards played and not resolved yet, newest last. Whoever has priority answers the newest. */
@@ -158,6 +164,8 @@ export interface GameState {
   showdown: Showdown | null
   /** Cards waiting to resolve (missing or null: none, an open state). */
   chain?: Chain | null
+  /** By hand: a showdown just ended, its fight not fought yet (the board offers to resolve it). */
+  fight?: { battlefield: number; attacker: Side } | null
   /**
    * Sides playing by hand, like at a table: their turn steps (ready, channel, draw), moves (no
    * combat or conquering) and scoring are theirs to do; card text the game can read still runs. The game still keeps the board,
@@ -196,7 +204,16 @@ export type Chooser = (effect: Effect, legal: Unit[]) => Unit | null
 
 /** A unit's keywords, read from its text ("[Assault 2]", "[Tank]"...). */
 export function keywordsOf(card: Card): Keywords {
-  const text = card.text ?? ''
+  // Only a sentence's leading tags are the card's own: not ones in reminder text, in what it gives
+  // others ("give a unit [Assault 2]"), or behind a Level ("[Level 3][>] I have [Ganking]").
+  const own: string[] = []
+  for (const sentence of sentences(card.text ?? '')) {
+    for (const tag of /^(?:\[[^\]]+\]\s*)+/.exec(sentence)?.[0].match(/\[[^\]]+\]/g) ?? []) {
+      if (/^\[level /i.test(tag)) break
+      own.push(tag)
+    }
+  }
+  const text = own.join(' ')
   const num = (name: string) => {
     const m = new RegExp(`\\[${name}(?: (\\d+))?\\]`, 'i').exec(text)
     return m ? Number(m[1] ?? 1) : 0
@@ -210,6 +227,7 @@ export function keywordsOf(card: Card): Keywords {
     ganking: has('Ganking'),
     accelerate: has('Accelerate'),
     temporary: has('Temporary'),
+    ...(num('Hunt') ? { hunt: num('Hunt') } : {}),
   }
 }
 
@@ -232,14 +250,46 @@ export const isGear = (card: Card) => card.category === 'Gear'
 export const isSpell = (card: Card) => card.category === 'Spell'
 
 /** A unit's Might right now: printed, kept bonuses, this turn's, and its buff. */
-export const mightNow = (u: Unit): number => Math.max(0, u.might + u.bonus + u.temp + (u.buffed ? 1 : 0))
+export const mightNow = (u: Unit): number => Math.max(0, u.might + u.bonus + u.temp + (u.buffed ? 1 : 0) + (u.lvl?.might ?? 0))
 
 /** A unit's keywords now: its own, plus any given this turn. */
 export function kw(u: Unit): Keywords {
-  const t = u.turn
-  if (!t) return u.keywords
+  if (!u.turn && !u.lvl) return u.keywords
   const k = u.keywords
-  return { ...k, assault: k.assault + (t.assault ?? 0), shield: k.shield + (t.shield ?? 0), tank: k.tank || !!t.tank, ganking: k.ganking || !!t.ganking, backline: k.backline || !!t.backline }
+  const t = u.turn ?? {}
+  const l = u.lvl?.keywords ?? {}
+  return {
+    ...k,
+    assault: k.assault + (t.assault ?? 0) + (l.assault ?? 0),
+    shield: k.shield + (t.shield ?? 0) + (l.shield ?? 0),
+    tank: k.tank || !!t.tank || !!l.tank,
+    ganking: k.ganking || !!t.ganking || !!l.ganking,
+    backline: k.backline || !!t.backline || !!l.backline,
+  }
+}
+
+/**
+ * Puts each unit's Level bonuses in place: its own "[Level N][>] I have ..." and its side's Legend,
+ * gear and units' "Your units have ...", for as long as its owner has the XP.
+ */
+function refreshLevels(s: GameState) {
+  for (const side of [0, 1] as Side[]) {
+    const p = s.players[side]
+    const xp = p.xp ?? 0
+    const units = allUnits(s, side)
+    const cards = [...(p.legend ? [p.legend] : []), ...p.gear.map((g) => g.card), ...units.map((u) => u.card)]
+    const forAll = cards.flatMap((c) => scriptOf(c).levels.filter((l) => l.who === 'yours' && xp >= l.level))
+    for (const u of units) {
+      const on = [...forAll, ...scriptOf(u.card).levels.filter((l) => l.who === 'me' && xp >= l.level)]
+      if (!on.length) {
+        delete u.lvl
+        continue
+      }
+      const keywords: Partial<Record<TurnKeyword, number>> = {}
+      for (const l of on) for (const [k, n] of Object.entries(l.keywords) as [TurnKeyword, number][]) keywords[k] = (keywords[k] ?? 0) + n
+      u.lvl = { might: on.reduce((n, l) => n + l.might, 0), keywords }
+    }
+  }
 }
 
 /** A unit's Might in a combat: plus Assault when attacking or Shield when defending. */
@@ -396,6 +446,7 @@ function takeUnit(s: GameState, unitUid: string): Unit | null {
 }
 
 function checkWin(s: GameState) {
+  refreshLevels(s)
   if (s.phase === 'over') return
   const [a, b] = [s.players[0].points, s.players[1].points]
   if (Math.max(a, b) >= VICTORY_SCORE && a !== b) {
@@ -617,6 +668,69 @@ function trigger(s: GameState, unit: Unit, kind: Trigger) {
   }
 }
 
+/** [Hunt N]: XP for its owner when it conquers or holds. */
+function hunt(s: GameState, unit: Unit) {
+  const n = unit.keywords.hunt
+  if (!n) return
+  const p = s.players[unit.owner]
+  p.xp = (p.xp ?? 0) + n
+  log(s, unit.owner, 'effect', `${unit.card.name}: Hunt, +${n} XP (${p.xp}).`)
+}
+
+/**
+ * "When you play a unit / a spell, conquer, hold, win a combat" on `side`'s Legend, gear and units
+ * (not `except`, the unit just played). One that says "you may exhaust me to" needs the card ready,
+ * and exhausts it. Playing triggers wait on the chain; the others happen at once.
+ */
+function youTrigger(s: GameState, side: Side, kind: Trigger, except?: string) {
+  const p = s.players[side]
+  type Src = { card: Card; exhausted: () => boolean; exhaust: () => void; unit?: Unit }
+  const sources: Src[] = [
+    ...(p.legend ? [{ card: p.legend, exhausted: () => p.legendExhausted, exhaust: () => (p.legendExhausted = true) }] : []),
+    ...p.gear.map((g) => ({ card: g.card, exhausted: () => g.exhausted, exhaust: () => (g.exhausted = true) })),
+    ...allUnits(s, side)
+      .filter((u) => u.uid !== except)
+      .map((u) => ({ card: u.card, exhausted: () => u.exhausted, exhaust: () => (u.exhausted = true), unit: u })),
+  ]
+  for (const src of sources) {
+    for (const a of scriptOf(src.card).abilities.filter((x) => x.trigger === kind)) {
+      if (a.exhaust) {
+        if (src.exhausted()) continue
+        src.exhaust()
+      }
+      if (kind === 'youUnit' || kind === 'youSpell') queueTrigger(s, side, src.card, a.effects, src.unit?.uid)
+      else {
+        log(s, side, 'effect', `${src.card.name}: triggered${a.exhaust ? ' (exhausted)' : ''}.`, src.card)
+        const at = src.unit ? whereIs(s, src.unit.uid) : null
+        runEffects(s, side, a.effects, bestTarget(side), typeof at === 'number' ? at : null, src.unit?.uid)
+      }
+    }
+  }
+}
+
+/**
+ * A triggered ability on the chain, for the other player to answer ("When you play me", "When you
+ * play a unit"). With nobody on the other side it happens at once. `targets` are picks made when the
+ * card was played (yours); the rest are the owner's best.
+ */
+function queueTrigger(s: GameState, side: Side, card: Card, effects: Effect[], source?: string, targets?: (string | null)[]) {
+  const at = source ? whereIs(s, source) : null
+  const here = typeof at === 'number' ? at : null
+  if (s.players[other(side)].empty) {
+    log(s, side, 'effect', `${card.name}: triggered.`, card)
+    runEffects(s, side, effects, fromPicks(side, targets), here, source)
+    return
+  }
+  const best = bestPicks(s, side, effects, here, source)
+  const given = targets ?? []
+  const item: ChainItem = { uid: uid(s), side, card, targets: best.map((b, i) => (i < given.length ? given[i] : b)), marked: [], accelerate: false, battlefield: null, effects, ...(source ? { source } : {}) }
+  const chain = s.chain ?? { items: [], priority: other(side) }
+  chain.items.push(item)
+  chain.priority = other(side)
+  s.chain = chain
+  log(s, side, 'effect', `${card.name}: its ability waits on the chain. ${other(side) === 0 ? 'You' : 'Opponent'} may answer with a Reaction, or pass.`, card)
+}
+
 /** A unit leaving the board leaves its equipment behind, recalled to its owner's base. */
 function dropEquipment(s: GameState, unit: Unit) {
   for (const e of unit.equipment ?? []) s.players[unit.owner].gear.push({ uid: e.uid, card: e.card, exhausted: false })
@@ -647,7 +761,7 @@ function startTurn(state: GameState): GameState {
   const p = s.players[side]
   log(s, side, 'turn', side === 0 ? `Your turn ${s.turn}` : `Opponent's turn ${s.turn}`)
   if (s.manual.includes(side)) {
-    log(s, side, 'info', 'Ready your cards, score what you hold, channel your runes and draw (Start of turn readies, channels and draws for you).')
+    log(s, side, 'info', 'Ready your cards, score what you hold, channel your runes and draw (Start of turn does all of it for you).')
     return s
   }
   // Awaken: ready everything.
@@ -657,15 +771,7 @@ function startTurn(state: GameState): GameState {
   p.legendExhausted = false
   // Beginning: Temporary units die, then hold every battlefield you control.
   for (const u of allUnits(s, side).filter((x) => x.keywords.temporary)) kill(s, u.uid, 'Temporary')
-  s.battlefields.forEach((bf, i) => {
-    if (bf.controller === side && !bf.scored.includes(side)) {
-      bf.scored.push(side)
-      p.points += 1
-      log(s, side, 'score', `${who(side)} held ${bfName(s, i)}: +1 (${p.points}).`)
-      for (const u of bf.units.filter((x) => x.owner === side)) trigger(s, u, 'hold')
-    }
-  })
-  checkWin(s)
+  holdAll(s, side)
   if ((s.phase as GameState['phase']) === 'over') return s
   // Channel 2 runes (3 on the second player's first turn), then draw 1.
   const channel = s.turn === 1 && side !== s.first ? 3 : 2
@@ -686,11 +792,31 @@ export function startOfTurn(state: GameState, side: Side): GameState {
   for (const r of p.runes) r.exhausted = false
   for (const g of p.gear) g.exhausted = false
   for (const u of allUnits(s, side).filter((x) => x.keywords.temporary)) kill(s, u.uid, 'Temporary')
+  holdAll(s, side)
+  if ((s.phase as GameState['phase']) === 'over') return s
   const channel = s.turn === 1 && side !== s.first ? 3 : 2
   for (let i = 0; i < channel && p.runeDeck.length; i++) p.runes.push({ uid: uid(s), domain: p.runeDeck.shift()!, exhausted: false })
   draw(s, side)
   log(s, side, 'info', `${who(side)} readied, channelled ${channel} and drew 1.`)
   return s
+}
+
+/** The Beginning Phase's hold: +1 for each battlefield `side` controls and hasn't scored this turn, with Hunt and "when you hold". */
+function holdAll(s: GameState, side: Side) {
+  const p = s.players[side]
+  s.battlefields.forEach((bf, i) => {
+    if (bf.controller === side && !bf.scored.includes(side)) {
+      bf.scored.push(side)
+      p.points += 1
+      log(s, side, 'score', `${who(side)} held ${bfName(s, i)}: +1 (${p.points}).`)
+      for (const u of bf.units.filter((x) => x.owner === side)) {
+        trigger(s, u, 'hold')
+        hunt(s, u)
+      }
+      youTrigger(s, side, 'youHold')
+    }
+  })
+  checkWin(s)
 }
 
 /** Ends the active player's turn: units heal, "this turn" ends, and the other player's turn starts (unless nobody's there). */
@@ -704,6 +830,7 @@ export function endTurn(state: GameState): GameState {
     delete u.turn
   }
   for (const bf of s.battlefields) bf.scored = []
+  s.fight = null
   const next = other(s.active)
   if (next === s.first || s.players[next].empty) s.turn += 1
   s.active = s.players[next].empty ? s.active : next
@@ -852,8 +979,11 @@ export function play(state: GameState, side: Side, handIndex: number, options: P
     battlefield: options.battlefield ?? null,
     ...(options.mode ? { mode: options.mode } : {}),
   }
+  // "When you play a unit / a spell" triggers as it's played: on the chain above it.
+  const playing = isUnit(card) ? 'youUnit' : isSpell(card) ? 'youSpell' : null
   if (options.free || s.players[other(side)].empty) {
     resolveItem(s, item)
+    if (playing) youTrigger(s, side, playing)
     checkWin(s)
     return s
   }
@@ -864,6 +994,7 @@ export function play(state: GameState, side: Side, handIndex: number, options: P
   const at = (ids: (string | null)[]) => ids.map((id) => allUnits(s).find((u) => u.uid === id)?.card.name).filter(Boolean).join(', ')
   const aimed = at([...item.targets, ...item.marked])
   log(s, side, 'play', `${who(side)} played ${card.name}${aimed ? ` targeting ${aimed}` : ''}. ${other(side) === 0 ? 'You' : 'Opponent'} may answer with a Reaction, or pass.`, card)
+  if (playing) youTrigger(s, side, playing)
   return s
 }
 
@@ -946,6 +1077,12 @@ export function activate(state: GameState, side: Side, source: string, index: nu
 function resolveItem(s: GameState, item: ChainItem) {
   const { side, card, accelerate } = item
   const p = s.players[side]
+  if (item.effects) {
+    log(s, side, 'effect', `${card.name}: ability resolved.`, card)
+    const at = item.source ? whereIs(s, item.source) : null
+    runEffects(s, side, item.effects, fromPicks(side, item.targets), typeof at === 'number' ? at : null, item.source)
+    return
+  }
   if (item.ability != null) {
     const ability = scriptOf(card).activated[item.ability]
     const marked = item.marked.map((id) => allUnits(s).find((u) => u.uid === id)?.card.name).filter(Boolean)
@@ -971,15 +1108,15 @@ function resolveItem(s: GameState, item: ChainItem) {
       p.base.push(unit)
       log(s, side, 'play', `${card.name} entered ${who(side) === 'You' ? 'your' : 'their'} base${accelerate ? ' (accelerated, ready)' : ''}.`, card)
     }
-    for (const a of script.abilities.filter((x) => x.trigger === 'play')) {
-      const here = whereIs(s, unit.uid)
-      runEffects(s, side, a.effects, choose, typeof here === 'number' ? here : null, unit.uid)
-    }
+    // "When you play me" waits on the chain, at the targets picked as it was played.
+    const own = script.abilities.filter((x) => x.trigger === 'play').flatMap((a) => a.effects)
+    if (own.length) queueTrigger(s, side, card, own, unit.uid, item.targets)
     if (!script.full) leftToYou(`${card.name} has text the game doesn't run: apply it with the tools if it matters.`)
   } else if (isGear(card)) {
     p.gear.push({ uid: uid(s), card, exhausted: false })
     log(s, side, 'play', `${card.name} entered play.`, card)
-    for (const a of script.abilities.filter((x) => x.trigger === 'play')) runEffects(s, side, a.effects, choose, null)
+    const own = script.abilities.filter((x) => x.trigger === 'play').flatMap((a) => a.effects)
+    if (own.length) queueTrigger(s, side, card, own, undefined, item.targets)
     if (!script.full) leftToYou(`${card.name} has text the game doesn't run: apply it with the tools if it matters.`)
   } else {
     p.trash.push(card)
@@ -1039,8 +1176,11 @@ export function move(state: GameState, side: Side, unitUids: string[], to: 'base
     if (to === 'base') s.players[side].base.push(...moving)
     else s.battlefields[to].units.push(...moving)
     log(s, side, 'move', `${who(side)} moved ${names} to ${to === 'base' ? 'base' : bfName(s, to)}.`)
-    // Into enemy units: still a showdown, for Actions and Reactions; the fight after it is yours.
-    if (to !== 'base' && !s.players[other(side)].empty && s.battlefields[to].units.some((u) => u.owner !== side)) openShowdown(s, to, side)
+    // Into enemy units: still a showdown, for Actions and Reactions; the fight after it is yours (or
+    // the game's, if you ask). Into an empty one you don't hold: the board offers to conquer it.
+    const bf = to === 'base' ? null : s.battlefields[to]
+    if (bf && !s.players[other(side)].empty && bf.units.some((u) => u.owner !== side)) openShowdown(s, to as number, side)
+    else if (bf && bf.controller !== side) s.fight = { battlefield: to as number, attacker: side }
     return s
   }
   if (to === 'base') {
@@ -1101,7 +1241,8 @@ export function pass(state: GameState, side: Side): GameState {
   if (sd.passes >= 2) {
     s.showdown = null
     if (s.manual.includes(sd.attacker)) {
-      log(s, sd.attacker, 'combat', `The showdown at ${bfName(s, sd.battlefield)} is over: fight it out with the tools.`)
+      s.fight = { battlefield: sd.battlefield, attacker: sd.attacker }
+      log(s, sd.attacker, 'combat', `The showdown at ${bfName(s, sd.battlefield)} is over: resolve the combat, or fight it out with the tools.`)
       return s
     }
     const bf = s.battlefields[sd.battlefield]
@@ -1148,7 +1289,11 @@ function takeControl(s: GameState, index: number, side: Side) {
     p.points += 1
     log(s, side, 'score', `${who(side)} conquered ${bfName(s, index)}: +1 (${p.points}).`)
   }
-  for (const u of bf.units.filter((x) => x.owner === side)) trigger(s, u, 'conquer')
+  for (const u of bf.units.filter((x) => x.owner === side)) {
+    trigger(s, u, 'conquer')
+    hunt(s, u)
+  }
+  youTrigger(s, side, 'youConquer')
 }
 
 /**
@@ -1195,9 +1340,11 @@ function combat(s: GameState, index: number, attacker: Side) {
     s.players[attacker].base.push(...attackersLeft)
     log(s, attacker, 'combat', `${attacker === 0 ? 'Your' : 'Their'} survivors went back to base.`)
   } else if (attackersLeft.length) {
+    youTrigger(s, attacker, 'youWin')
     takeControl(s, index, attacker)
   } else if (defendersLeft.length) {
     bf.controller = other(attacker)
+    youTrigger(s, other(attacker), 'youWin')
   }
   // Damage heals after combat.
   for (const u of allUnits(s)) u.damage = 0
@@ -1221,7 +1368,7 @@ export type Tool =
   | { kind: 'control'; battlefield: number; side: Side | null }
   | { kind: 'recall'; unit: string }
   /** The card `index` from the top of the deck: to hand, the bottom, or the trash. */
-  | { kind: 'fromDeck'; side: Side; index: number; to: 'hand' | 'bottom' | 'trash' }
+  | { kind: 'fromDeck'; side: Side; index: number; to: 'hand' | 'bottom' | 'trash' | 'top' }
   | { kind: 'shuffle'; side: Side }
   /** A card from the trash: back to hand, or to the bottom of the deck. */
   | { kind: 'fromTrash'; side: Side; index: number; to: 'hand' | 'bottom' }
@@ -1240,6 +1387,8 @@ export type Tool =
   | { kind: 'unequip'; unit: string; gear: string }
   /** A card on the chain countered: it's gone, to its owner's trash (an ability just ends). */
   | { kind: 'counter'; item: string }
+  /** By hand, after a showdown: the game fights it (resolve) or you do (not). */
+  | { kind: 'combat'; resolve: boolean }
 
 /** Applies a card effect by hand. Damage that reaches a unit's Might kills it. */
 export function applyTool(state: GameState, tool: Tool): GameState {
@@ -1340,9 +1489,10 @@ export function applyTool(state: GameState, tool: Tool): GameState {
       const [card] = p.deck.splice(tool.index, 1)
       if (!card) return state
       if (tool.to === 'hand') p.hand.push(card)
+      else if (tool.to === 'top') p.deck.unshift(card)
       else if (tool.to === 'bottom') p.deck.push(card)
       else p.trash.push(card)
-      log(s, tool.side, 'tool', tool.to === 'hand' ? `${who(tool.side)} took a card from the deck into hand.` : tool.to === 'bottom' ? 'Put a card on the bottom of the deck.' : `${card.name} went from the deck to the trash.`)
+      log(s, tool.side, 'tool', tool.to === 'hand' ? `${who(tool.side)} took a card from the deck into hand.` : tool.to === 'top' ? 'Put a card on top of the deck.' : tool.to === 'bottom' ? 'Put a card on the bottom of the deck.' : `${card.name} went from the deck to the trash.`)
       break
     }
     case 'shuffle': {
@@ -1469,7 +1619,23 @@ export function applyTool(state: GameState, tool: Tool): GameState {
       log(s, tool.side ?? 0, 'tool', `${bfName(s, tool.battlefield)} is now ${tool.side == null ? 'nobody' : tool.side === 0 ? 'yours' : 'theirs'}.`)
       break
     }
+    case 'combat': {
+      const f = s.fight
+      if (!f) return state
+      s.fight = null
+      if (!tool.resolve) {
+        log(s, f.attacker, 'tool', 'The fight is done by hand.')
+        break
+      }
+      const bf = s.battlefields[f.battlefield]
+      const attackers = bf.units.some((u) => u.owner === f.attacker)
+      const defenders = bf.units.some((u) => u.owner !== f.attacker)
+      if (attackers && defenders) combat(s, f.battlefield, f.attacker)
+      else if (attackers) takeControl(s, f.battlefield, f.attacker)
+      break
+    }
   }
+  checkWin(s)
   return s
 }
 

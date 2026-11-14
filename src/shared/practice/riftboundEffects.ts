@@ -68,11 +68,26 @@ export interface Activated {
   add: boolean
 }
 
-export type Trigger = 'play' | 'attack' | 'defend' | 'conquer' | 'hold' | 'death' | 'move'
+/**
+ * A unit's own triggers ('play': when you play me, 'attack': when I attack...), and the ones about
+ * you, on Legends, gear and units: when you play a unit or a spell, conquer, hold, or win a combat.
+ */
+export type Trigger = 'play' | 'attack' | 'defend' | 'conquer' | 'hold' | 'death' | 'move' | 'youUnit' | 'youSpell' | 'youConquer' | 'youHold' | 'youWin'
 
 export interface Ability {
   trigger: Trigger
   effects: Effect[]
+  /** "you may exhaust me to ...": only when the card is ready, and it exhausts. */
+  exhaust?: boolean
+}
+
+/** "[Level N][>] I have +1 Might and [Ganking]": on while its owner has N XP or more. */
+export interface LevelBonus {
+  level: number
+  /** The card itself, or all of your units ("Your units have +1 Might"). */
+  who: 'me' | 'yours'
+  might: number
+  keywords: Partial<Record<TurnKeyword, number>>
 }
 
 export interface CardScript {
@@ -92,6 +107,8 @@ export interface CardScript {
   leftover: string | null
   /** Abilities used by exhausting the card. */
   activated: Activated[]
+  /** What it gives at each Level. */
+  levels: LevelBonus[]
 }
 
 const WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 }
@@ -99,7 +116,19 @@ const num = (s: string) => WORDS[s.toLowerCase()] ?? Number(s)
 
 /** Keywords that need nothing from the effect parser: the engine reads them (or they don't matter here). */
 /** Hidden is read too: the practice game simply plays such cards normally, face up. */
-const QUIET_KEYWORDS = /^(assault|shield|tank|backline|ganking|accelerate|temporary|deflect|vision|ambush|action|reaction|deathknell|hidden)\b/i
+const QUIET_KEYWORDS = /^(assault|shield|tank|backline|ganking|accelerate|temporary|deflect|vision|ambush|action|reaction|deathknell|hidden|hunt)\b/i
+
+const KEYWORD_LIST = /\[(assault|shield|tank|ganking|backline)(?: (\d+))?\]/gi
+
+/** "I have +1 Might and [Ganking]", "Your units have +1 Might": a Level's bonus, or null. */
+function readLevelBonus(level: number, text: string): LevelBonus | null {
+  const m = /^(i|your units|friendly units) (?:have|has) (?:\+(\d+) might)?(?:,? ?(?:and )?((?:\[[a-z]+(?: \d+)?\](?:,? (?:and )?)?)+))?$/i.exec(text.trim().replace(/\.$/, ''))
+  if (!m || (!m[2] && !m[3])) return null
+  const keywords: LevelBonus['keywords'] = {}
+  for (const k of (m[3] ?? '').matchAll(KEYWORD_LIST)) keywords[k[1].toLowerCase() as TurnKeyword] = k[2] ? Number(k[2]) : 1
+  if (m[3] && !Object.keys(keywords).length) return null
+  return { level, who: m[1].toLowerCase() === 'i' ? 'me' : 'yours', might: m[2] ? Number(m[2]) : 0, keywords }
+}
 
 /** The text without reminder text, entities and the leftover formatting, as sentences. */
 export function sentences(text: string): string[] {
@@ -193,6 +222,11 @@ function readEffect(raw: string): Effect[] | null {
 
 const TRIGGERS: [RegExp, Trigger][] = [
   [/^when you play (?:me|this),? (.+)$/i, 'play'],
+  [/^when you play a unit,? (.+)$/i, 'youUnit'],
+  [/^when you play a spell,? (.+)$/i, 'youSpell'],
+  [/^when you conquer,? (.+)$/i, 'youConquer'],
+  [/^when you (?:or an ally )?hold,? (.+)$/i, 'youHold'],
+  [/^when you win a combat,? (.+)$/i, 'youWin'],
   [/^when i attack,? (.+)$/i, 'attack'],
   [/^when i defend,? (.+)$/i, 'defend'],
   [/^when i conquer,? (.+)$/i, 'conquer'],
@@ -231,7 +265,7 @@ export function scriptOf(card: Card): CardScript {
   const key = `${card.id}|${card.text ?? ''}`
   const hit = cache.get(key)
   if (hit) return hit
-  const script: CardScript = { spell: [], abilities: [], entersReady: false, timing: null, full: true, prefix: [], leftover: null, activated: [] }
+  const script: CardScript = { spell: [], abilities: [], entersReady: false, timing: null, full: true, prefix: [], leftover: null, activated: [], levels: [] }
   const spell = card.category === 'Spell'
   const all = sentences(card.text ?? '')
   /** The first sentence not read, for a spell's leftover. */
@@ -243,11 +277,19 @@ export function scriptOf(card: Card): CardScript {
   for (let i = 0; i < all.length; i++) {
     let sentence = all[i]
     let timing: 'action' | 'reaction' | null = null
+    let level: number | null = null
     // Leading keywords: timing, and the ones the engine reads elsewhere.
     for (;;) {
       const kw = /^\[([^\]]+)\]\s*/.exec(sentence)
       if (!kw) break
       const name = kw[1]
+      const lv = /^level (\d+)$/i.exec(name)
+      if (lv) {
+        // "[Level N][>] ...": what follows is on at N XP.
+        level = Number(lv[1])
+        sentence = sentence.slice(kw[0].length).replace(/^\[(?:>|&gt;)\]\s*/, '')
+        break
+      }
       if (/^action$/i.test(name)) timing ??= 'action'
       else if (/^reaction$/i.test(name)) timing = 'reaction'
       else if (/^deathknell$/i.test(name)) break
@@ -255,6 +297,12 @@ export function scriptOf(card: Card): CardScript {
         // "[Action][>] ..." just joins a timing to what follows.
       } else if (!QUIET_KEYWORDS.test(name)) unread(i)
       sentence = sentence.slice(kw[0].length)
+    }
+    if (level != null && !sentence.includes(EXHAUST)) {
+      const bonus = readLevelBonus(level, sentence)
+      if (bonus) script.levels.push(bonus)
+      else unread(i)
+      continue
     }
     // An ability paid by exhausting: its cost, then what it does, to the next ability or trigger.
     const at = sentence.indexOf(EXHAUST)
@@ -296,8 +344,11 @@ export function scriptOf(card: Card): CardScript {
     }
     const trigger = TRIGGERS.find(([re]) => re.test(sentence))
     if (trigger) {
-      const effects = readEffect(trigger[0].exec(sentence)![1])
-      if (effects) script.abilities.push({ trigger: trigger[1], effects })
+      let body = trigger[0].exec(sentence)![1]
+      const exhaust = /^you may exhaust (?:me|this) to /i.test(body)
+      if (exhaust) body = body.replace(/^you may exhaust (?:me|this) to /i, '')
+      const effects = readEffect(body)
+      if (effects) script.abilities.push({ trigger: trigger[1], effects, ...(exhaust ? { exhaust } : {}) })
       else unread(i)
       continue
     }

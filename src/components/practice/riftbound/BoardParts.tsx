@@ -38,15 +38,32 @@ export function AbilityButtons({ card, source, handlers }: { card: Card; source:
   return (
     <>
       {abilitiesOf(card).map((a, i) => {
-        const short = a.text.length > 38 ? `${a.text.slice(0, 36)}…` : a.text
+        const text = readable(a.text)
+        const short = text.length > 38 ? `${text.slice(0, 36)}…` : text
         return (
-          <button key={i} className="btn rb-ability" disabled={!handlers.ready(source, i)} title={t.practiceGame.abilityTitle(a.text, a.energy, a.power, a.otherCost)} onClick={() => handlers.use(source, i)}>
+          <button key={i} className="btn rb-ability" disabled={!handlers.ready(source, i)} title={t.practiceGame.abilityTitle(text, a.energy, a.power, a.otherCost && readable(a.otherCost))} onClick={() => handlers.use(source, i)}>
             ⚡ {short}
           </button>
         )
       })}
     </>
   )
+}
+
+/** Card text as people read it: the data's symbols (":rb_energy_2:", ":rb_exhaust:", "[&gt;]") in words. */
+function readable(text: string): string {
+  return text
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/&amp;/g, '&')
+    .replace(/:rb_might:/g, 'Might')
+    .replace(/:rb_energy_(\d+):/g, '($1)')
+    .replace(/:rb_rune_rainbow:/g, '(any rune)')
+    .replace(/:rb_rune_(\w+):/g, (_, d: string) => `(${d[0].toUpperCase()}${d.slice(1)} rune)`)
+    .replace(/:rb_exhaust:/g, '(exhaust)')
+    .replace(/\[>>?\]\s*/g, '— ')
+    .replace(/\)(?=[A-Z[])/g, ') ')
+    .replace(/\.(?=[A-Z[])/g, '. ')
 }
 
 export function CardFace({ card }: { card: Card }) {
@@ -143,6 +160,11 @@ export function Base({
         ))}
         {p.gear.map((g) => (
           <span key={g.uid} className={`rb-gear ${g.exhausted ? 'exhausted' : ''}`}>
+            {g.card.imageUrlSmall && (
+              <button className="rb-gear-art" onClick={() => onDetail(g.card)} aria-label={t.practiceGame.details(g.card.name)}>
+                <img src={g.card.imageUrlSmall} alt="" loading="lazy" />
+              </button>
+            )}
             {onTool ? (
               <button className="link-button" aria-pressed={g.exhausted} title={t.practiceGame.exhaustToggle} onClick={() => onTool({ kind: 'gear', side, gear: g.uid })}>
                 ⚙ {g.card.name}
@@ -389,8 +411,8 @@ export function TokenForm({ game, onMake }: { game: GameState; onMake: (tl: Tool
 }
 
 /** Your deck (the top cards, or all of it) and trash, to take cards from like at a table. */
-export function ZonesWindow({ game, kind, onTool, onDetail, onClose }: { game: GameState; kind: 'deck' | 'trash'; onTool: (tl: Tool) => void; onDetail: (c: Card) => void; onClose: () => void }) {
-  const [top, setTop] = useState(3)
+export function ZonesWindow({ game, kind, top: startTop = 3, onTool, onDetail, onClose }: { game: GameState; kind: 'deck' | 'trash'; top?: number; onTool: (tl: Tool) => void; onDetail: (c: Card) => void; onClose: () => void }) {
+  const [top, setTop] = useState(startTop)
   const [all, setAll] = useState(false)
   const p = game.players[0]
   const cards = kind === 'trash' ? p.trash : all ? p.deck : p.deck.slice(0, top)
@@ -437,6 +459,11 @@ export function ZonesWindow({ game, kind, onTool, onDetail, onClose }: { game: G
                   <button className="btn" onClick={() => onTool({ kind: 'fromDeck', side: 0, index: i, to: 'bottom' })}>
                     {t.practiceGame.toBottom}
                   </button>
+                  {i > 0 && (
+                    <button className="btn" onClick={() => onTool({ kind: 'fromDeck', side: 0, index: i, to: 'top' })}>
+                      {t.practiceGame.toTop}
+                    </button>
+                  )}
                   <button className="btn" onClick={() => onTool({ kind: 'fromDeck', side: 0, index: i, to: 'trash' })}>
                     {t.practiceGame.toTrash}
                   </button>
@@ -587,14 +614,14 @@ export function GameLog({ game, onDetail }: { game: { log: readonly { kind: stri
       <ol>
         {entries.map((e, i) => (
           <li key={start + i} className={`rb-log-${e.kind} ${e.side === 0 ? 'mine' : 'theirs'}`}>
-            {e.text}
+            {readable(e.text)}
             {e.card && e.kind === 'spell' && (
               <>
                 {' '}
                 <button className="link-button" onClick={() => onDetail(e.card!)}>
                   {t.practiceGame.read}
                 </button>
-                {e.card.text && <div className="rb-log-text">{e.card.text}</div>}
+                {e.card.text && <div className="rb-log-text">{readable(e.card.text)}</div>}
               </>
             )}
           </li>

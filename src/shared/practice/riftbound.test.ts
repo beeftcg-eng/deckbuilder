@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activate, applyTool, canActivate, canPlay, combatMight, endTurn, move, mulligan, newGame, pass, play as playOnChain, runeCount, settle, type DeckSetup, type GameState, type Unit } from './riftbound'
+import { activate, applyTool, startOfTurn, canActivate, canPlay, combatMight, endTurn, keywordsOf, mightNow, move, mulligan, newGame, pass, play as playOnChain, runeCount, settle, type DeckSetup, type GameState, type Unit } from './riftbound'
 import { BOT, botAct, botMulligan, botShouldAct, setupFromDeck, type Level } from './riftboundBot'
 import { makeCard, makeDeck } from '../testFixtures'
 import { scriptOf } from './riftboundEffects'
@@ -508,5 +508,92 @@ describe('more card text: recall, keywords this turn, counters, modes, abilities
     expect(s.showdown).toBeNull()
     expect(s.battlefields[0].units).toHaveLength(2) // no automatic combat
     expect(s.log.at(-1)?.text).toMatch(/fight it out with the tools/)
+  })
+})
+
+describe('XP, Levels, Legends that trigger, abilities on the chain, combat by hand', () => {
+  const gustwalker = unit('Gustwalker', 3, 3, { text: '[Hunt 2] (When I conquer or hold, gain 2 XP.)[Level 3][&gt;] I have +1 :rb_might: and [Ganking]. (While you have 3+ XP, get the effect. A [Ganking] unit can move from battlefield to battlefield.)' })
+  const piece = (uid: string, owner: 0 | 1, card = unit(`P${uid}`, 2, 2)): Unit => ({ uid, card, owner, might: card.might ?? 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: keywordsOf(card) })
+
+  it("reads only a card's own keywords, not ones in reminder text or behind a Level", () => {
+    expect(keywordsOf(gustwalker)).toMatchObject({ ganking: false, hunt: 2 })
+    expect(scriptOf(gustwalker).levels).toEqual([{ level: 3, who: 'me', might: 1, keywords: { ganking: 1 } }])
+  })
+
+  it('Hunt gives XP on conquering, and Level 3 turns on +1 Might and Ganking', () => {
+    let s = structuredClone(started())
+    s.players[0].base = [piece('g', 0, gustwalker)]
+    s.players[0].xp = 1
+    s = move(s, 0, ['g'], 0)
+    expect(s.players[0].xp).toBe(3)
+    const g = s.battlefields[0].units[0]
+    expect(mightNow(g)).toBe(4)
+    expect(g.lvl?.keywords.ganking).toBe(1)
+    s = applyTool(s, { kind: 'xp', side: 0, amount: -1 })
+    expect(mightNow(s.battlefields[0].units[0])).toBe(3) // below Level 3 again
+  })
+
+  it("a Legend's \"When you play a unit\" waits on the chain above the unit", () => {
+    let s = structuredClone(started())
+    s.players[0].legend = makeCard('riftbound', { name: 'Rengar', category: 'Legend', text: 'When you play a unit, give a unit +1 :rb_might: this turn.' })
+    s.players[0].base = [piece('a', 0)]
+    s.players[0].hand = [unit('New', 0, 2)]
+    s = playOnChain(s, 0, 0)
+    expect(s.chain?.items.map((i) => (i.effects ? 'Rengar ability' : i.card.name))).toEqual(['New', 'Rengar ability'])
+    s = settle(s)
+    expect(s.players[0].base.find((u) => u.uid === 'a')!.temp).toBe(1)
+  })
+
+  it('"you may exhaust me to draw 1" when you hold: only while the Legend is ready', () => {
+    let s = structuredClone(started())
+    s.players[0].legend = makeCard('riftbound', { name: 'Vex', category: 'Legend', text: 'When you or an ally hold, you may exhaust me to draw 1.' })
+    s.battlefields[0].controller = 0
+    s.battlefields[0].units = [piece('a', 0)]
+    const hand = s.players[0].hand.length
+    s = endTurn(endTurn(s)) // your next turn: hold, draw 1 for Vex and 1 for the turn
+    expect(s.players[0].legendExhausted).toBe(true)
+    expect(s.players[0].hand).toHaveLength(hand + 2)
+  })
+
+  it('"When you play me" waits on the chain, with the target you picked', () => {
+    const zapper = unit('Zapper', 0, 2, { text: 'When you play me, deal 1 to a unit.' })
+    let s = structuredClone(started())
+    s.players[0].hand = [zapper]
+    s.battlefields[0].units = [piece('d', 1)]
+    s = playOnChain(s, 0, 0, { targets: ['d'] })
+    s = pass(s, 1) // the unit resolves; its ability goes on the chain
+    expect(s.chain?.items[0]).toMatchObject({ card: { name: 'Zapper' }, targets: ['d'] })
+    expect(s.battlefields[0].units[0].damage).toBe(0)
+    s = pass(s, 1)
+    expect(s.battlefields[0].units[0].damage).toBe(1)
+  })
+
+  it('by hand, an empty battlefield is offered to conquer, and Start of turn scores what you hold', () => {
+    let s: GameState = structuredClone({ ...started(), manual: [0 as const] })
+    s.players[0].base = [piece('g', 0, gustwalker)]
+    s = move(s, 0, ['g'], 0)
+    expect(s.fight).toEqual({ battlefield: 0, attacker: 0 })
+    s = applyTool(s, { kind: 'combat', resolve: true })
+    expect(s.battlefields[0].controller).toBe(0)
+    expect(s.players[0].points).toBe(1)
+    expect(s.players[0].xp).toBe(2) // Hunt 2
+    s = endTurn(endTurn(s))
+    s = startOfTurn(s, 0)
+    expect(s.players[0].points).toBe(2) // held
+    expect(s.players[0].xp).toBe(4)
+    expect(mightNow(s.battlefields[0].units[0])).toBe(4) // Level 3: +1
+  })
+
+  it('by hand, the game resolves the fight after a showdown when you ask', () => {
+    let s: GameState = structuredClone({ ...started(), manual: [0 as const] })
+    s.players[0].base = [piece('a', 0, unit('Big', 4, 4))]
+    s.battlefields[0].units = [piece('d', 1)]
+    s = pass(pass(move(s, 0, ['a'], 0), 0), 1)
+    expect(s.fight).toEqual({ battlefield: 0, attacker: 0 })
+    s = applyTool(s, { kind: 'combat', resolve: true })
+    expect(s.fight).toBeNull()
+    expect(s.battlefields[0].units.map((u) => u.uid)).toEqual(['a'])
+    expect(s.battlefields[0].controller).toBe(0)
+    expect(s.players[0].points).toBe(1)
   })
 })

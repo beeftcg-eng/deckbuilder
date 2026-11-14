@@ -257,6 +257,7 @@ export function flipState(s: GameState): GameState {
       hidden: (b.hidden ?? []).map(unit),
     })),
     showdown: s.showdown ? { ...s.showdown, attacker: f(s.showdown.attacker), focus: f(s.showdown.focus) } : null,
+    ...(s.fight !== undefined ? { fight: s.fight ? { ...s.fight, attacker: f(s.fight.attacker) } : null } : {}),
     chain: s.chain ? { priority: f(s.chain.priority), items: s.chain.items.map((i) => ({ ...i, side: f(i.side) })) } : null,
     active: f(s.active),
     first: f(s.first),

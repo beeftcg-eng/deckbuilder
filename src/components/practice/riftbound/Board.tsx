@@ -11,6 +11,18 @@ import { CardFace, GameLog, HandMenu, PlayerBar, UnitChip, Base, UnitTools, Zone
 const pointsAtThings = (text: string | null | undefined) => /\b(choose|units?|gear)\b/i.test(text ?? '')
 const wantsMarks = (card: Card) => !scriptOf(card).full && pointsAtThings(scriptOf(card).leftover ?? card.text)
 
+const WORD_NUMBERS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 }
+
+/** How many cards a card's text says to look at on top of your deck ("Look at the top 3", [Predict 2], [Vision] as a unit enters), or 0. */
+function lookCount(text: string | null, entering: boolean): number {
+  const t = text ?? ''
+  const look = /look at the top (\d+|one|two|three|four|five|six)\b/i.exec(t)
+  if (look) return Number(look[1]) || WORD_NUMBERS[look[1].toLowerCase()] || 1
+  const predict = /\[predict(?: (\d+))?\]/i.exec(t)
+  if (predict) return Number(predict[1] ?? 1)
+  return entering && /\[vision\]/i.test(t) ? 1 : 0
+}
+
 /** Moves the picked units, fighting as they arrive. */
 function movePicked(game: GameState, ids: string[], to: 'base' | number): GameState {
   return canMove(game, 0, ids, to) ? moveUnits(game, 0, ids, to) : game
@@ -46,6 +58,8 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
   // On a phone the log would take half the screen: it starts closed there.
   const [showLog, setShowLog] = useState(() => typeof matchMedia !== 'function' || !matchMedia('(max-width: 720px)').matches)
   const [zones, setZones] = useState<'deck' | 'trash' | null>(null)
+  /** How many cards the deck window shows on top (a card that says "Look at the top 3" opens it at 3). */
+  const [zonesTop, setZonesTop] = useState(3)
   /** A card or ability being played that needs units picked for its effects: what's been picked so far, and how to finish. */
   const [targeting, setTargeting] = useState<{ effects: Effect[]; picks: (string | null)[]; here: number | null; source?: string; run: (picks: (string | null)[]) => GameState } | null>(null)
   /** A card or ability whose text is yours to apply: its name, the units you've marked as its targets, and how to finish. */
@@ -76,6 +90,26 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
   // While marking, any unit can be clicked.
   const legalNow = targetEffect && 'target' in targetEffect ? legalTargets(game, 0, targetEffect.target, targeting!.here, targeting!.source) : marking ? units : []
   const shownSelected = marking ? marking.marked : selected
+  /** By hand, after a showdown (a fight to resolve) or a move into an empty battlefield (one to conquer). */
+  const fightAt = game.fight ? game.battlefields[game.fight.battlefield] : null
+  const contested = !!fightAt && fightAt.units.some((u) => u.owner !== game.fight!.attacker)
+  const fightLabel = game.fight ? (contested ? t.practiceGame.fightOver(bfName(game, game.fight.battlefield)) : t.practiceGame.conquerOffer(bfName(game, game.fight.battlefield))) : ''
+
+  // A card of yours that says to look at the top of your deck opens the deck window at that many.
+  const logSeen = useRef(game.log.length)
+  useEffect(() => {
+    const fresh = game.log.slice(logSeen.current)
+    logSeen.current = game.log.length
+    if (busy) return
+    for (const e of fresh) {
+      if (e.side !== 0 || !e.card || !/resolved|entered/.test(e.text)) continue
+      const n = lookCount(e.card.text, /entered/.test(e.text))
+      if (n) {
+        setZonesTop(n)
+        setZones('deck')
+      }
+    }
+  }, [game, busy])
 
   // On the chain with nothing you could answer with: pass by yourself (once per state, so Undo
   // back to it lets you look).
@@ -336,10 +370,10 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
                     <CardFace card={item.card} />
                   </button>
                   <span>
-                    {t.practiceGame.chainCard(item.side === 0 ? t.practiceGame.chainYou : (opponentName ?? t.practiceGame.chainThem), item.ability != null ? t.practiceGame.chainAbility(item.card.name) : item.card.name)}
+                    {t.practiceGame.chainCard(item.side === 0 ? t.practiceGame.chainYou : (opponentName ?? t.practiceGame.chainThem), item.ability != null || item.effects ? t.practiceGame.chainAbility(item.card.name) : item.card.name)}
                     {names && <span className="text-dim"> {t.practiceGame.chainTargets(names)}</span>}
                   </span>
-                  <button className="btn stepper-btn" title={t.practiceGame.counterTitle} disabled={busy} onClick={() => tool({ kind: 'counter', item: item.uid })}>
+                  <button className="btn rb-chain-counter" title={t.practiceGame.counterTitle} disabled={busy} onClick={() => tool({ kind: 'counter', item: item.uid })}>
                     {t.practiceGame.counter}
                   </button>
                 </li>
@@ -355,6 +389,17 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
               <input type="checkbox" checked={autoPass} onChange={(e) => onAutoPass(e.target.checked)} /> {t.practiceGame.autoPass}
             </label>
           )}
+        </div>
+      )}
+      {game.fight && !chain && !showdown && (
+        <div className="rb-prompt" role="group" aria-label={fightLabel}>
+          <span>{fightLabel}</span>
+          <button className="btn btn-primary" disabled={busy} onClick={() => tool({ kind: 'combat', resolve: true })}>
+            {contested ? t.practiceGame.resolveCombat : t.practiceGame.conquer}
+          </button>
+          <button className="btn" disabled={busy} onClick={() => tool({ kind: 'combat', resolve: false })}>
+            {t.practiceGame.fightByHand}
+          </button>
         </div>
       )}
       {showdown && !chain && (
@@ -456,7 +501,10 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
             onTool={tool}
             onPlayChampion={yourTurn ? () => playCard(-1, {}) : undefined}
             onStartOfTurn={manual && yourTurn ? () => act(startOfTurn(game, 0)) : undefined}
-            onZones={setZones}
+            onZones={(kind) => {
+              setZonesTop(3)
+              setZones(kind)
+            }}
             abilities={{ ready: abilityReady, use: useAbility }}
             championDrag={dragProps({ kind: 'champion' })}
             trashDrop={{ ...dropProps({ kind: 'trash' }), className: dropClass({ kind: 'trash' }) }}
@@ -495,7 +543,7 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
 
         {showLog && <GameLog game={game} onDetail={setDetail} />}
       </div>
-      {zones && <ZonesWindow game={game} kind={zones} onTool={tool} onDetail={setDetail} onClose={() => setZones(null)} />}
+      {zones && <ZonesWindow key={`${zones}-${zonesTop}`} game={game} kind={zones} top={zonesTop} onTool={tool} onDetail={setDetail} onClose={() => setZones(null)} />}
       {detail && <CardDetailModal card={detail} onClose={() => setDetail(null)} />}
     </div>
   )

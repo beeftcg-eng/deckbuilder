@@ -5556,7 +5556,9 @@ button.rb-rune {
 }
 
 .rb-chain-card {
+  flex: none;
   width: 44px;
+  aspect-ratio: 5 / 7;
   padding: 0;
   border: 1px solid var(--border-strong);
   border-radius: 4px;
@@ -6031,8 +6033,35 @@ button.rb-rune {
 
 .rb-gear {
   display: inline-flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: flex-start;
   gap: 4px;
+  max-width: 170px;
+}
+
+.rb-gear-art {
+  width: 84px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  overflow: hidden;
+  background: none;
+  cursor: pointer;
+}
+
+.rb-gear-art img {
+  display: block;
+  width: 100%;
+}
+
+.rb-gear.exhausted .rb-gear-art {
+  transform: rotate(8deg);
+}
+
+.rb-chain-counter {
+  padding: 2px 8px;
+  font-size: 0.85em;
 }
 
 .rb-gear.exhausted,
@@ -6207,13 +6236,23 @@ button.rb-rune {
   }
 
   .rb-battlefields {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
   }
 
   .rb-bf {
+    min-width: 0;
     min-height: 110px;
     padding: 6px;
+  }
+
+  /* Each battlefield's name and control menu stack, so two fit side by side. */
+  .rb-bf header {
+    flex-wrap: wrap;
+  }
+
+  .rb-bf header select {
+    max-width: 100%;
   }
 
   .rb-bf-art img {
