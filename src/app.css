@@ -6145,3 +6145,159 @@
     grid-template-rows: 1fr 120px;
   }
 }
+
+/* A One Piece practice game (practice/OnePieceGame.tsx): the board reuses the Riftbound one's frame. */
+.op-player {
+  align-items: flex-start;
+}
+
+.op-player.theirs {
+  background: var(--danger-dim);
+}
+
+.op-leader-row {
+  display: flex;
+  gap: 8px;
+}
+
+.op-player-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.op-characters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  min-height: 130px;
+  padding: 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.op-piece {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 92px;
+  padding: 4px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.op-piece.selected {
+  border-color: var(--accent);
+}
+
+.op-piece.targetable {
+  border-color: var(--warning);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 40%, transparent);
+}
+
+.op-piece-art {
+  position: relative;
+  display: block;
+  width: 80px;
+  line-height: 0;
+}
+
+.op-piece-art img {
+  width: 100%;
+  border-radius: 4px;
+}
+
+.op-piece-art img {
+  transition: transform 0.15s ease;
+}
+
+/* A rested card turns sideways; its power stays upright. */
+.op-piece.rested .op-piece-art img {
+  transform: rotate(90deg) scale(0.75);
+}
+
+.op-piece-power,
+.op-piece-don {
+  position: absolute;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.op-piece-power {
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgb(0 0 0 / 80%);
+  color: #fff;
+}
+
+.op-piece-don {
+  top: 4px;
+  right: 4px;
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+}
+
+.op-piece-name {
+  max-width: 88px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.op-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--radius);
+  background: var(--bg-elevated-2);
+}
+
+.op-card-text {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  font-size: 13px;
+  white-space: pre-wrap;
+  color: var(--text-dim);
+}
+
+.op-trigger img {
+  width: 64px;
+  border-radius: 4px;
+}
+
+@media (max-width: 720px) {
+  .op-piece {
+    width: 70px;
+  }
+
+  .op-piece-art {
+    width: 60px;
+  }
+
+  .op-piece-name {
+    max-width: 66px;
+  }
+
+  .op-characters {
+    min-height: 100px;
+    gap: 6px;
+    padding: 6px;
+  }
+}

@@ -8,7 +8,8 @@ import type { GameState } from './riftbound'
  */
 const isToken = (id: string) => id.startsWith('riftbound:token-')
 
-export function packState(state: GameState): string {
+/** Any game's state (Riftbound's, One Piece's) with its cards as ids. */
+export function packState(state: object): string {
   return JSON.stringify(state, (_key, value: unknown) => {
     if (value && typeof value === 'object' && 'gameId' in value && 'sourceId' in value && 'name' in value) {
       const card = value as Card
@@ -18,19 +19,29 @@ export function packState(state: GameState): string {
   })
 }
 
-/** The game back, its cards from `cardsById`; null when it can't be read or a card is missing. */
-export function unpackState(packed: string, cardsById: Map<string, Card>): GameState | null {
+/** packState's JSON back, its cards from `cardsById`; null when it can't be read or a card is missing. */
+export function unpackCards<T>(packed: string, cardsById: Map<string, Card>): T | null {
   let missing = false
   try {
-    const state = JSON.parse(packed, (_key, value: unknown) => {
-      if (value && typeof value === 'object' && '$card' in value) {
-        const card = cardsById.get(String((value as { $card: unknown }).$card))
+    const value = JSON.parse(packed, (_key, v: unknown) => {
+      if (v && typeof v === 'object' && '$card' in v) {
+        const card = cardsById.get(String((v as { $card: unknown }).$card))
         if (!card) missing = true
         return card ?? null
       }
-      return value
-    }) as GameState
-    if (missing || !state || !Array.isArray(state.players) || !Array.isArray(state.battlefields)) return null
+      return v
+    }) as T
+    return missing ? null : value
+  } catch {
+    return null
+  }
+}
+
+/** The game back, its cards from `cardsById`; null when it can't be read or a card is missing. */
+export function unpackState(packed: string, cardsById: Map<string, Card>): GameState | null {
+  try {
+    const state = unpackCards<GameState>(packed, cardsById)
+    if (!state || !Array.isArray(state.players) || !Array.isArray(state.battlefields)) return null
     // Saved before hidden cards existed.
     for (const bf of state.battlefields) bf.hidden ??= []
     state.manual ??= []

@@ -8,6 +8,7 @@ import { SimulateTab } from './practice/SimulateTab'
 import { lazyModal } from './lazyModal'
 
 const RiftboundGame = lazyModal(() => import('./practice/RiftboundGame'), 'RiftboundGame')
+const OnePieceGame = lazyModal(() => import('./practice/OnePieceGame'), 'OnePieceGame')
 import { t } from '../shared/i18n'
 
 interface Props {
@@ -135,7 +136,7 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
                   </button>
                 ))}
             </div>
-            {deck.gameId === 'riftbound' && (
+            {(deck.gameId === 'riftbound' || deck.gameId === 'onepiece') && (
               <button className="btn practice-game-btn" title={t.practiceGame.buttonTitle} onClick={() => setPlayingGame(true)}>
                 {t.practiceGame.button}
               </button>
@@ -276,7 +277,8 @@ export function SampleHandModal({ deck, cardsById, handSize, onClose }: Props) {
           )}
         </>
       )}
-      {playingGame && <RiftboundGame deck={deck} onClose={() => setPlayingGame(false)} />}
+      {playingGame && deck.gameId === 'riftbound' && <RiftboundGame deck={deck} onClose={() => setPlayingGame(false)} />}
+      {playingGame && deck.gameId === 'onepiece' && <OnePieceGame deck={deck} onClose={() => setPlayingGame(false)} />}
     </Modal>
   )
 }

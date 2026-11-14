@@ -449,7 +449,8 @@ export function UnitTools({ unit, onTool, onDone }: { unit: Unit; onTool: (tl: T
 }
 
 /** The game so far, oldest first, kept scrolled to the newest. */
-export function GameLog({ game, onDetail }: { game: GameState; onDetail: (c: Card) => void }) {
+/** The log of a game (any practice game's: Riftbound's, One Piece's), newest at the bottom. */
+export function GameLog({ game, onDetail }: { game: { log: readonly { kind: string; side: number; text: string; card?: Card }[] }; onDetail: (c: Card) => void }) {
   const start = Math.max(0, game.log.length - 120)
   const entries = game.log.slice(start)
   const ref = useRef<HTMLElement>(null)
