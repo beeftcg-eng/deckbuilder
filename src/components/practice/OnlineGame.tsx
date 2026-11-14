@@ -25,7 +25,7 @@ import { connectNudges, type Nudger } from '../../shared/practice/realtime'
 import type { Deck } from '../../shared/types'
 import { t } from '../../shared/i18n'
 import { Modal } from '../Modal'
-import { Board } from './RiftboundGame'
+import { Board } from './riftbound/Board'
 import { ServerUpdateNote } from '../ServerUpdateNote'
 
 /** How often the game is checked for the other player's moves: often without Realtime, rarely with it (it nudges). */
