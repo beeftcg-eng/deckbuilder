@@ -9,13 +9,17 @@ import { describeEffect, needsChoice, scriptOf, type Effect, type Target, type T
  * you to apply with the manual tools (damage, Might, kill, points...). Keywords it runs: Accelerate,
  * Assault, Shield, Tank, Backline, Ganking, Temporary.
  *
- * Moving into enemy units opens a showdown: the defender, then each player in turn, may cast an
- * [Action] or [Reaction] spell or pass; two passes in a row and combat happens.
+ * Playing a card puts it on the chain: the other player gets priority and may answer with a
+ * [Reaction] (which goes on top) or pass, and a pass resolves the top card (its targets are picked
+ * when it's played, and checked again as it resolves). Moving into enemy units opens a showdown:
+ * the player with the focus (the attacker first) may play an [Action] or [Reaction] or pass; when a
+ * chain they started is done, the focus goes to the other player; two passes in a row and combat
+ * happens.
  *
  * Every action takes a state and returns a new one (the old one is untouched), so the board keeps a
  * history for Undo and the bot can try moves out. `random` is injectable so tests are repeatable.
  *
- * Left out, on purpose: counters and chains (a spell resolves when cast), Hidden (played face up),
+ * Left out, on purpose: countering (the tools can return a card), Hidden (played face up),
  * Legion, Equip, Level, and costs that cards change.
  */
 
@@ -102,6 +106,27 @@ export interface Showdown {
   passes: number
 }
 
+/** A card played and waiting on the chain for the other player's answer. */
+export interface ChainItem {
+  uid: string
+  side: Side
+  card: Card
+  /** Units picked for the effects the game runs, in order (null: skipped). */
+  targets: (string | null)[]
+  /** Units pointed at for text the game doesn't run (it's yours to apply when it resolves). */
+  marked: string[]
+  accelerate: boolean
+  /** A unit played to this battlefield (if you still control it when it resolves). */
+  battlefield: number | null
+}
+
+/** Cards played and not resolved yet, newest last. Whoever has priority answers the newest. */
+export interface Chain {
+  items: ChainItem[]
+  /** Who may answer: always the other player from the newest card's. */
+  priority: Side
+}
+
 export type LogKind = 'turn' | 'play' | 'move' | 'combat' | 'score' | 'spell' | 'effect' | 'tool' | 'info' | 'win'
 
 export interface LogEntry {
@@ -123,9 +148,11 @@ export interface GameState {
   /** 'mulligan' until both players have kept, then 'main' (the active player's Main Phase), 'over' at the end. */
   phase: 'mulligan' | 'main' | 'over'
   showdown: Showdown | null
+  /** Cards waiting to resolve (missing or null: none, an open state). */
+  chain?: Chain | null
   /**
    * Sides playing by hand, like at a table: their turn steps (ready, channel, draw), moves (no
-   * combat or conquering), scoring and card text are theirs to do. The game still keeps the board,
+   * combat or conquering) and scoring are theirs to do; card text the game can read still runs. The game still keeps the board,
    * pays costs, and runs the other side.
    */
   manual: Side[]
@@ -240,6 +267,7 @@ function clone(state: GameState): GameState {
     players: [player(state.players[0]), player(state.players[1])],
     battlefields: state.battlefields.map((b) => ({ ...b, units: b.units.map(unit), scored: [...b.scored], hidden: [...(b.hidden ?? [])] })),
     showdown: state.showdown ? { ...state.showdown } : null,
+    chain: state.chain ? { ...state.chain, items: [...state.chain.items] } : null,
     kept: [...state.kept],
     log: [...state.log],
   }
@@ -629,7 +657,7 @@ export function startOfTurn(state: GameState, side: Side): GameState {
 
 /** Ends the active player's turn: units heal, "this turn" ends, and the other player's turn starts (unless nobody's there). */
 export function endTurn(state: GameState): GameState {
-  if (state.phase !== 'main' || state.showdown) return state
+  if (state.phase !== 'main' || state.showdown || state.chain?.items.length) return state
   const s = clone(state)
   for (const u of allUnits(s)) {
     u.damage = 0
@@ -688,6 +716,8 @@ export interface PlayOptions {
   free?: boolean
   /** The units picked for the card's effects that need one, in order (null skips one). Missing ones are picked for you. */
   targets?: (string | null)[]
+  /** Units pointed at for the text the game doesn't run (shown on the chain, for you to apply). */
+  marked?: string[]
 }
 
 /** The cost of a card as played: Energy and Power, with Accelerate's extra when asked for. */
@@ -695,11 +725,16 @@ export function costOf(card: Card, accelerate = false): { energy: number; power:
   return { energy: energyCost(card) + (accelerate ? 1 : 0), power: powerCost(card) + (accelerate ? 1 : 0) }
 }
 
-/** Whether `side` may play `card` now: on their own turn, or in a showdown with the focus if it's an Action or Reaction. */
+/**
+ * Whether `side` may play `card` now: a Reaction when it has priority on the chain; an Action or
+ * Reaction in a showdown with the focus; anything on its own turn otherwise.
+ */
 export function canPlay(state: GameState, side: Side, card: Card, accelerate = false): boolean {
   if (state.phase !== 'main') return false
-  if (state.showdown) {
-    if (state.showdown.focus !== side || !isSpell(card) || !scriptOf(card).timing) return false
+  if (state.chain?.items.length) {
+    if (state.chain.priority !== side || scriptOf(card).timing !== 'reaction') return false
+  } else if (state.showdown) {
+    if (state.showdown.focus !== side || !scriptOf(card).timing) return false
   } else if (state.active !== side) return false
   if (accelerate && !keywordsOf(card).accelerate) return false
   const { energy, power } = costOf(card, accelerate)
@@ -728,10 +763,16 @@ function fromPicks(side: Side, picks: (string | null)[] | undefined): Chooser {
   }
 }
 
+/** The units the best picks would go to now, for `side` playing `card` (the bot's targets, and anyone's not given). */
+function bestPicks(s: GameState, side: Side, card: Card, here: number | null): (string | null)[] {
+  const best = bestTarget(side)
+  return playChoices(card).map((e) => ('target' in e ? (best(e, legalTargets(s, side, e.target, here))?.uid ?? null) : null))
+}
+
 /**
- * Plays the card at `handIndex` (or the Champion from its zone, with -1): pays for it, then a unit or
- * gear goes to base (a unit exhausted unless Accelerated or it enters ready), a spell resolves. What
- * the game can read runs; anything else goes to the log for you.
+ * Plays the card at `handIndex` (or the Champion from its zone, with -1): pays for it and puts it on
+ * the chain, where the other player may answer it (see pass). With nobody on the other side, or
+ * played for free by an effect, it resolves at once.
  */
 export function play(state: GameState, side: Side, handIndex: number, options: PlayOptions = {}): GameState {
   const p0 = state.players[side]
@@ -747,45 +788,81 @@ export function play(state: GameState, side: Side, handIndex: number, options: P
   }
   if (handIndex === -1) p.champion = null
   else p.hand.splice(handIndex, 1)
-  // Played by hand: the card's text is yours to resolve, so nothing of it runs.
-  const script = s.manual.includes(side) ? { ...scriptOf(card), spell: [], abilities: [], full: false } : scriptOf(card)
-  const choose = fromPicks(side, options.targets)
+  const here = isUnit(card) ? (options.battlefield ?? null) : (s.showdown?.battlefield ?? null)
+  const given = options.targets ?? []
+  const best = bestPicks(s, side, card, here)
+  const item: ChainItem = {
+    uid: uid(s),
+    side,
+    card,
+    targets: best.map((b, i) => (i < given.length ? given[i] : b)),
+    marked: options.marked ?? [],
+    accelerate,
+    battlefield: options.battlefield ?? null,
+  }
+  if (options.free || s.players[other(side)].empty) {
+    resolveItem(s, item)
+    checkWin(s)
+    return s
+  }
+  const chain = s.chain ?? { items: [], priority: other(side) }
+  chain.items.push(item)
+  chain.priority = other(side)
+  s.chain = chain
+  const at = (ids: (string | null)[]) => ids.map((id) => allUnits(s).find((u) => u.uid === id)?.card.name).filter(Boolean).join(', ')
+  const aimed = at([...item.targets, ...item.marked])
+  log(s, side, 'play', `${who(side)} played ${card.name}${aimed ? ` targeting ${aimed}` : ''}. ${other(side) === 0 ? 'You' : 'Opponent'} may answer with a Reaction, or pass.`, card)
+  return s
+}
+
+/** A card off the chain: a unit or gear enters the board, a spell does what it says and goes to the trash. */
+function resolveItem(s: GameState, item: ChainItem) {
+  const { side, card, accelerate } = item
+  const p = s.players[side]
+  // Played by hand too, the text the game can read runs (at the targets picked); the rest is yours.
+  const script = scriptOf(card)
+  const choose = fromPicks(side, item.targets)
+  const marked = item.marked.map((id) => allUnits(s).find((u) => u.uid === id)?.card.name).filter(Boolean)
+  const leftToYou = (what: string) => log(s, side, 'spell', `${what}${marked.length ? ` (targeting ${marked.join(', ')})` : ''}`, card)
   if (isUnit(card)) {
     const unit = newUnit(s, card, side, !accelerate && !script.entersReady)
-    const bf = options.battlefield != null ? s.battlefields[options.battlefield] : null
+    const bf = item.battlefield != null ? s.battlefields[item.battlefield] : null
     if (bf && (bf.controller === side || s.manual.includes(side))) {
       bf.units.push(unit)
-      log(s, side, 'play', `${who(side)} played ${card.name} to ${bfName(s, options.battlefield!)}${accelerate ? ' (accelerated)' : ''}.`, card)
+      log(s, side, 'play', `${card.name} entered ${bfName(s, item.battlefield!)}${accelerate ? ' (accelerated)' : ''}.`, card)
     } else {
       p.base.push(unit)
-      log(s, side, 'play', `${who(side)} played ${card.name}${accelerate ? ' (accelerated, ready)' : ''}.`, card)
+      log(s, side, 'play', `${card.name} entered ${who(side) === 'You' ? 'your' : 'their'} base${accelerate ? ' (accelerated, ready)' : ''}.`, card)
     }
     for (const a of script.abilities.filter((x) => x.trigger === 'play')) {
       const here = whereIs(s, unit.uid)
       runEffects(s, side, a.effects, choose, typeof here === 'number' ? here : null, unit.uid)
     }
-    if (!script.full && !s.manual.includes(side)) log(s, side, 'spell', `${card.name} has text the game doesn't run: apply it with the tools if it matters.`, card)
+    if (!script.full) leftToYou(`${card.name} has text the game doesn't run: apply it with the tools if it matters.`)
   } else if (isGear(card)) {
     p.gear.push({ uid: uid(s), card, exhausted: false })
-    log(s, side, 'play', `${who(side)} played ${card.name}.`, card)
+    log(s, side, 'play', `${card.name} entered play.`, card)
     for (const a of script.abilities.filter((x) => x.trigger === 'play')) runEffects(s, side, a.effects, choose, null)
-    if (!script.full && !s.manual.includes(side)) log(s, side, 'spell', `${card.name} has text the game doesn't run: apply it with the tools if it matters.`, card)
+    if (!script.full) leftToYou(`${card.name} has text the game doesn't run: apply it with the tools if it matters.`)
   } else {
     p.trash.push(card)
     const here = s.showdown?.battlefield ?? null
     if (script.full) {
-      log(s, side, 'play', `${who(side)} cast ${card.name}.`, card)
+      log(s, side, 'spell', `${card.name} resolved.`, card)
       runEffects(s, side, script.spell, choose, here)
     } else {
-      log(s, side, 'spell', `${who(side)} cast ${card.name}: resolve it with the tools.`, card)
-    }
-    // In a showdown, casting passes the focus on and starts the passing over.
-    if (s.showdown) {
-      s.showdown.focus = other(side)
-      s.showdown.passes = 0
+      leftToYou(`${card.name} resolved: apply it with the tools.`)
     }
   }
-  checkWin(s)
+}
+
+/**
+ * Resolves every card on the chain as if both players pass: what the bot uses to see where a play
+ * leads.
+ */
+export function settle(state: GameState): GameState {
+  let s = state
+  for (let i = 0; i < 50 && s.chain?.items.length && s.phase === 'main'; i++) s = pass(s, s.chain.priority)
   return s
 }
 
@@ -793,7 +870,7 @@ export function play(state: GameState, side: Side, handIndex: number, options: P
 
 /** Whether `units` (all `side`'s, all ready) can make a standard move to `to`. */
 export function canMove(state: GameState, side: Side, unitUids: string[], to: 'base' | number): boolean {
-  if (state.phase !== 'main' || state.showdown || state.active !== side || !unitUids.length) return false
+  if (state.phase !== 'main' || state.showdown || state.chain?.items.length || state.active !== side || !unitUids.length) return false
   // By hand, any of your units goes anywhere: the rules are yours to keep.
   const manual = state.manual.includes(side)
   return unitUids.every((id) => {
@@ -852,8 +929,31 @@ export function move(state: GameState, side: Side, unitUids: string[], to: 'base
   return s
 }
 
-/** Passes in a showdown: the focus moves on; after two passes in a row, combat happens. */
+/**
+ * Passes. With cards on the chain, the player with priority lets the newest resolve; the other player
+ * then gets priority on the next one down. When the chain is done, in a showdown the focus goes to
+ * the player who didn't start it. In a showdown with no chain, the focus moves on; after two passes
+ * in a row, combat happens.
+ */
 export function pass(state: GameState, side: Side): GameState {
+  if (state.chain?.items.length) {
+    if (state.chain.priority !== side || state.phase !== 'main') return state
+    const s = clone(state)
+    const chain = s.chain!
+    const starter = chain.items[0].side
+    const item = chain.items.pop()!
+    resolveItem(s, item)
+    if (s.chain && s.chain.items.length) s.chain.priority = other(s.chain.items[s.chain.items.length - 1].side)
+    else {
+      s.chain = null
+      if (s.showdown) {
+        s.showdown.focus = other(starter)
+        s.showdown.passes = 0
+      }
+    }
+    checkWin(s)
+    return s
+  }
   if (!state.showdown || state.showdown.focus !== side) return state
   const s = clone(state)
   const sd = s.showdown!

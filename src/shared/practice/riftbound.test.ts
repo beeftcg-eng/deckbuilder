@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { applyTool, canPlay, endTurn, move, mulligan, newGame, pass, play, runeCount, type DeckSetup, type GameState } from './riftbound'
+import { applyTool, canPlay, endTurn, move, mulligan, newGame, pass, play as playOnChain, runeCount, settle, type DeckSetup, type GameState, type Unit } from './riftbound'
 import { BOT, botAct, botMulligan, botShouldAct, setupFromDeck, type Level } from './riftboundBot'
 import { makeCard, makeDeck } from '../testFixtures'
 import { scriptOf } from './riftboundEffects'
+
+/** Plays a card and lets it resolve unanswered (most tests aren't about the chain). */
+const play: typeof playOnChain = (...args) => settle(playOnChain(...args))
 
 function seeded(seed: number) {
   return () => {
@@ -204,6 +207,7 @@ describe('the bot', () => {
     let s = started()
     for (let i = 0; i < 400 && s.phase !== 'over'; i++) {
       if (botShouldAct(s, BOT)) s = botAct(s, BOT, level, undefined, seeded(9))
+      else if (s.chain?.items.length) s = pass(s, s.chain.priority)
       else if (s.showdown) s = pass(s, s.showdown.focus)
       else s = endTurn(s)
     }
@@ -221,7 +225,7 @@ describe('the bot', () => {
     s = move(state, 0, ['a'], 0)
     expect(botShouldAct(s, BOT)).toBe(true)
     const hard = botAct(s, BOT, 'hard')
-    expect(hard.players[1].trash.map((c) => c.name)).toEqual(['Rally'])
+    expect(hard.chain?.items.map((i) => i.card.name)).toEqual(['Rally'])
     const normal = botAct(s, BOT, 'normal')
     expect(normal.showdown?.passes).toBe(1)
   })
@@ -314,5 +318,101 @@ describe('table tools: XP, runes and equipment', () => {
     s = applyTool(s, { kind: 'kill', unit: u.uid })
     expect(s.players[0].base).toHaveLength(0)
     expect(s.players[0].gear.map((g) => g.card.name)).toEqual(['Long Sword'])
+  })
+})
+
+describe('the chain: priority and answering with a Reaction', () => {
+  const k = { assault: 0, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false }
+  const piece = (uid: string, card: ReturnType<typeof unit>, owner: 0 | 1): Unit => ({ uid, card, owner, might: card.might ?? 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: k })
+  const bolt = makeCard('riftbound', { name: 'Bolt', category: 'Spell', cost: '1', colors: ['Fury'], text: 'Deal 3 to a unit.' })
+  const gust = makeCard('riftbound', { name: 'Gust', category: 'Spell', cost: '1', colors: ['Fury'], text: "[Reaction] (Play any time, even before spells and abilities resolve.)Return a unit at a battlefield with 3 :rb_might: or less to its owner's hand." })
+  const guard = unit('Guard', 2, 2)
+
+  /** You (going first) with Bolts and Gusts, them with Gusts; their Guard at the first battlefield. */
+  function board(): GameState {
+    const s = structuredClone(started(setup(Array.from({ length: 40 }, (_, i) => (i % 2 ? bolt : gust))), setup(Array.from({ length: 40 }, () => gust))))
+    s.players[0].hand = [bolt, gust]
+    s.players[1].hand = [gust]
+    s.players[1].runes = [0, 1, 2].map((i) => ({ uid: `r${i}`, domain: 'Fury', exhausted: false }))
+    s.battlefields[0].units = [piece('d', guard, 1)]
+    return s
+  }
+
+  it('waits for an answer, a Reaction resolves first, and the first card misses a target that left', () => {
+    let s = playOnChain(board(), 0, 0, { targets: ['d'] })
+    expect(s.chain).toMatchObject({ priority: 1, items: [{ card: { name: 'Bolt' }, targets: ['d'] }] })
+    expect(s.battlefields[0].units).toHaveLength(1) // nothing resolved yet
+    expect(endTurn(s)).toBe(s) // the turn can't end with a card on the chain
+    expect(canPlay(s, 1, gust)).toBe(true)
+    expect(canPlay(s, 1, guard)).toBe(false) // only Reactions on the chain
+    expect(canPlay(s, 0, gust)).toBe(false) // it's their priority
+    // They save their Guard with Gust.
+    s = playOnChain(s, 1, 0, { targets: ['d'] })
+    expect(s.chain?.priority).toBe(0)
+    s = pass(s, 0)
+    expect(s.players[1].hand.map((c) => c.name)).toEqual(['Guard'])
+    expect(s.chain?.priority).toBe(1)
+    s = pass(s, 1)
+    expect(s.chain).toBeNull()
+    expect(s.players[0].trash.map((c) => c.name)).toEqual(['Bolt'])
+  })
+
+  it('returns the unit you pick with Gust once the other player passes', () => {
+    let s = playOnChain(board(), 0, 1, { targets: ['d'] })
+    expect(s.battlefields[0].units).toHaveLength(1)
+    s = pass(s, 1)
+    expect(s.battlefields[0].units).toHaveLength(0)
+    expect(s.players[1].hand.map((c) => c.name)).toEqual(['Gust', 'Guard'])
+  })
+
+  it('runs the text it can read when you play by hand too', () => {
+    const s = { ...board(), manual: [0 as const] }
+    const t = pass(playOnChain(s, 0, 1, { targets: ['d'] }), 1)
+    expect(t.players[1].hand.map((c) => c.name)).toEqual(['Gust', 'Guard'])
+  })
+
+  it('the bot gets priority on your card, and the chain finishes', () => {
+    const s = playOnChain(board(), 0, 0, { targets: ['d'] })
+    expect(botShouldAct(s, BOT)).toBe(true)
+    const answered = settle(botAct(s, BOT, 'normal'))
+    expect(answered.chain).toBeNull()
+    expect(answered.players[0].trash.map((c) => c.name)).toContain('Bolt')
+  })
+
+  it("the bot's card waits for you, with its targets picked", () => {
+    const s = structuredClone(board())
+    s.active = 1
+    s.players[1].hand = [bolt]
+    s.players[1].runes.forEach((r) => (r.exhausted = false))
+    s.battlefields[0].units.push(piece('mine', unit('Mine', 2, 2), 0))
+    const t = playOnChain(s, 1, 0)
+    expect(t.chain?.priority).toBe(0)
+    expect(t.chain?.items[0].targets).toEqual(['mine'])
+    expect(botShouldAct(t, BOT)).toBe(false)
+  })
+
+  it('marks targets for text the game leaves to you, and logs them as it resolves', () => {
+    const odd = makeCard('riftbound', { name: 'Odd', category: 'Spell', cost: '0', colors: ['Fury'], text: 'Do something strange to a unit.' })
+    const s = structuredClone(board())
+    s.players[0].hand = [odd]
+    let t = playOnChain(s, 0, 0, { marked: ['d'] })
+    expect(t.chain?.items[0].marked).toEqual(['d'])
+    t = pass(t, 1)
+    expect(t.log.at(-1)?.text).toMatch(/Odd resolved: apply it with the tools\. \(targeting Guard\)/)
+  })
+
+  it('in a showdown, the focus goes to the other player when a chain they started is done', () => {
+    const s = structuredClone(board())
+    s.players[0].hand = []
+    s.players[1].hand = [gust]
+    s.players[0].base = [piece('a', unit('Two', 2, 2), 0)]
+    let t = move(s, 0, ['a'], 0)
+    expect(t.showdown?.focus).toBe(1)
+    t = playOnChain(t, 1, 0, { targets: ['a'] })
+    expect(t.chain?.priority).toBe(0)
+    t = pass(t, 0)
+    expect(t.chain).toBeNull()
+    expect(t.showdown?.focus).toBe(0)
+    expect(t.players[0].hand.map((c) => c.name)).toEqual(['Two'])
   })
 })

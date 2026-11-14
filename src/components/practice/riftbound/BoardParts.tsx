@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useCardsById } from '../../../state/useAppStore'
 import { allUnits, bfName, canPlay, combatMight, mightNow, costOf, isUnit, keywordsOf, runeCount, type GameState, type Side, type Tool, type Unit } from '../../../shared/practice/riftbound'
 import { DOMAIN_COLORS } from '../../../lib/domainColors'
 import type { Card } from '../../../shared/types'
@@ -7,6 +8,26 @@ import { Modal } from '../../Modal'
 
 /** The board's pieces (Board.tsx): units, bases, player bars, the hand menu, tools, the log, deck and trash. */
 
+
+/** The plain rune card of each domain ("Fury" -> Fury Rune), for showing runes as cards. */
+function useRuneArt(): Map<string, string> {
+  const cardsById = useCardsById('riftbound')
+  return useMemo(() => {
+    const art = new Map<string, string>()
+    for (const c of cardsById.values()) {
+      const m = /^(\w+) Rune$/.exec(c.name)
+      if (c.category !== 'Rune' || !m || !c.imageUrlSmall) continue
+      // The game's own art (from the Brewhouse's card-art) over a store picture when both are there.
+      if (!art.has(m[1]) || c.imageUrlSmall.includes('/card-art/')) art.set(m[1], c.imageUrlSmall)
+    }
+    return art
+  }, [cardsById])
+}
+
+function RuneFace({ domain, art }: { domain: string; art: Map<string, string> }) {
+  const src = art.get(domain)
+  return src ? <img src={src} alt="" loading="lazy" /> : <span className="rb-rune-noart" style={{ background: DOMAIN_COLORS[domain] ?? 'var(--accent)' }} />
+}
 
 export function CardFace({ card }: { card: Card }) {
   return card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} loading="lazy" /> : <span className="rb-card-name">{card.name}</span>
@@ -17,7 +38,7 @@ export type DragProps = { draggable: boolean; onDragStart: (e: React.DragEvent) 
 /** What a drop zone gets: its drag handlers and a class while something hovers. */
 export type DropProps = { onDragOver: (e: React.DragEvent) => void; onDragLeave: () => void; onDrop: (e: React.DragEvent) => void; className: string }
 
-export function UnitChip({ unit, selected, targetable, drag, onClick, onDetail }: { unit: Unit; selected: boolean; targetable?: boolean; drag?: DragProps; onClick: () => void; onDetail: () => void }) {
+export function UnitChip({ unit, selected, targetable, aimed, drag, onClick, onDetail }: { unit: Unit; selected: boolean; targetable?: boolean; aimed?: boolean; drag?: DragProps; onClick: () => void; onDetail: () => void }) {
   const might = mightNow(unit)
   const kw = unit.keywords
   const tags = [kw.tank && 'Tank', kw.assault && `Assault ${kw.assault}`, kw.shield && `Shield ${kw.shield}`, kw.ganking && 'Ganking', kw.backline && 'Backline', kw.temporary && 'Temporary', unit.stunned && t.practiceGame.stunned, unit.buffed && t.practiceGame.buffed, unit.temp !== 0 && t.practiceGame.thisTurn(unit.temp), ...(unit.equipment ?? []).map((e) => `⚙ ${e.card.name}`)]
@@ -26,7 +47,7 @@ export function UnitChip({ unit, selected, targetable, drag, onClick, onDetail }
   const color = DOMAIN_COLORS[unit.card.colors[0]] ?? 'var(--accent)'
   const name = unit.card.name.replace(/\s*\([^)]*\)$/, '')
   return (
-    <div className={`rb-unit ${unit.exhausted ? 'exhausted' : ''} ${selected ? 'selected' : ''} ${targetable ? 'targetable' : ''} ${unit.owner === 0 ? 'mine' : 'theirs'}`} style={{ '--domain-a': color } as CSSProperties}>
+    <div className={`rb-unit ${unit.exhausted ? 'exhausted' : ''} ${selected ? 'selected' : ''} ${targetable ? 'targetable' : ''} ${aimed ? 'aimed' : ''} ${unit.owner === 0 ? 'mine' : 'theirs'}`} style={{ '--domain-a': color } as CSSProperties}>
       <button
         {...drag}
         className="rb-unit-main"
@@ -67,6 +88,7 @@ export function Base({
   side,
   selected,
   targetable,
+  aimed = [],
   onUnit,
   onDetail,
   onTool,
@@ -78,6 +100,8 @@ export function Base({
   side: Side
   selected: string[]
   targetable: string[]
+  /** Units the cards on the chain point at. */
+  aimed?: string[]
   onUnit: (u: Unit) => void
   onDetail: (c: Card) => void
   onTool?: (tl: Tool) => void
@@ -93,7 +117,7 @@ export function Base({
       <span className="rb-zone-label text-dim">{side === 0 ? t.practiceGame.yourBase : theirLabel}</span>
       <div className="rb-units">
         {p.base.map((u) => (
-          <UnitChip key={u.uid} unit={u} drag={dragFor?.(u)} targetable={targetable.includes(u.uid)} selected={selected.includes(u.uid)} onClick={() => onUnit(u)} onDetail={() => onDetail(u.card)} />
+          <UnitChip key={u.uid} unit={u} drag={dragFor?.(u)} targetable={targetable.includes(u.uid)} aimed={aimed.includes(u.uid)} selected={selected.includes(u.uid)} onClick={() => onUnit(u)} onDetail={() => onDetail(u.card)} />
         ))}
         {p.gear.map((g) => (
           <span key={g.uid} className={`rb-gear ${g.exhausted ? 'exhausted' : ''}`}>
@@ -151,6 +175,7 @@ export function PlayerBar({
   const [makingToken, setMakingToken] = useState(false)
   const [pickedRune, setPickedRune] = useState<string | null>(null)
   const picked = p.runes.find((r) => r.uid === pickedRune)
+  const runeArt = useRuneArt()
   const { className: trashClass = '', ...trashHandlers } = trashDrop ?? { className: '' }
   return (
     <div className={`rb-player ${side === 0 ? 'mine' : 'theirs'}`}>
@@ -200,14 +225,17 @@ export function PlayerBar({
             <button
               key={r.uid}
               className={`rb-rune ${r.exhausted ? 'exhausted' : ''} ${pickedRune === r.uid ? 'picked' : ''}`}
-              style={{ background: DOMAIN_COLORS[r.domain] ?? 'var(--accent)' }}
               title={t.practiceGame.runeTitle(r.domain)}
               aria-label={t.practiceGame.runeLabel(r.domain, r.exhausted)}
               aria-pressed={pickedRune === r.uid}
               onClick={() => setPickedRune(pickedRune === r.uid ? null : r.uid)}
-            />
+            >
+              <RuneFace domain={r.domain} art={runeArt} />
+            </button>
           ) : (
-            <span key={r.uid} className={`rb-rune ${r.exhausted ? 'exhausted' : ''}`} style={{ background: DOMAIN_COLORS[r.domain] ?? 'var(--accent)' }} title={r.domain} aria-hidden />
+            <span key={r.uid} className={`rb-rune ${r.exhausted ? 'exhausted' : ''}`} title={t.practiceGame.runeLabel(r.domain, r.exhausted)} aria-hidden>
+              <RuneFace domain={r.domain} art={runeArt} />
+            </span>
           ),
         )}
         <span className="text-dim">

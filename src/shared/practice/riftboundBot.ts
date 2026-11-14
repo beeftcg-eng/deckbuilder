@@ -15,6 +15,7 @@ import {
   other,
   pass,
   play,
+  settle,
   whereIs,
   type DeckSetup,
   type GameState,
@@ -33,6 +34,8 @@ import { scriptOf } from './riftboundEffects'
  *   one that leaves it best off (evaluate: points, battlefields held, Might on the board, cards).
  * - Hard: the same, also counting what you could take back on your next turn, and answering your
  *   attacks with its Actions and Reactions.
+ * On Normal and Hard it also answers your cards on the chain with a Reaction when that pays; Easy
+ * always lets them resolve.
  * It plays only the cards whose text it understands (riftboundEffects.ts); others it plays for their
  * body (units, gear) or keeps (spells).
  */
@@ -98,10 +101,11 @@ export function damageSpell(card: Card): number | null {
   return m ? Number(m[1]) : null
 }
 
-/** Whether it's `side`'s move: its own turn with no showdown open, or a showdown waiting on it. */
+/** Whether it's `side`'s move: priority on the chain, a showdown waiting on it, or its own turn. */
 export function botShouldAct(s: GameState, side: Side = BOT): boolean {
   if (s.phase === 'mulligan') return !s.kept.includes(side)
   if (s.phase !== 'main') return false
+  if (s.chain?.items.length) return s.chain.priority === side
   return s.showdown ? s.showdown.focus === side : s.active === side
 }
 
@@ -215,9 +219,9 @@ const hasEnemies = (s: GameState, to: number | 'base', side: Side) => to !== 'ba
 /** In a showdown: cast the Action or Reaction that leaves it best off once combat is over, or pass. */
 function showdownAct(s: GameState, side: Side, w: Weights, level: Level): GameState {
   const resolved = (t: GameState) => {
-    // Both pass from here: combat happens.
-    let r = t
-    for (let i = 0; i < 2 && r.showdown; i++) r = pass(r, r.showdown.focus)
+    // Both pass from here: what's on the chain resolves, then combat happens.
+    let r = settle(t)
+    for (let i = 0; i < 3 && r.showdown && !r.chain?.items.length; i++) r = pass(r, r.showdown.focus)
     return evaluate(r, side, w, level)
   }
   const passing = pass(s, side)
@@ -233,11 +237,34 @@ function showdownAct(s: GameState, side: Side, w: Weights, level: Level): GameSt
   return best.state
 }
 
+/**
+ * Priority on the chain: a Reaction that leaves it better off once everything has resolved (and, in
+ * a showdown, combat is over), or let the newest card resolve.
+ */
+function chainAct(s: GameState, side: Side, w: Weights, level: Level): GameState {
+  const passing = pass(s, side)
+  if (level === 'easy') return passing
+  const after = (t: GameState) => {
+    let r = settle(t)
+    for (let i = 0; i < 3 && r.showdown && !r.chain?.items.length; i++) r = pass(r, r.showdown.focus)
+    return evaluate(settle(r), side, w, level)
+  }
+  let best: Option = { state: passing, value: after(passing) }
+  s.players[side].hand.forEach((card, i) => {
+    if (!canPlay(s, side, card) || !scriptOf(card).full) return
+    const t = play(s, side, i)
+    if (t === s) return
+    const value = after(t)
+    if (value > best.value + 0.5) best = { state: t, value }
+  })
+  return best.state
+}
+
 /** Easy: the old, simple plan, with a chance of missing a play. */
 function easyAct(s: GameState, side: Side, random: () => number): GameState {
   const options = playOptions(s, side, 'easy')
   if (options.length && random() > 0.15) {
-    return options.sort((a, b) => boardMight(b, side) - boardMight(a, side))[0]
+    return options.sort((a, b) => boardMight(settle(b), side) - boardMight(settle(a), side))[0]
   }
   for (const [index, bf] of s.battlefields.entries()) {
     const ready = s.players[side].base.filter((u) => !u.exhausted)
@@ -267,12 +294,14 @@ function easyAct(s: GameState, side: Side, random: () => number): GameState {
 export function botAct(s: GameState, side: Side = BOT, level: Level = 'normal', w: Weights = DEFAULT_WEIGHTS, random: () => number = Math.random): GameState {
   if (s.phase === 'mulligan') return botMulligan(s, side)
   if (!botShouldAct(s, side)) return s
+  if (s.chain?.items.length) return chainAct(s, side, w, level)
   if (s.showdown) return showdownAct(s, side, w, level)
   if (level === 'easy') return easyAct(s, side, random)
 
   // A play that leaves it better off (units nearly always do; spells when their effect pays).
   const now = evaluate(s, side, w, level)
-  const plays = playOptions(s, side, level).map((state) => ({ state, value: evaluate(state, side, w, level) }))
+  // Judged as if it resolves unanswered; it goes on the chain for you to answer.
+  const plays = playOptions(s, side, level).map((state) => ({ state, value: evaluate(settle(state), side, w, level) }))
   const bestPlay = plays.sort((a, b) => b.value - a.value)[0]
   if (bestPlay && bestPlay.value > now - 0.5) return bestPlay.state
 

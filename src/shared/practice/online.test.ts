@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FACE_DOWN, dealOwn, hideSeat, fetchGame, flipState, hostGame, joinForClient, joinGame, kept, mergeOwnMove, privateOf, pushGame, savePrivate, seen, splitForServer } from './online'
-import { applyTool, mulligan, newGame, play, startOfTurn } from './riftbound'
+import { applyTool, mulligan, newGame, pass, play, startOfTurn } from './riftbound'
 import { makeCard } from '../testFixtures'
 
 const unit = (name: string) => makeCard('riftbound', { name, category: 'Unit', cost: '1', might: 2, colors: ['Fury'] })
@@ -110,7 +110,11 @@ describe('online practice games', () => {
     seq = (await pushGame(host, seq, splitForServer(s, 0)))!
     // The guest sees the host's unit on the other side of the board, and still has their own hand.
     const g2 = await fetchGame(guest, 0)
-    const g = seen(joinForClient(g2.state!, g2.private, g2.gifts, 1, byId)!, 1)
+    const onChain = seen(joinForClient(g2.state!, g2.private, g2.gifts, 1, byId)!, 1)
+    // It's on the chain, the guest's to answer (seen from their side: they are side 0).
+    expect(onChain.chain?.priority).toBe(0)
+    expect(onChain.chain?.items[0].side).toBe(1)
+    const g = pass(onChain, 0)
     expect(g.players[1].base).toHaveLength(1)
     expect(g.players[0].hand.every((c) => c.id !== FACE_DOWN.id)).toBe(true)
     // Returning the host's unit to their hand: a gift only the host receives.
