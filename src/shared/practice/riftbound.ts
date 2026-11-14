@@ -82,6 +82,8 @@ export interface Battlefield {
   units: Unit[]
   /** Sides that scored this battlefield this turn (each battlefield scores once a turn). */
   scored: Side[]
+  /** Cards hidden here face down ([Hidden]), by owner. */
+  hidden: { uid: string; owner: Side; card: Card }[]
 }
 
 /** Units moved into enemy units: before combat, each player may cast Actions and Reactions in turn. */
@@ -226,7 +228,7 @@ function clone(state: GameState): GameState {
   return {
     ...state,
     players: [player(state.players[0]), player(state.players[1])],
-    battlefields: state.battlefields.map((b) => ({ ...b, units: b.units.map(unit), scored: [...b.scored] })),
+    battlefields: state.battlefields.map((b) => ({ ...b, units: b.units.map(unit), scored: [...b.scored], hidden: [...(b.hidden ?? [])] })),
     showdown: state.showdown ? { ...state.showdown } : null,
     kept: [...state.kept],
     log: [...state.log],
@@ -268,7 +270,7 @@ export function newGame(you: DeckSetup, opponent: DeckSetup | null, options: { f
   const first: Side = opponent ? (options.first ?? (random() < 0.5 ? 0 : 1)) : 0
   const state: GameState = {
     players,
-    battlefields: chosen.map((card) => ({ card: card ?? null, controller: null, units: [], scored: [] })),
+    battlefields: chosen.map((card) => ({ card: card ?? null, controller: null, units: [], scored: [], hidden: [] })),
     turn: 1,
     active: first,
     first,
@@ -726,7 +728,7 @@ export function play(state: GameState, side: Side, handIndex: number, options: P
   if (isUnit(card)) {
     const unit = newUnit(s, card, side, !accelerate && !script.entersReady)
     const bf = options.battlefield != null ? s.battlefields[options.battlefield] : null
-    if (bf && bf.controller === side) {
+    if (bf && (bf.controller === side || s.manual.includes(side))) {
       bf.units.push(unit)
       log(s, side, 'play', `${who(side)} played ${card.name} to ${bfName(s, options.battlefield!)}${accelerate ? ' (accelerated)' : ''}.`, card)
     } else {
@@ -935,6 +937,17 @@ export type Tool =
   | { kind: 'readyRune'; side: Side }
   | { kind: 'control'; battlefield: number; side: Side | null }
   | { kind: 'recall'; unit: string }
+  /** The card `index` from the top of the deck: to hand, the bottom, or the trash. */
+  | { kind: 'fromDeck'; side: Side; index: number; to: 'hand' | 'bottom' | 'trash' }
+  | { kind: 'shuffle'; side: Side }
+  /** A card from the trash: back to hand, or to the bottom of the deck. */
+  | { kind: 'fromTrash'; side: Side; index: number; to: 'hand' | 'bottom' }
+  | { kind: 'token'; side: Side; might: number; name: string; battlefield: number | null; ready: boolean }
+  | { kind: 'legend'; side: Side }
+  | { kind: 'gear'; side: Side; gear: string }
+  /** A card from hand face down at a battlefield ([Hidden]), and back again. */
+  | { kind: 'hide'; side: Side; handIndex: number; battlefield: number }
+  | { kind: 'unhide'; battlefield: number; hidden: string }
   | { kind: 'readyAll'; side: Side }
 
 /** Applies a card effect by hand. Damage that reaches a unit's Might kills it. */
@@ -1017,6 +1030,90 @@ export function applyTool(state: GameState, tool: Tool): GameState {
       if (!u) return state
       s.players[u.owner].base.push(u)
       log(s, u.owner, 'tool', `${u.card.name} went back to base.`)
+      break
+    }
+    case 'fromDeck': {
+      const p = s.players[tool.side]
+      const [card] = p.deck.splice(tool.index, 1)
+      if (!card) return state
+      if (tool.to === 'hand') p.hand.push(card)
+      else if (tool.to === 'bottom') p.deck.push(card)
+      else p.trash.push(card)
+      log(s, tool.side, 'tool', tool.to === 'hand' ? `${who(tool.side)} took a card from the deck into hand.` : tool.to === 'bottom' ? 'Put a card on the bottom of the deck.' : `${card.name} went from the deck to the trash.`)
+      break
+    }
+    case 'shuffle': {
+      const p = s.players[tool.side]
+      p.deck = shuffled(p.deck, Math.random)
+      log(s, tool.side, 'tool', 'Shuffled the deck.')
+      break
+    }
+    case 'fromTrash': {
+      const p = s.players[tool.side]
+      const [card] = p.trash.splice(tool.index, 1)
+      if (!card) return state
+      if (tool.to === 'hand') p.hand.push(card)
+      else p.deck.push(card)
+      log(s, tool.side, 'tool', `${card.name} went from the trash to ${tool.to === 'hand' ? 'hand' : 'the bottom of the deck'}.`)
+      break
+    }
+    case 'token': {
+      const name = tool.name.trim() || 'Token'
+      const card: Card = {
+        id: `riftbound:token-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        gameId: 'riftbound',
+        sourceId: 'token',
+        name: `${name} token`,
+        imageUrl: null,
+        imageUrlSmall: null,
+        orientation: 'portrait',
+        setId: 'token',
+        setName: 'Token',
+        setCode: 'TOKEN',
+        number: '0',
+        rarity: null,
+        category: 'Unit',
+        subtypes: ['Token'],
+        colors: [],
+        cost: '0',
+        might: Math.max(0, tool.might),
+        text: null,
+        legality: null,
+      }
+      const unit = newUnit(s, card, tool.side, !tool.ready, true)
+      if (tool.battlefield != null) s.battlefields[tool.battlefield].units.push(unit)
+      else s.players[tool.side].base.push(unit)
+      log(s, tool.side, 'tool', `${who(tool.side)} made a ${unit.might} Might ${card.name}.`)
+      break
+    }
+    case 'legend': {
+      const p = s.players[tool.side]
+      p.legendExhausted = !p.legendExhausted
+      log(s, tool.side, 'tool', `${p.legend?.name ?? 'Legend'} ${p.legendExhausted ? 'exhausted for its ability' : 'readied'}.`)
+      break
+    }
+    case 'gear': {
+      const g = s.players[tool.side].gear.find((x) => x.uid === tool.gear)
+      if (!g) return state
+      g.exhausted = !g.exhausted
+      log(s, tool.side, 'tool', `${g.card.name} ${g.exhausted ? 'exhausted' : 'readied'}.`)
+      break
+    }
+    case 'hide': {
+      const p = s.players[tool.side]
+      const [card] = p.hand.splice(tool.handIndex, 1)
+      if (!card) return state
+      s.battlefields[tool.battlefield].hidden.push({ uid: uid(s), owner: tool.side, card })
+      log(s, tool.side, 'tool', `${who(tool.side)} hid a card face down at ${bfName(s, tool.battlefield)}.`)
+      break
+    }
+    case 'unhide': {
+      const bf = s.battlefields[tool.battlefield]
+      const h = bf.hidden.find((x) => x.uid === tool.hidden)
+      if (!h) return state
+      bf.hidden = bf.hidden.filter((x) => x.uid !== tool.hidden)
+      s.players[h.owner].hand.push(h.card)
+      log(s, h.owner, 'tool', `${who(h.owner)} revealed ${h.card.name} from ${bfName(s, tool.battlefield)} (back to hand to play it).`)
       break
     }
     case 'readyAll': {

@@ -243,6 +243,7 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
   const [mulliganPick, setMulliganPick] = useState<number[]>([])
   const [detail, setDetail] = useState<Card | null>(null)
   const [showLog, setShowLog] = useState(true)
+  const [zones, setZones] = useState<'deck' | 'trash' | null>(null)
   /** A card being played that needs units picked for its effects: what's been picked so far. */
   const [targeting, setTargeting] = useState<{ handIndex: number; options: { accelerate?: boolean; battlefield?: number }; effects: Effect[]; picks: (string | null)[] } | null>(null)
   const showdown = game.showdown
@@ -283,6 +284,51 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
       setHandPick(null)
     } else act(play(game, 0, handIndex, options))
   }
+  // ---------- drag and drop (desktop; on touch screens it's tap, then "Move here") ----------
+  type Drag = { kind: 'hand'; index: number } | { kind: 'champion' } | { kind: 'unit'; uid: string }
+  type Drop = { kind: 'base' } | { kind: 'bf'; index: number } | { kind: 'trash' }
+  const [dropHover, setDropHover] = useState<string | null>(null)
+  const DRAG_TYPE = 'application/x-brewhouse-rb'
+  const dragProps = (payload: Drag) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(payload))
+      e.dataTransfer.effectAllowed = 'move'
+    },
+    onDragEnd: () => setDropHover(null),
+  })
+  const dropKey = (target: Drop) => (target.kind === 'bf' ? `bf${target.index}` : target.kind)
+  const dropProps = (target: Drop) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!e.dataTransfer.types.includes(DRAG_TYPE)) return
+      e.preventDefault()
+      setDropHover(dropKey(target))
+    },
+    onDragLeave: () => setDropHover((h) => (h === dropKey(target) ? null : h)),
+    onDrop: (e: React.DragEvent) => {
+      const raw = e.dataTransfer.getData(DRAG_TYPE)
+      setDropHover(null)
+      if (!raw) return
+      e.preventDefault()
+      dropped(JSON.parse(raw) as Drag, target)
+    },
+  })
+  const dropClass = (target: Drop) => (dropHover === dropKey(target) ? 'drop-hover' : '')
+  function dropped(drag: Drag, target: Drop) {
+    if (drag.kind === 'hand' || drag.kind === 'champion') {
+      const index = drag.kind === 'hand' ? drag.index : -1
+      if (target.kind === 'trash') {
+        if (drag.kind === 'hand') tool({ kind: 'discard', side: 0, handIndex: index })
+      } else if (yourMove) playCard(index, target.kind === 'bf' ? { battlefield: target.index } : {})
+      return
+    }
+    if (target.kind === 'trash') return tool({ kind: 'kill', unit: drag.uid })
+    // A unit that's part of the selection brings the whole selection along.
+    const ids = selected.includes(drag.uid) ? mineSelected.map((u) => u.uid) : [drag.uid]
+    const to = target.kind === 'base' ? 'base' : target.index
+    if (canMove(game, 0, ids, to)) act(moveUnits(game, 0, ids, to))
+  }
+
   const toggle = (u: Unit) => {
     if (targeting) {
       if (legalNow.some((x) => x.uid === u.uid)) pick(u.uid)
@@ -378,7 +424,7 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
 
           <div className="rb-battlefields">
             {game.battlefields.map((bf, i) => (
-              <section key={i} className={`rb-bf ${bf.controller === 0 ? 'mine' : bf.controller === 1 ? 'theirs' : ''}`} aria-label={bfName(game, i)}>
+              <section key={i} className={`rb-bf ${bf.controller === 0 ? 'mine' : bf.controller === 1 ? 'theirs' : ''} ${dropClass({ kind: 'bf', index: i })}`} aria-label={bfName(game, i)} {...dropProps({ kind: 'bf', index: i })}>
                 <header>
                   <button className="rb-bf-art" onClick={() => bf.card && setDetail(bf.card)} aria-label={t.practiceGame.details(bfName(game, i))}>
                     {bf.card?.imageUrlSmall && <img src={bf.card.imageUrlSmall} alt="" loading="lazy" />}
@@ -403,9 +449,27 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
                     <UnitChip key={u.uid} unit={u} targetable={legalNow.some((x) => x.uid === u.uid)} selected={selected.includes(u.uid)} onClick={() => toggle(u)} onDetail={() => setDetail(u.card)} />
                   ))}
                 </div>
+                {bf.hidden.length > 0 && (
+                  <div className="rb-hidden">
+                    {bf.hidden.map((h) =>
+                      h.owner === 0 ? (
+                        <span key={h.uid} className="rb-hidden-card mine">
+                          🂠 {h.card.name}
+                          <button className="btn stepper-btn" onClick={() => tool({ kind: 'unhide', battlefield: i, hidden: h.uid })}>
+                            {t.practiceGame.reveal}
+                          </button>
+                        </span>
+                      ) : (
+                        <span key={h.uid} className="rb-hidden-card">
+                          🂠 {t.practiceGame.faceDown}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                )}
                 <div className="rb-units mine">
                   {bf.units.filter((u) => u.owner === 0).map((u) => (
-                    <UnitChip key={u.uid} unit={u} targetable={legalNow.some((x) => x.uid === u.uid)} selected={selected.includes(u.uid)} onClick={() => toggle(u)} onDetail={() => setDetail(u.card)} />
+                    <UnitChip key={u.uid} unit={u} drag={dragProps({ kind: 'unit', uid: u.uid })} targetable={legalNow.some((x) => x.uid === u.uid)} selected={selected.includes(u.uid)} onClick={() => toggle(u)} onDetail={() => setDetail(u.card)} />
                   ))}
                 </div>
                 {mineSelected.length > 0 && yourTurn && (
@@ -417,20 +481,41 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
             ))}
           </div>
 
-          <Base game={game} side={0} selected={selected} targetable={legalNow.map((u) => u.uid)} onUnit={toggle} onDetail={setDetail} />
+          <Base
+            game={game}
+            side={0}
+            selected={selected}
+            targetable={legalNow.map((u) => u.uid)}
+            onUnit={toggle}
+            onDetail={setDetail}
+            onTool={tool}
+            dragFor={(u) => dragProps({ kind: 'unit', uid: u.uid })}
+            drop={{ ...dropProps({ kind: 'base' }), className: dropClass({ kind: 'base' }) }}
+          />
           {mineSelected.length > 0 && yourTurn && (
             <button className="btn rb-move-base" disabled={!canMove(game, 0, mineSelected.map((u) => u.uid), 'base')} onClick={() => moveTo('base')}>
               {t.practiceGame.moveBase}
             </button>
           )}
-          <PlayerBar game={game} side={0} onTool={tool} onPlayChampion={yourTurn ? () => playCard(-1, {}) : undefined} onStartOfTurn={manual && yourTurn ? () => act(startOfTurn(game, 0)) : undefined} />
+          <PlayerBar
+            game={game}
+            side={0}
+            onTool={tool}
+            onPlayChampion={yourTurn ? () => playCard(-1, {}) : undefined}
+            onStartOfTurn={manual && yourTurn ? () => act(startOfTurn(game, 0)) : undefined}
+            onZones={setZones}
+            championDrag={dragProps({ kind: 'champion' })}
+            trashDrop={{ ...dropProps({ kind: 'trash' }), className: dropClass({ kind: 'trash' }) }}
+          />
 
           {selectedUnits.length === 1 && <UnitTools unit={selectedUnits[0]} onTool={tool} onDone={() => setSelected([])} />}
 
+          <p className="text-dim desktop-only rb-drag-hint">{t.practiceGame.dragHint}</p>
           <div className="rb-hand" aria-label={t.practiceGame.hand}>
             {game.players[0].hand.map((card, i) => (
               <div key={`${card.id}-${i}`} className="rb-hand-slot">
                 <button
+                  {...dragProps({ kind: 'hand', index: i })}
                   className={`rb-hand-card ${yourMove && !canPlay(game, 0, card) ? 'unaffordable' : ''} ${handPick === i ? 'picked' : ''}`}
                   aria-expanded={handPick === i}
                   onClick={() => setHandPick(handPick === i ? null : i)}
@@ -444,6 +529,8 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
                     yourTurn={yourMove}
                     onPlay={(options) => playCard(i, options)}
                     onDiscard={() => tool({ kind: 'discard', side: 0, handIndex: i })}
+                    onHide={(bfIndex) => tool({ kind: 'hide', side: 0, handIndex: i, battlefield: bfIndex })}
+                    manual={manual}
                     onDetail={() => setDetail(card)}
                   />
                 )}
@@ -454,6 +541,7 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
 
         {showLog && <GameLog game={game} onDetail={setDetail} />}
       </div>
+      {zones && <ZonesWindow game={game} kind={zones} onTool={tool} onDetail={setDetail} onClose={() => setZones(null)} />}
       {detail && <CardDetailModal card={detail} onClose={() => setDetail(null)} />}
     </div>
   )
@@ -469,7 +557,12 @@ function CardFace({ card }: { card: Card }) {
   return card.imageUrlSmall ? <img src={card.imageUrlSmall} alt={card.name} loading="lazy" /> : <span className="rb-card-name">{card.name}</span>
 }
 
-function UnitChip({ unit, selected, targetable, onClick, onDetail }: { unit: Unit; selected: boolean; targetable?: boolean; onClick: () => void; onDetail: () => void }) {
+/** What a draggable thing gets: draggable, and its drag start and end. */
+type DragProps = { draggable: boolean; onDragStart: (e: React.DragEvent) => void; onDragEnd: () => void }
+/** What a drop zone gets: its drag handlers and a class while something hovers. */
+type DropProps = { onDragOver: (e: React.DragEvent) => void; onDragLeave: () => void; onDrop: (e: React.DragEvent) => void; className: string }
+
+function UnitChip({ unit, selected, targetable, drag, onClick, onDetail }: { unit: Unit; selected: boolean; targetable?: boolean; drag?: DragProps; onClick: () => void; onDetail: () => void }) {
   const might = mightNow(unit)
   const kw = unit.keywords
   const tags = [kw.tank && 'Tank', kw.assault && `Assault ${kw.assault}`, kw.shield && `Shield ${kw.shield}`, kw.ganking && 'Ganking', kw.backline && 'Backline', kw.temporary && 'Temporary', unit.stunned && t.practiceGame.stunned, unit.buffed && t.practiceGame.buffed, unit.temp !== 0 && t.practiceGame.thisTurn(unit.temp)]
@@ -480,6 +573,7 @@ function UnitChip({ unit, selected, targetable, onClick, onDetail }: { unit: Uni
   return (
     <div className={`rb-unit ${unit.exhausted ? 'exhausted' : ''} ${selected ? 'selected' : ''} ${targetable ? 'targetable' : ''} ${unit.owner === 0 ? 'mine' : 'theirs'}`} style={{ '--domain-a': color } as CSSProperties}>
       <button
+        {...drag}
         className="rb-unit-main"
         aria-pressed={selected}
         aria-label={`${name}, ${might} Might${unit.damage ? `, ${unit.damage} damage` : ''}, ${unit.exhausted ? t.practiceGame.exhausted : t.practiceGame.ready}${tags ? `, ${tags}` : ''}`}
@@ -513,19 +607,50 @@ function UnitChip({ unit, selected, targetable, onClick, onDetail }: { unit: Uni
   )
 }
 
-function Base({ game, side, selected, targetable, onUnit, onDetail }: { game: GameState; side: Side; selected: string[]; targetable: string[]; onUnit: (u: Unit) => void; onDetail: (c: Card) => void }) {
+function Base({
+  game,
+  side,
+  selected,
+  targetable,
+  onUnit,
+  onDetail,
+  onTool,
+  dragFor,
+  drop,
+}: {
+  game: GameState
+  side: Side
+  selected: string[]
+  targetable: string[]
+  onUnit: (u: Unit) => void
+  onDetail: (c: Card) => void
+  onTool?: (tl: Tool) => void
+  dragFor?: (u: Unit) => DragProps
+  drop?: DropProps
+}) {
   const p = game.players[side]
+  const { className: dropClassName = '', ...dropHandlers } = drop ?? { className: '' }
   return (
-    <section className={`rb-base ${side === 0 ? 'mine' : 'theirs'}`} aria-label={side === 0 ? t.practiceGame.yourBase : t.practiceGame.theirBase}>
+    <section className={`rb-base ${side === 0 ? 'mine' : 'theirs'} ${dropClassName}`} aria-label={side === 0 ? t.practiceGame.yourBase : t.practiceGame.theirBase} {...dropHandlers}>
       <span className="rb-zone-label text-dim">{side === 0 ? t.practiceGame.yourBase : t.practiceGame.theirBase}</span>
       <div className="rb-units">
         {p.base.map((u) => (
-          <UnitChip key={u.uid} unit={u} targetable={targetable.includes(u.uid)} selected={selected.includes(u.uid)} onClick={() => onUnit(u)} onDetail={() => onDetail(u.card)} />
+          <UnitChip key={u.uid} unit={u} drag={dragFor?.(u)} targetable={targetable.includes(u.uid)} selected={selected.includes(u.uid)} onClick={() => onUnit(u)} onDetail={() => onDetail(u.card)} />
         ))}
         {p.gear.map((g) => (
-          <button key={g.uid} className="rb-gear" onClick={() => onDetail(g.card)}>
-            ⚙ {g.card.name}
-          </button>
+          <span key={g.uid} className={`rb-gear ${g.exhausted ? 'exhausted' : ''}`}>
+            {onTool ? (
+              <button className="link-button" aria-pressed={g.exhausted} title={t.practiceGame.exhaustToggle} onClick={() => onTool({ kind: 'gear', side, gear: g.uid })}>
+                ⚙ {g.card.name}
+                {g.exhausted ? ` · ${t.practiceGame.exhausted}` : ''}
+              </button>
+            ) : (
+              <span>⚙ {g.card.name}</span>
+            )}
+            <button className="rb-unit-info" aria-label={t.practiceGame.details(g.card.name)} onClick={() => onDetail(g.card)}>
+              ⓘ
+            </button>
+          </span>
         ))}
         {!p.base.length && !p.gear.length && <span className="text-dim">{t.practiceGame.empty}</span>}
       </div>
@@ -533,16 +658,44 @@ function Base({ game, side, selected, targetable, onUnit, onDetail }: { game: Ga
   )
 }
 
-function PlayerBar({ game, side, onTool, onPlayChampion, onStartOfTurn }: { game: GameState; side: Side; onTool: (tl: Tool) => void; onPlayChampion?: () => void; onStartOfTurn?: () => void }) {
+function PlayerBar({
+  game,
+  side,
+  onTool,
+  onPlayChampion,
+  onStartOfTurn,
+  onZones,
+  championDrag,
+  trashDrop,
+}: {
+  game: GameState
+  side: Side
+  onTool: (tl: Tool) => void
+  onPlayChampion?: () => void
+  onStartOfTurn?: () => void
+  onZones?: (kind: 'deck' | 'trash') => void
+  championDrag?: DragProps
+  trashDrop?: DropProps
+}) {
   const p = game.players[side]
   const runes = runeCount(game, side)
   const champion = p.champion
+  const [makingToken, setMakingToken] = useState(false)
+  const { className: trashClass = '', ...trashHandlers } = trashDrop ?? { className: '' }
   return (
     <div className={`rb-player ${side === 0 ? 'mine' : 'theirs'}`}>
-      {p.legend?.imageUrlSmall && <img className="rb-legend-art" src={p.legend.imageUrlSmall} alt="" loading="lazy" />}
-      <span className="rb-legend" title={p.legend?.text ?? undefined}>
-        {p.legend?.name ?? '—'}
-      </span>
+      {p.legend?.imageUrlSmall && <img className={`rb-legend-art ${p.legendExhausted ? 'exhausted' : ''}`} src={p.legend.imageUrlSmall} alt="" loading="lazy" />}
+      {side === 0 ? (
+        <button className="link-button rb-legend" aria-pressed={p.legendExhausted} title={`${t.practiceGame.legendToggle}${p.legend?.text ? `\n\n${p.legend.text}` : ''}`} onClick={() => onTool({ kind: 'legend', side })}>
+          {p.legend?.name ?? '—'}
+          {p.legendExhausted ? ` · ${t.practiceGame.exhausted}` : ''}
+        </button>
+      ) : (
+        <span className="rb-legend" title={p.legend?.text ?? undefined}>
+          {p.legend?.name ?? '—'}
+          {p.legendExhausted ? ` · ${t.practiceGame.exhausted}` : ''}
+        </span>
+      )}
       <span className="rb-points" aria-label={t.practiceGame.pointsLabel(p.points)}>
         ★ {p.points}
         {side === 0 && (
@@ -566,8 +719,18 @@ function PlayerBar({ game, side, onTool, onPlayChampion, onStartOfTurn }: { game
         </span>
       </span>
       <span className="text-dim rb-counts">{t.practiceGame.counts(p.hand.length, p.deck.length, p.trash.length)}</span>
+      {onZones && (
+        <>
+          <button className="btn" onClick={() => onZones('deck')}>
+            {t.practiceGame.deckButton}
+          </button>
+          <button className={`btn rb-trash ${trashClass}`} onClick={() => onZones('trash')} title={t.practiceGame.trashDropTitle} {...trashHandlers}>
+            {t.practiceGame.trashButton(p.trash.length)}
+          </button>
+        </>
+      )}
       {champion && (
-        <span className="rb-champion">
+        <span className="rb-champion" {...championDrag}>
           {t.practiceGame.champion}: {champion.name}
           {onPlayChampion && (
             <button className="btn" disabled={!canPlay(game, side, champion)} onClick={onPlayChampion}>
@@ -597,13 +760,152 @@ function PlayerBar({ game, side, onTool, onPlayChampion, onStartOfTurn }: { game
           <button className="btn" onClick={() => onTool({ kind: 'readyRune', side })}>
             {t.practiceGame.readyRune}
           </button>
+          <button className="btn" aria-expanded={makingToken} onClick={() => setMakingToken((v) => !v)}>
+            {t.practiceGame.makeToken}
+          </button>
         </span>
+      )}
+      {makingToken && (
+        <TokenForm
+          game={game}
+          onMake={(tl) => {
+            onTool(tl)
+            setMakingToken(false)
+          }}
+        />
       )}
     </div>
   )
 }
 
-function HandMenu({ game, card, yourTurn, onPlay, onDiscard, onDetail }: { game: GameState; card: Card; yourTurn: boolean; onPlay: (o: { accelerate?: boolean; battlefield?: number; free?: boolean }) => void; onDiscard: () => void; onDetail: () => void }) {
+/** Makes a unit token of any Might, in base or at a battlefield. */
+function TokenForm({ game, onMake }: { game: GameState; onMake: (tl: Tool) => void }) {
+  const [name, setName] = useState('')
+  const [might, setMight] = useState(1)
+  const [where, setWhere] = useState('base')
+  const [ready, setReady] = useState(false)
+  return (
+    <form
+      className="rb-token-form"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onMake({ kind: 'token', side: 0, name, might, battlefield: where === 'base' ? null : Number(where), ready })
+      }}
+    >
+      <input aria-label={t.practiceGame.tokenName} placeholder={t.practiceGame.tokenName} value={name} onChange={(e) => setName(e.target.value)} />
+      <label>
+        {t.practiceGame.tokenMight}{' '}
+        <input type="number" min={0} max={20} value={might} onChange={(e) => setMight(Number(e.target.value))} />
+      </label>
+      <select aria-label={t.practiceGame.tokenWhere} value={where} onChange={(e) => setWhere(e.target.value)}>
+        <option value="base">{t.practiceGame.yourBase}</option>
+        {game.battlefields.map((_, i) => (
+          <option key={i} value={i}>
+            {bfName(game, i)}
+          </option>
+        ))}
+      </select>
+      <label>
+        <input type="checkbox" checked={ready} onChange={(e) => setReady(e.target.checked)} /> {t.practiceGame.ready}
+      </label>
+      <button className="btn btn-primary" type="submit">
+        {t.practiceGame.make}
+      </button>
+    </form>
+  )
+}
+
+/** Your deck (the top cards, or all of it) and trash, to take cards from like at a table. */
+function ZonesWindow({ game, kind, onTool, onDetail, onClose }: { game: GameState; kind: 'deck' | 'trash'; onTool: (tl: Tool) => void; onDetail: (c: Card) => void; onClose: () => void }) {
+  const [top, setTop] = useState(3)
+  const [all, setAll] = useState(false)
+  const p = game.players[0]
+  const cards = kind === 'trash' ? p.trash : all ? p.deck : p.deck.slice(0, top)
+  const title = kind === 'trash' ? t.practiceGame.trashTitle(p.trash.length) : t.practiceGame.deckTitle(p.deck.length)
+  return (
+    <Modal label={title} className="rb-zones-modal" onClose={onClose}>
+      <div className="modal-header">
+        <span>{title}</span>
+        <button className="btn" onClick={onClose}>
+          {t.common.close}
+        </button>
+      </div>
+      {kind === 'deck' && (
+        <div className="rb-zones-controls">
+          <label>
+            {t.practiceGame.lookAtTop}{' '}
+            <select value={all ? 'all' : String(top)} onChange={(e) => (e.target.value === 'all' ? setAll(true) : (setAll(false), setTop(Number(e.target.value))))}>
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+              <option value="all">{t.practiceGame.wholeDeck}</option>
+            </select>
+          </label>
+          <button className="btn" onClick={() => onTool({ kind: 'shuffle', side: 0 })}>
+            {t.practiceGame.shuffle}
+          </button>
+        </div>
+      )}
+      {!cards.length && <p className="text-dim">{t.practiceGame.empty}</p>}
+      <ul className="rb-zones-list">
+        {cards.map((card, i) => (
+          <li key={`${card.id}-${i}`}>
+            <button className="rb-zone-card" onClick={() => onDetail(card)} aria-label={t.practiceGame.details(card.name)}>
+              <CardFace card={card} />
+            </button>
+            <span className="rb-zone-actions">
+              {kind === 'deck' ? (
+                <>
+                  <button className="btn" onClick={() => onTool({ kind: 'fromDeck', side: 0, index: i, to: 'hand' })}>
+                    {t.practiceGame.toHand}
+                  </button>
+                  <button className="btn" onClick={() => onTool({ kind: 'fromDeck', side: 0, index: i, to: 'bottom' })}>
+                    {t.practiceGame.toBottom}
+                  </button>
+                  <button className="btn" onClick={() => onTool({ kind: 'fromDeck', side: 0, index: i, to: 'trash' })}>
+                    {t.practiceGame.toTrash}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn" onClick={() => onTool({ kind: 'fromTrash', side: 0, index: i, to: 'hand' })}>
+                    {t.practiceGame.toHand}
+                  </button>
+                  <button className="btn" onClick={() => onTool({ kind: 'fromTrash', side: 0, index: i, to: 'bottom' })}>
+                    {t.practiceGame.toBottom}
+                  </button>
+                </>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Modal>
+  )
+}
+
+function HandMenu({
+  game,
+  card,
+  yourTurn,
+  manual,
+  onPlay,
+  onDiscard,
+  onHide,
+  onDetail,
+}: {
+  game: GameState
+  card: Card
+  yourTurn: boolean
+  manual: boolean
+  onPlay: (o: { accelerate?: boolean; battlefield?: number; free?: boolean }) => void
+  onDiscard: () => void
+  onHide: (battlefield: number) => void
+  onDetail: () => void
+}) {
+  const hidden = /\[hidden\]/i.test(card.text ?? '')
   const { energy, power } = costOf(card)
   const accel = keywordsOf(card).accelerate && isUnit(card)
   return (
@@ -618,7 +920,7 @@ function HandMenu({ game, card, yourTurn, onPlay, onDiscard, onDetail }: { game:
       )}
       {isUnit(card) &&
         game.battlefields.map((bf, i) =>
-          bf.controller === 0 ? (
+          bf.controller === 0 || manual ? (
             <button key={i} className="btn" disabled={!yourTurn || !canPlay(game, 0, card)} onClick={() => onPlay({ battlefield: i })}>
               {t.practiceGame.playTo(bfName(game, i))}
             </button>
@@ -627,6 +929,14 @@ function HandMenu({ game, card, yourTurn, onPlay, onDiscard, onDetail }: { game:
       <button className="btn" disabled={!yourTurn} onClick={() => onPlay({ free: true })} title={t.practiceGame.freeTitle}>
         {t.practiceGame.free}
       </button>
+      {(hidden || manual) &&
+        game.battlefields.map((bf, i) =>
+          bf.controller === 0 || manual ? (
+            <button key={`h${i}`} className="btn" onClick={() => onHide(i)} title={t.practiceGame.hideTitle}>
+              {t.practiceGame.hideAt(bfName(game, i))}
+            </button>
+          ) : null,
+        )}
       <button className="btn" onClick={onDiscard}>
         {t.practiceGame.discard}
       </button>

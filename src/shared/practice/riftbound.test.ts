@@ -241,3 +241,41 @@ describe('the bot', () => {
     expect(d.battlefields).toHaveLength(3)
   })
 })
+
+describe('table actions by hand', () => {
+  it('takes from the deck and trash, shuffles, makes tokens, hides and reveals', () => {
+    const cards = Array.from({ length: 40 }, (_, i) => unit(`U${i}`, 1, 1))
+    let s = newGame(setup(cards), setup(), { first: 0, random: seeded(4), manual: true })
+    s = mulligan(mulligan(s, 0, []), 1, [])
+    expect(runeCount(s, 0).total).toBe(0) // by hand: nothing channelled yet
+    const top = s.players[0].deck[0]
+    s = applyTool(s, { kind: 'fromDeck', side: 0, index: 0, to: 'hand' })
+    expect(s.players[0].hand.at(-1)).toBe(top)
+    s = applyTool(s, { kind: 'fromDeck', side: 0, index: 0, to: 'trash' })
+    s = applyTool(s, { kind: 'fromTrash', side: 0, index: 0, to: 'hand' })
+    expect(s.players[0].trash).toHaveLength(0)
+    s = applyTool(s, { kind: 'token', side: 0, name: 'Sprite', might: 3, battlefield: 1, ready: true })
+    expect(s.battlefields[1].units[0]).toMatchObject({ might: 3, exhausted: false, token: true })
+    s = applyTool(s, { kind: 'hide', side: 0, handIndex: 0, battlefield: 0 })
+    const hidden = s.battlefields[0].hidden[0]
+    expect(hidden.owner).toBe(0)
+    s = applyTool(s, { kind: 'unhide', battlefield: 0, hidden: hidden.uid })
+    expect(s.battlefields[0].hidden).toHaveLength(0)
+    s = applyTool(s, { kind: 'legend', side: 0 })
+    expect(s.players[0].legendExhausted).toBe(true)
+    const deckBefore = s.players[0].deck.map((c) => c.id).join()
+    s = applyTool(s, { kind: 'shuffle', side: 0 })
+    expect(s.players[0].deck).toHaveLength(deckBefore.split(',').length)
+  })
+
+  it('plays a unit to any battlefield and moves it anywhere, with no fight', () => {
+    let s = newGame(setup(), setup(), { first: 0, random: seeded(5), manual: true })
+    s = mulligan(mulligan(s, 0, []), 1, [])
+    s = play(s, 0, 0, { free: true, battlefield: 1 })
+    expect(s.battlefields[1].units).toHaveLength(1)
+    const id = s.battlefields[1].units[0].uid
+    s = move(s, 0, [id], 0) // exhausted, battlefield to battlefield, no Ganking: fine by hand
+    expect(s.battlefields[0].units.map((u) => u.uid)).toEqual([id])
+    expect(s.players[0].points).toBe(0)
+  })
+})
