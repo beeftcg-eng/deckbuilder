@@ -12,6 +12,8 @@ import type { Card, Deck } from '../../../shared/types'
 import { t } from '../../../shared/i18n'
 import { Modal } from '../../Modal'
 import { readSave, type GameMeta, type Opponent } from './saves'
+import { BattlefieldPick } from './MatchParts'
+import { newMatch, withBattlefields, type DeckLists } from '../../../shared/practice/riftboundMatch'
 
 // ---------- choosing the opponent ----------
 
@@ -25,6 +27,8 @@ export function Setup({ deck, cardsById, onStart, onOnline, onClose }: { deck: D
   const [first, setFirst] = useState<'random' | 'me' | 'them'>('random')
   const [level, setLevel] = useState<Level>('normal')
   const [manual, setManual] = useState(true)
+  const [bfPick, setBfPick] = useState<string | null>(null)
+  const [bestOf, setBestOf] = useState<1 | 3>(1)
   const saved = useMemo(() => readSave(deck.id, cardsById), [deck.id, cardsById])
   const mine = useMemo(() => setupFromDeck(deck, cardsById), [deck, cardsById])
   // How many of the deck's different cards the game runs by itself.
@@ -45,6 +49,7 @@ export function Setup({ deck, cardsById, onStart, onOnline, onClose }: { deck: D
   function start() {
     let them = null
     let name = ''
+    let botLists: DeckLists | null = null
     if (opponent.kind === 'legend' && lists) {
       const index = communityGame('riftbound').index(cardsById.values())
       const pool = opponent.listId ? legendLists.filter((l) => l.id === opponent.listId) : [...legendLists].sort(() => Math.random() - 0.5)
@@ -52,6 +57,7 @@ export function Setup({ deck, cardsById, onStart, onOnline, onClose }: { deck: D
         const d = listDeck(list, index)
         if (d) {
           them = setupFromDeck(d, cardsById)
+          botLists = { zones: d.zones, freeTextZones: d.freeTextZones }
           name = list.legendName
           break
         }
@@ -60,12 +66,15 @@ export function Setup({ deck, cardsById, onStart, onOnline, onClose }: { deck: D
       const theirs = myDecks.find((d) => d.id === opponent.deckId)
       if (theirs) {
         them = setupFromDeck(theirs, cardsById)
+        botLists = { zones: theirs.zones, freeTextZones: theirs.freeTextZones }
         name = theirs.name
       }
     }
-    let g = newGame(mine, them, { first: first === 'me' ? 0 : first === 'them' ? 1 : undefined, manual })
+    const chosen = mine.battlefields.find((c) => c.id === bfPick) ?? null
+    let g = newGame({ ...mine, chosen }, them, { first: first === 'me' ? 0 : first === 'them' ? 1 : undefined, manual })
     if (them) g = botMulligan(g)
-    onStart(g, { opponentId: them && opponentId ? opponentId : 'nobody', opponentName: them ? name : t.practiceGame.nobody, level, byHand: manual })
+    const match = them && bestOf === 3 ? withBattlefields(newMatch(botLists), g.battlefields[0]?.card?.id ?? null, g.battlefields[1]?.card?.id ?? null) : undefined
+    onStart(g, { opponentId: them && opponentId ? opponentId : 'nobody', opponentName: them ? name : t.practiceGame.nobody, level, byHand: manual, ...(match ? { match } : {}) })
   }
 
   return (
@@ -138,8 +147,16 @@ export function Setup({ deck, cardsById, onStart, onOnline, onClose }: { deck: D
           )}
           {record && <p className="rb-record">{t.practiceGame.recordAgainst(record.wins, record.losses)}</p>}
           {!lists && <p className="text-dim">{t.communityLists.loading}</p>}
+          <BattlefieldPick cards={mine.battlefields} value={bfPick} onChange={setBfPick} />
           {opponent.kind !== 'none' && (
             <>
+              <label className="rb-setup-row">
+                <span>{t.practiceGame.matchLength}</span>
+                <select value={bestOf} onChange={(e) => setBestOf(Number(e.target.value) as 1 | 3)}>
+                  <option value={1}>{t.practiceGame.matchOne}</option>
+                  <option value={3}>{t.practiceGame.matchBo3}</option>
+                </select>
+              </label>
               <label className="rb-setup-row">
                 <span>{t.practiceGame.goesFirst}</span>
                 <select value={first} onChange={(e) => setFirst(e.target.value as typeof first)}>

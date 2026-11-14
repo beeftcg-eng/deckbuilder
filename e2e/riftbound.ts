@@ -36,7 +36,19 @@ export const GUST = {
   might: null,
   text: "[Reaction] (Play any time, even before spells and abilities resolve.)Return a unit at a battlefield with 3 :rb_might: or less to its owner's hand.",
 }
-export const CARDS = [legend, ...UNITS, bf(1), bf(2), bf(3), RUNE, GUST]
+export const BANNER = {
+  ...unit(50),
+  id: 'riftbound:banner',
+  sourceId: 'ogn-500',
+  name: 'Banner of Conquest',
+  category: 'Gear',
+  cost: '0',
+  might: null,
+  text: "[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)Friendly units here have [Assault]. (+1 Might while they're attackers.)",
+}
+export const CARDS = [legend, ...UNITS, bf(1), bf(2), bf(3), RUNE, GUST, BANNER]
+/** Banners ([Deploy] gear), with two Fighters in the sideboard: for a best-of-3 match. */
+export const BANNERS = { id: 'd3', gameId: 'riftbound', name: 'Banners', formatId: 'constructed', zones: { legend: [{ cardId: legend.id, quantity: 1 }], main: [{ cardId: BANNER.id, quantity: 40 }], sideboard: [{ cardId: UNITS[0].id, quantity: 2 }], battlefields: [1, 2, 3].map((i) => ({ cardId: `riftbound:bf${i}`, quantity: 1 })) }, freeTextZones: { runes: [{ label: 'Fury', quantity: 12 }] }, createdAt: '', updatedAt: '' }
 /** A deck of nothing but Gusts, to answer the bot with (the fighters deck is the bot's). */
 export const GUSTS = { id: 'd2', gameId: 'riftbound', name: 'All Gusts', formatId: 'constructed', zones: { legend: [{ cardId: legend.id, quantity: 1 }], main: [{ cardId: GUST.id, quantity: 40 }], battlefields: [1, 2, 3].map((i) => ({ cardId: `riftbound:bf${i}`, quantity: 1 })) }, freeTextZones: { runes: [{ label: 'Fury', quantity: 12 }] }, createdAt: '', updatedAt: '' }
 export const DECK = {
@@ -52,10 +64,10 @@ export const DECK = {
 
 
 /** Opens the app with the Riftbound pool downloaded and the deck open, tour seen. */
-export async function seedRiftbound(page: Page, open: 'd1' | 'd2' = 'd1') {
+export async function seedRiftbound(page: Page, open: 'd1' | 'd2' | 'd3' = 'd1') {
   await page.goto('./')
   await page.evaluate(
-    async ({ cards, deck, gusts, open }) => {
+    async ({ cards, deck, gusts, banners, open }) => {
       const db = await new Promise<IDBDatabase>((res, rej) => {
         const q = indexedDB.open('deckbuilder', 2)
         q.onsuccess = () => res(q.result)
@@ -71,8 +83,9 @@ export async function seedRiftbound(page: Page, open: 'd1' | 'd2' = 'd1') {
       await put('settings', 'app', { tourSeen: true, lastGameId: 'riftbound', lastDeckId: open })
       await put('decks', 'd1', deck)
       await put('decks', 'd2', gusts)
+      await put('decks', 'd3', banners)
     },
-    { cards: CARDS, deck: DECK, gusts: GUSTS, open },
+    { cards: CARDS, deck: DECK, gusts: GUSTS, banners: BANNERS, open },
   )
   await page.reload()
 }

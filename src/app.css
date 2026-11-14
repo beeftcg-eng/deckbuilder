@@ -5390,6 +5390,7 @@
 
 .rb-setup-modal {
   max-width: 560px;
+  overflow-y: auto;
 }
 
 .rb-setup-row {
@@ -6460,4 +6461,145 @@ button.rb-rune {
     gap: 6px;
     padding: 6px;
   }
+}
+
+/* Riftbound practice: gear at a battlefield ([Deploy]), picking a battlefield, a best-of-3 match. */
+.rb-bf-gear {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.rb-bf-gear .rb-gear.theirs {
+  border-style: dashed;
+}
+
+.rb-bf-gear .rb-gear-art {
+  width: 64px;
+}
+
+.rb-match {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.rb-bf-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.rb-bf-pick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rb-bf-pick-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 120px;
+  padding: 4px;
+  border: 2px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.rb-bf-pick-card.picked {
+  border-color: var(--accent);
+}
+
+.rb-bf-pick-card img {
+  width: 100%;
+  aspect-ratio: 7 / 5;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.rb-bf-pick-random {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 7 / 5;
+  font-size: 28px;
+}
+
+.rb-sideboarding h3 {
+  margin: 12px 0 4px;
+  font-size: 16px;
+}
+
+.rb-sideboard-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rb-sideboard-cols h4 {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.rb-sideboard-cols ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.rb-sideboard-cols li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 13px;
+}
+
+.rb-sideboard-cols li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rb-sideboard-cols li.swapped {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (max-width: 520px) {
+  .rb-sideboard-cols {
+    grid-template-columns: 1fr;
+  }
+
+  .rb-bf-pick-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .rb-bf-pick-card {
+    width: auto;
+    min-width: 0;
+    font-size: 11px;
+  }
+
+  .rb-bf-pick-random {
+    font-size: 20px;
+  }
+}
+
+.rb-sideboard-cols li .btn {
+  flex: none;
+  white-space: nowrap;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useCardsById } from '../../../state/useAppStore'
-import { abilitiesOf, allUnits, bfName, canPlay, combatMight, mightNow, costOf, isUnit, keywordsOf, runeCount, type GameState, type Side, type Tool, type Unit } from '../../../shared/practice/riftbound'
+import { abilitiesOf, allUnits, bfName, canPlay, combatMight, mightNow, costOf, isGear, isUnit, keywordsOf, runeCount, type GameState, type Side, type Tool, type Unit } from '../../../shared/practice/riftbound'
+import { scriptOf } from '../../../shared/practice/riftboundEffects'
 import { DOMAIN_COLORS } from '../../../lib/domainColors'
 import type { Card } from '../../../shared/types'
 import { t } from '../../../shared/i18n'
@@ -158,40 +159,86 @@ export function Base({
         {p.base.map((u) => (
           <UnitChip key={u.uid} unit={u} drag={dragFor?.(u)} targetable={targetable.includes(u.uid)} aimed={aimed.includes(u.uid)} selected={selected.includes(u.uid)} onClick={() => onUnit(u)} onDetail={() => onDetail(u.card)} />
         ))}
-        {p.gear.map((g) => (
-          <span key={g.uid} className={`rb-gear ${g.exhausted ? 'exhausted' : ''}`}>
-            {g.card.imageUrlSmall && (
-              <button className="rb-gear-art" onClick={() => onDetail(g.card)} aria-label={t.practiceGame.details(g.card.name)}>
-                <img src={g.card.imageUrlSmall} alt="" loading="lazy" />
-              </button>
-            )}
-            {onTool ? (
-              <button className="link-button" aria-pressed={g.exhausted} title={t.practiceGame.exhaustToggle} onClick={() => onTool({ kind: 'gear', side, gear: g.uid })}>
-                ⚙ {g.card.name}
-                {g.exhausted ? ` · ${t.practiceGame.exhausted}` : ''}
-              </button>
-            ) : (
-              <span>⚙ {g.card.name}</span>
-            )}
-            <button className="rb-unit-info" aria-label={t.practiceGame.details(g.card.name)} onClick={() => onDetail(g.card)}>
-              ⓘ
-            </button>
-            <AbilityButtons card={g.card} source={g.uid} handlers={abilities} />
-            {onTool && allUnits(game, side).length > 0 && (
-              <select className="rb-equip" aria-label={t.practiceGame.equipTo(g.card.name)} value="" onChange={(e) => e.target.value && onTool({ kind: 'equip', side, gear: g.uid, unit: e.target.value })}>
-                <option value="">{t.practiceGame.equip}</option>
-                {allUnits(game, side).map((u) => (
-                  <option key={u.uid} value={u.uid}>
-                    {u.card.name.replace(/\s*\([^)]*\)$/, '')}
-                  </option>
-                ))}
-              </select>
-            )}
-          </span>
-        ))}
-        {!p.base.length && !p.gear.length && <span className="text-dim">{t.practiceGame.empty}</span>}
+        {p.gear
+          .filter((g) => g.at == null)
+          .map((g) => (
+            <GearChip key={g.uid} game={game} side={side} gear={g} onTool={onTool} onDetail={onDetail} abilities={abilities} />
+          ))}
+        {!p.base.length && !p.gear.some((g) => g.at == null) && <span className="text-dim">{t.practiceGame.empty}</span>}
       </div>
     </section>
+  )
+}
+
+/** A gear on the board: exhaust it, use its abilities, attach it, or move it (to hand, base, the trash, a battlefield). */
+export function GearChip({
+  game,
+  side,
+  gear: g,
+  onTool,
+  onDetail,
+  abilities,
+}: {
+  game: GameState
+  side: Side
+  gear: GameState['players'][number]['gear'][number]
+  onTool?: (tl: Tool) => void
+  onDetail: (c: Card) => void
+  abilities?: AbilityHandlers
+}) {
+  return (
+    <span className={`rb-gear ${g.exhausted ? 'exhausted' : ''} ${side === 0 ? 'mine' : 'theirs'}`}>
+      {g.card.imageUrlSmall && (
+        <button className="rb-gear-art" onClick={() => onDetail(g.card)} aria-label={t.practiceGame.details(g.card.name)}>
+          <img src={g.card.imageUrlSmall} alt="" loading="lazy" />
+        </button>
+      )}
+      {onTool ? (
+        <button className="link-button" aria-pressed={g.exhausted} title={t.practiceGame.exhaustToggle} onClick={() => onTool({ kind: 'gear', side, gear: g.uid })}>
+          ⚙ {g.card.name}
+          {g.exhausted ? ` · ${t.practiceGame.exhausted}` : ''}
+        </button>
+      ) : (
+        <span>⚙ {g.card.name}</span>
+      )}
+      <button className="rb-unit-info" aria-label={t.practiceGame.details(g.card.name)} onClick={() => onDetail(g.card)}>
+        ⓘ
+      </button>
+      <AbilityButtons card={g.card} source={g.uid} handlers={abilities} />
+      {onTool && g.at == null && allUnits(game, side).length > 0 && (
+        <select className="rb-equip" aria-label={t.practiceGame.equipTo(g.card.name)} value="" onChange={(e) => e.target.value && onTool({ kind: 'equip', side, gear: g.uid, unit: e.target.value })}>
+          <option value="">{t.practiceGame.equip}</option>
+          {allUnits(game, side).map((u) => (
+            <option key={u.uid} value={u.uid}>
+              {u.card.name.replace(/\s*\([^)]*\)$/, '')}
+            </option>
+          ))}
+        </select>
+      )}
+      {onTool && (
+        <select
+          className="rb-equip"
+          aria-label={t.practiceGame.moveGear(g.card.name)}
+          value=""
+          onChange={(e) => {
+            const v = e.target.value
+            if (v) onTool({ kind: 'moveGear', side, gear: g.uid, to: v === 'hand' || v === 'trash' || v === 'base' ? v : Number(v) })
+          }}
+        >
+          <option value="">{t.practiceGame.moveGearShort}</option>
+          <option value="hand">{t.practiceGame.toHand}</option>
+          {g.at != null && <option value="base">{t.practiceGame.moveBase}</option>}
+          {game.battlefields.map((_, i) =>
+            i === g.at ? null : (
+              <option key={i} value={i}>
+                {t.practiceGame.moveTo(bfName(game, i))}
+              </option>
+            ),
+          )}
+          <option value="trash">{t.practiceGame.toTrash}</option>
+        </select>
+      )}
+    </span>
   )
 }
 
@@ -508,11 +555,21 @@ export function HandMenu({
   const hidden = /\[hidden\]/i.test(card.text ?? '')
   const { energy, power } = costOf(card)
   const accel = keywordsOf(card).accelerate && isUnit(card)
+  // [Deploy] gear goes only to a battlefield, any of them.
+  const deploy = isGear(card) && scriptOf(card).deploy
   return (
     <div className="rb-hand-menu" role="group" aria-label={card.name}>
-      <button className="btn btn-primary" disabled={!yourTurn || !canPlay(game, 0, card)} onClick={() => onPlay({})}>
-        {t.practiceGame.play(energy, power)}
-      </button>
+      {deploy ? (
+        game.battlefields.map((_, i) => (
+          <button key={`d${i}`} className={`btn ${i === 0 ? 'btn-primary' : ''}`} disabled={!yourTurn || !canPlay(game, 0, card)} onClick={() => onPlay({ battlefield: i })}>
+            {t.practiceGame.deployTo(bfName(game, i), energy, power)}
+          </button>
+        ))
+      ) : (
+        <button className="btn btn-primary" disabled={!yourTurn || !canPlay(game, 0, card)} onClick={() => onPlay({})}>
+          {t.practiceGame.play(energy, power)}
+        </button>
+      )}
       {accel && (
         <button className="btn" disabled={!yourTurn || !canPlay(game, 0, card, true)} onClick={() => onPlay({ accelerate: true })}>
           {t.practiceGame.accelerate}
@@ -592,6 +649,9 @@ export function UnitTools({ unit, onTool, onDone, abilities }: { unit: Unit; onT
           ⚙ {e.card.name}
           <button className="btn" onClick={() => onTool({ kind: 'unequip', unit: id, gear: e.uid })}>
             {t.practiceGame.unequip}
+          </button>
+          <button className="btn" onClick={() => onTool({ kind: 'unequip', unit: id, gear: e.uid, to: 'hand' })}>
+            {t.practiceGame.toHand}
           </button>
         </span>
       ))}

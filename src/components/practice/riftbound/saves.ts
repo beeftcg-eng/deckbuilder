@@ -2,6 +2,7 @@ import type { Card } from '../../../shared/types'
 import type { GameState } from '../../../shared/practice/riftbound'
 import type { Level } from '../../../shared/practice/riftboundBot'
 import { packState, unpackState } from '../../../shared/practice/serialize'
+import { matchWinner, type Match } from '../../../shared/practice/riftboundMatch'
 
 /** Who the bot plays: a random recent list for a Legend, one list, or one of your decks. */
 export type Opponent = { kind: 'none' } | { kind: 'legend'; legendId: string; listId: string | null } | { kind: 'deck'; deckId: string }
@@ -12,7 +13,12 @@ export interface GameMeta {
   opponentName: string
   level: Level
   byHand: boolean
+  /** A best-of-3 match this game is part of (its score counts this game once it's over). */
+  match?: Match
 }
+
+/** A match with games still to play: its finished game stays saved, to go on to the next one. */
+export const matchGoesOn = (meta: GameMeta) => !!meta.match && matchWinner(meta.match) == null
 
 /** The game in progress for a deck, kept on this device to resume. */
 export const saveKey = (deckId: string) => `brewhouse.practice.riftbound.${deckId}`
@@ -32,7 +38,7 @@ export function readSave(deckId: string, cardsById: Map<string, Card>): { meta: 
 
 export function writeSave(deckId: string, meta: GameMeta, state: GameState | null) {
   try {
-    if (!state || state.phase === 'over') localStorage.removeItem(saveKey(deckId))
+    if (!state || (state.phase === 'over' && !matchGoesOn(meta))) localStorage.removeItem(saveKey(deckId))
     else localStorage.setItem(saveKey(deckId), JSON.stringify({ meta, state: packState(state) }))
   } catch {
     // storage full or blocked: the game just can't be resumed

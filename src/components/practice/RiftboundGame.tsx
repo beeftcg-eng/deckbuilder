@@ -9,6 +9,8 @@ import { Modal } from '../Modal'
 import { Board } from './riftbound/Board'
 import { Setup } from './riftbound/Setup'
 import { writeSave, type GameMeta, TIMELINE } from './riftbound/saves'
+import { BetweenGames } from './riftbound/MatchParts'
+import { matchWinner, withResult } from '../../shared/practice/riftboundMatch'
 
 /** How long each of the bot's moves stays on screen before the next. */
 const AUTO_PASS_KEY = 'brewhouse.practice.riftbound.autoPass'
@@ -32,6 +34,8 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
   const [timeline, setTimeline] = useState<GameState[]>([])
   const [replayAt, setReplayAt] = useState<number | null>(null)
   const [online, setOnline] = useState(false)
+  /** A match between games: sideboarding and the next battlefield. */
+  const [between, setBetween] = useState(false)
 
   // "Pass for me when I can't answer": a per-device convenience.
   const [autoPass, setAutoPass] = useState(() => {
@@ -49,7 +53,13 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
    * them one at a time, stopping when a showdown waits on you. Saves it, and records the result
    * when the game ends.
    */
-  function show(next: GameState, m: GameMeta, previous: GameState | null) {
+  function show(next: GameState, meta0: GameMeta, previous: GameState | null) {
+    let m = meta0
+    // A match counts the game once, as it ends.
+    if (m.match && next.phase === 'over' && previous && previous.phase !== 'over' && next.winner != null) {
+      m = { ...m, match: withResult(m.match, next.winner) }
+      setMeta(m)
+    }
     setGame(next)
     setTimeline((t) => [...t, next].slice(-TIMELINE))
     writeSave(deck.id, m, next)
@@ -78,6 +88,7 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
   }
 
   function begin(g: GameState, m: GameMeta) {
+    setBetween(false)
     setMeta(m)
     setHistory([])
     setTimeline([])
@@ -86,11 +97,22 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
   }
 
   if (online) return <OnlineGame deck={deck} onClose={onClose} />
+  if (between && game && meta?.match && game.winner != null) {
+    return <BetweenGames deck={deck} cardsById={cardsById} meta={meta} lastWinner={game.winner} onStart={begin} onClose={onClose} />
+  }
   if (!game || !meta) {
     return <Setup deck={deck} cardsById={cardsById} onStart={begin} onOnline={() => setOnline(true)} onClose={onClose} />
   }
 
   const replaying = replayAt != null
+  const match = meta.match
+  const won = match ? matchWinner(match) : null
+  const matchInfo = match
+    ? {
+        label: won === 0 ? t.practiceGame.matchWon(...match.wins) : won === 1 ? t.practiceGame.matchLost(...match.wins) : t.practiceGame.matchScore(match.wins[0] + match.wins[1] + (game.phase === 'over' ? 0 : 1), ...match.wins),
+        onNext: game.phase === 'over' && won == null && game.winner != null ? () => setBetween(true) : undefined,
+      }
+    : undefined
   return (
     <Modal label={t.practiceGame.title(deck.name)} className="rb-game-modal" onClose={onClose}>
       {replaying && (
@@ -127,6 +149,7 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
             // Not kept: it's on again next time.
           }
         }}
+        match={matchInfo}
         canUndo={history.length > 0 && !botRunning && !replaying}
         onUndo={() => {
           const back = history[history.length - 1]

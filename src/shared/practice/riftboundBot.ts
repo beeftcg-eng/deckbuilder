@@ -11,6 +11,7 @@ import {
   combatMight,
   endTurn,
   energyCost,
+  isGear,
   isSpell,
   keywordsOf,
   mightNow,
@@ -128,6 +129,11 @@ function threatened(s: GameState, side: Side): number {
   }).length
 }
 
+/** Gear in play, a card's worth each; [Deploy] gear a little more where `side` holds, less where the opponent does (it dies when they hold). */
+function gearWorth(s: GameState, side: Side): number {
+  return s.players[side].gear.reduce((n, g) => n + 1 + (g.at == null ? 0 : s.battlefields[g.at]?.controller === side ? 0.25 : s.battlefields[g.at]?.controller === other(side) ? -0.75 : 0), 0)
+}
+
 /** How good the position is for `side` (higher is better). */
 export function evaluate(s: GameState, side: Side, w: Weights = DEFAULT_WEIGHTS, level: Level = 'normal'): number {
   if (s.phase === 'over') return s.winner === side ? 100000 : -100000
@@ -138,7 +144,8 @@ export function evaluate(s: GameState, side: Side, w: Weights = DEFAULT_WEIGHTS,
     w.points * (me.points - foe.points) +
     w.control * (held(side) - held(other(side))) +
     w.might * (boardMight(s, side) - boardMight(s, other(side))) +
-    w.cards * (me.hand.length - foe.hand.length)
+    w.cards * (me.hand.length - foe.hand.length) +
+    w.cards * (gearWorth(s, side) - gearWorth(s, other(side)))
   // Close to 8, every point is worth more.
   score += w.points * 0.5 * (Math.max(0, me.points - 4) ** 2 - Math.max(0, foe.points - 4) ** 2)
   if (level === 'hard') {
@@ -168,7 +175,9 @@ function playOptions(s: GameState, side: Side, level: Level): GameState[] {
     // Spells only when it knows what they do (Easy: only plain damage).
     if (isSpell(card) && (level === 'easy' ? damageSpell(card) == null : !scriptOf(card).full)) continue
     const modes = modesOf(card)
-    if (modes.length) modes.forEach((_, mode) => out.push(play(s, side, i, { mode })))
+    // [Deploy] gear: tried at each battlefield, rather where its units are.
+    if (isGear(card) && scriptOf(card).deploy) s.battlefields.forEach((_, battlefield) => out.push(play(s, side, i, { battlefield })))
+    else if (modes.length) modes.forEach((_, mode) => out.push(play(s, side, i, { mode })))
     else out.push(play(s, side, i))
     if (keywordsOf(card).accelerate && canPlay(s, side, card, true)) out.push(play(s, side, i, { accelerate: true }))
   }

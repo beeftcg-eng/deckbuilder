@@ -597,3 +597,80 @@ describe('XP, Levels, Legends that trigger, abilities on the chain, combat by ha
     expect(s.players[0].points).toBe(1)
   })
 })
+
+describe('[Deploy] gear, moving gear, and picking your battlefield', () => {
+  const piece = (uid: string, owner: 0 | 1, card = unit(`P${uid}`, 2, 2)): Unit => ({ uid, card, owner, might: card.might ?? 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: keywordsOf(card) })
+  const banner = makeCard('riftbound', { name: 'Banner of Conquest', category: 'Gear', cost: '0', text: '[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)Friendly units here have [Assault]. (+1 Might while they\'re attackers.)' })
+  const stuff = makeCard('riftbound', { name: 'Good Stuff', category: 'Gear', cost: '0', text: '[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)When you hold here, draw 1.' })
+  const pillage = makeCard('riftbound', { name: 'Pillaged Armory', category: 'Gear', cost: '0', text: '[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)When you play this or when you conquer here, draw 1.' })
+
+  it('reads [Deploy], what it gives units here, and "when you hold here"', () => {
+    expect(scriptOf(banner)).toMatchObject({ deploy: true, here: { assault: 1 }, full: true })
+    expect(scriptOf(stuff).abilities).toEqual([{ trigger: 'youHold', effects: [{ kind: 'draw', amount: 1 }], here: true }])
+    expect(scriptOf(pillage).abilities.map((a) => [a.trigger, !!a.here])).toEqual([
+      ['play', false],
+      ['youConquer', true],
+    ])
+  })
+
+  it('goes only to a battlefield (any one), and gives your units there its keyword', () => {
+    let s = structuredClone(started())
+    s.players[0].hand = [banner]
+    expect(play(s, 0, 0)).toBe(s) // not to base
+    s.battlefields[1].units = [piece('a', 0)]
+    s = play(s, 0, 0, { battlefield: 1 })
+    expect(s.players[0].gear).toMatchObject([{ card: { name: 'Banner of Conquest' }, at: 1 }])
+    expect(combatMight(s.battlefields[1].units[0], true)).toBe(3)
+  })
+
+  it('dies when an opponent holds its battlefield; "when you hold here" works only there', () => {
+    let s = structuredClone(started())
+    s.players[0].gear = [
+      { uid: 'g1', card: stuff, exhausted: false, at: 0 },
+      { uid: 'g2', card: stuff, exhausted: false },
+      { uid: 'g3', card: banner, exhausted: false, at: 1 },
+    ]
+    s.battlefields[0].controller = 0
+    s.battlefields[1].controller = 1
+    s = endTurn(s) // they hold battlefield 2: the Banner there dies
+    expect(s.players[0].gear.map((g) => g.uid)).toEqual(['g1', 'g2'])
+    expect(s.players[0].trash.map((c) => c.name)).toEqual(['Banner of Conquest'])
+    const hand = s.players[0].hand.length
+    s = endTurn(s) // you hold battlefield 1: one draw for the gear there, one for the turn
+    expect(s.players[0].hand).toHaveLength(hand + 2)
+  })
+
+  it('moves gear back to hand, to a battlefield, and equipment back to hand', () => {
+    let s = structuredClone(started())
+    s.players[0].gear = [{ uid: 'g1', card: banner, exhausted: false, at: 0 }]
+    s = applyTool(s, { kind: 'moveGear', side: 0, gear: 'g1', to: 1 })
+    expect(s.players[0].gear[0].at).toBe(1)
+    s = applyTool(s, { kind: 'moveGear', side: 0, gear: 'g1', to: 'base' })
+    expect(s.players[0].gear[0].at).toBeUndefined()
+    const hand = s.players[0].hand.length
+    s = applyTool(s, { kind: 'moveGear', side: 0, gear: 'g1', to: 'hand' })
+    expect(s.players[0].gear).toEqual([])
+    expect(s.players[0].hand).toHaveLength(hand + 1)
+    s.players[0].base = [{ ...piece('a', 0), equipment: [{ uid: 'e1', card: banner }] }]
+    s = applyTool(s, { kind: 'unequip', unit: 'a', gear: 'e1', to: 'hand' })
+    expect(s.players[0].hand).toHaveLength(hand + 2)
+    expect(s.players[0].gear).toEqual([])
+  })
+
+  it('plays the battlefield you picked', () => {
+    const you = setup()
+    for (let seed = 1; seed < 6; seed++) {
+      const s = newGame({ ...you, chosen: you.battlefields[2] }, setup(), { first: 0, random: seeded(seed) })
+      expect(s.battlefields[0].card?.name).toBe('C')
+    }
+  })
+
+  it('the bot plays [Deploy] gear to a battlefield', () => {
+    let s = structuredClone(started())
+    s = endTurn(s)
+    s.players[1].hand = [banner]
+    s.battlefields[0].units = [piece('b', 1)]
+    for (let i = 0; i < 5 && s.players[1].hand.length; i++) s = settle(botAct(s, 1, 'normal'))
+    expect(s.players[1].gear[0]?.at).not.toBeUndefined()
+  })
+})

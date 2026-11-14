@@ -79,6 +79,8 @@ export interface Ability {
   effects: Effect[]
   /** "you may exhaust me to ...": only when the card is ready, and it exhausts. */
   exhaust?: boolean
+  /** "When you hold here": only for what happens at the battlefield this gear is at ([Deploy]). */
+  here?: boolean
 }
 
 /** "[Level N][>] I have +1 Might and [Ganking]": on while its owner has N XP or more. */
@@ -109,6 +111,10 @@ export interface CardScript {
   activated: Activated[]
   /** What it gives at each Level. */
   levels: LevelBonus[]
+  /** [Deploy]: gear played only to a battlefield (killed when an opponent holds there). */
+  deploy: boolean
+  /** "Friendly units here have [Assault]": what gear at a battlefield gives your units there. */
+  here: Partial<Record<TurnKeyword, number>>
 }
 
 const WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 }
@@ -116,7 +122,7 @@ const num = (s: string) => WORDS[s.toLowerCase()] ?? Number(s)
 
 /** Keywords that need nothing from the effect parser: the engine reads them (or they don't matter here). */
 /** Hidden is read too: the practice game simply plays such cards normally, face up. */
-const QUIET_KEYWORDS = /^(assault|shield|tank|backline|ganking|accelerate|temporary|deflect|vision|ambush|action|reaction|deathknell|hidden|hunt)\b/i
+const QUIET_KEYWORDS = /^(assault|shield|tank|backline|ganking|accelerate|temporary|deflect|vision|ambush|action|reaction|deathknell|hidden|hunt|deploy)\b/i
 
 const KEYWORD_LIST = /\[(assault|shield|tank|ganking|backline)(?: (\d+))?\]/gi
 
@@ -224,9 +230,9 @@ const TRIGGERS: [RegExp, Trigger][] = [
   [/^when you play (?:me|this),? (.+)$/i, 'play'],
   [/^when you play a unit,? (.+)$/i, 'youUnit'],
   [/^when you play a spell,? (.+)$/i, 'youSpell'],
-  [/^when you conquer,? (.+)$/i, 'youConquer'],
-  [/^when you (?:or an ally )?hold,? (.+)$/i, 'youHold'],
-  [/^when you win a combat,? (.+)$/i, 'youWin'],
+  [/^when you conquer(?: here)?,? (.+)$/i, 'youConquer'],
+  [/^when you (?:or an ally )?hold(?: here)?,? (.+)$/i, 'youHold'],
+  [/^when you win a combat(?: here)?,? (.+)$/i, 'youWin'],
   [/^when i attack,? (.+)$/i, 'attack'],
   [/^when i defend,? (.+)$/i, 'defend'],
   [/^when i conquer,? (.+)$/i, 'conquer'],
@@ -265,7 +271,7 @@ export function scriptOf(card: Card): CardScript {
   const key = `${card.id}|${card.text ?? ''}`
   const hit = cache.get(key)
   if (hit) return hit
-  const script: CardScript = { spell: [], abilities: [], entersReady: false, timing: null, full: true, prefix: [], leftover: null, activated: [], levels: [] }
+  const script: CardScript = { spell: [], abilities: [], entersReady: false, timing: null, full: true, prefix: [], leftover: null, activated: [], levels: [], deploy: false, here: {} }
   const spell = card.category === 'Spell'
   const all = sentences(card.text ?? '')
   /** The first sentence not read, for a spell's leftover. */
@@ -290,6 +296,7 @@ export function scriptOf(card: Card): CardScript {
         sentence = sentence.slice(kw[0].length).replace(/^\[(?:>|&gt;)\]\s*/, '')
         break
       }
+      if (/^deploy$/i.test(name)) script.deploy = true
       if (/^action$/i.test(name)) timing ??= 'action'
       else if (/^reaction$/i.test(name)) timing = 'reaction'
       else if (/^deathknell$/i.test(name)) break
@@ -342,14 +349,30 @@ export function scriptOf(card: Card): CardScript {
       } else unread(i)
       break
     }
+    // Gear at a battlefield: "Friendly units here have [Assault]."
+    const aura = /^friendly units here have ((?:\[[a-z]+(?: \d+)?\](?:,? (?:and )?)?)+)\.?$/i.exec(sentence)
+    if (aura) {
+      for (const m of aura[1].matchAll(KEYWORD_LIST)) {
+        const k = m[1].toLowerCase() as TurnKeyword
+        script.here[k] = (script.here[k] ?? 0) + (k === 'assault' || k === 'shield' ? Number(m[2] ?? 1) : 1)
+      }
+      continue
+    }
+    // "When you play this or when you conquer here, ...": two triggers with one effect.
+    const both = /^when you play (?:me|this) or when you (conquer|hold) here,? (.+)$/i.exec(sentence)
+    const parts: [Trigger, string][] = both ? [['play', both[2]], [both[1].toLowerCase() === 'conquer' ? 'youConquer' : 'youHold', both[2]]] : []
     const trigger = TRIGGERS.find(([re]) => re.test(sentence))
-    if (trigger) {
-      let body = trigger[0].exec(sentence)![1]
-      const exhaust = /^you may exhaust (?:me|this) to /i.test(body)
-      if (exhaust) body = body.replace(/^you may exhaust (?:me|this) to /i, '')
-      const effects = readEffect(body)
-      if (effects) script.abilities.push({ trigger: trigger[1], effects, ...(exhaust ? { exhaust } : {}) })
-      else unread(i)
+    if (!both && trigger) parts.push([trigger[1], trigger[0].exec(sentence)![1]])
+    if (parts.length) {
+      const here = /^when you (?:play (?:me|this) or when you )?(?:conquer|(?:or an ally )?hold|win a combat) here\b/i.test(sentence)
+      for (const [kind, text] of parts) {
+        let body = text
+        const exhaust = /^you may exhaust (?:me|this) to /i.test(body)
+        if (exhaust) body = body.replace(/^you may exhaust (?:me|this) to /i, '')
+        const effects = readEffect(body)
+        if (effects) script.abilities.push({ trigger: kind, effects, ...(exhaust ? { exhaust } : {}), ...(here && kind !== 'play' ? { here } : {}) })
+        else unread(i)
+      }
       continue
     }
     const effects = readEffect(sentence)

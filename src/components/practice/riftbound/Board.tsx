@@ -5,7 +5,7 @@ import type { Card } from '../../../shared/types'
 import { t } from '../../../shared/i18n'
 import { CardDetailModal } from '../../CardDetailModal'
 
-import { CardFace, GameLog, HandMenu, PlayerBar, UnitChip, Base, UnitTools, ZonesWindow } from './BoardParts'
+import { CardFace, GameLog, GearChip, HandMenu, PlayerBar, UnitChip, Base, UnitTools, ZonesWindow } from './BoardParts'
 
 /** Text the game doesn't run but that points at things: you may mark what it targets. */
 const pointsAtThings = (text: string | null | undefined) => /\b(choose|units?|gear)\b/i.test(text ?? '')
@@ -48,9 +48,11 @@ interface BoardProps {
   onAutoPass?: (on: boolean) => void
   onRestart: () => void
   onClose: () => void
+  /** A best-of-3 match: its score, and the next game once this one's over. */
+  match?: { label: string; onNext?: () => void }
 }
 
-export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onRestart, onClose, opponentName, status, autoPass = true, onAutoPass }: BoardProps) {
+export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onRestart, onClose, opponentName, status, autoPass = true, onAutoPass, match }: BoardProps) {
   const [selected, setSelected] = useState<string[]>([])
   const [handPick, setHandPick] = useState<number | null>(null)
   const [mulliganPick, setMulliganPick] = useState<number[]>([])
@@ -279,6 +281,7 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
         <span className="rb-score" aria-label={t.practiceGame.scoreLabel(game.players[0].points, game.players[1].points)}>
           {goldfish ? t.practiceGame.points(game.players[0].points) : `${game.players[0].points} – ${game.players[1].points}`}
         </span>
+        {match && <span className="rb-match">{match.label}</span>}
         <span className="rb-topbar-actions">
           <button className="btn" disabled={!canUndo} onClick={onUndo}>
             {t.practiceGame.undo}
@@ -304,6 +307,14 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
       </div>
 
       {status && <div className="rb-prompt rb-status" role="status">{status}</div>}
+      {match?.onNext && (
+        <div className="rb-prompt" role="group" aria-label={match.label}>
+          <span>{match.label}</span>
+          <button className="btn btn-primary" onClick={match.onNext}>
+            {t.practiceGame.nextGame}
+          </button>
+        </div>
+      )}
       {targeting && targetEffect && (
         <div className="rb-prompt" role="status">
           <span>{t.practiceGame.choose(describeEffect(targetEffect))}</span>
@@ -416,7 +427,7 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
       <div className={`rb-main ${showLog ? 'with-log' : ''}`}>
         <div className="rb-field">
           {!goldfish && <PlayerBar game={game} side={1} onTool={tool} />}
-          {!goldfish && <Base game={game} side={1} selected={shownSelected} targetable={legalNow.map((u) => u.uid)} aimed={aimed} onUnit={toggle} onDetail={setDetail} opponentName={opponentName} />}
+          {!goldfish && <Base game={game} side={1} onTool={tool} selected={shownSelected} targetable={legalNow.map((u) => u.uid)} aimed={aimed} onUnit={toggle} onDetail={setDetail} opponentName={opponentName} />}
 
           <div className="rb-battlefields">
             {game.battlefields.map((bf, i) => (
@@ -445,6 +456,15 @@ export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onResta
                     <UnitChip key={u.uid} unit={u} targetable={legalNow.some((x) => x.uid === u.uid)} aimed={aimed.includes(u.uid)} selected={shownSelected.includes(u.uid)} onClick={() => toggle(u)} onDetail={() => setDetail(u.card)} />
                   ))}
                 </div>
+                {game.players.some((pl) => pl.gear.some((g) => g.at === i)) && (
+                  <div className="rb-bf-gear">
+                    {([1, 0] as Side[]).flatMap((side) =>
+                      game.players[side].gear
+                        .filter((g) => g.at === i)
+                        .map((g) => <GearChip key={g.uid} game={game} side={side} gear={g} onTool={tool} onDetail={setDetail} abilities={side === 0 ? { ready: abilityReady, use: useAbility } : undefined} />),
+                    )}
+                  </div>
+                )}
                 {bf.hidden.length > 0 && (
                   <div className="rb-hidden">
                     {bf.hidden.map((h) =>
