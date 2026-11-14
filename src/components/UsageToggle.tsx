@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useAppStore } from '../state/useAppStore'
 import { pendingUsage } from '../shared/usage'
 import { t } from '../shared/i18n'
+import { ServerUpdateNote } from './ServerUpdateNote'
 
 /**
  * "Share anonymous usage counts" (shared/usage.ts), off until ticked, and "What's sent?": exactly what
@@ -37,6 +38,7 @@ function UsageDetails({ on, onClose }: { on: boolean; onClose: () => void }) {
         </button>
       </div>
       <p>{t.usage.explain}</p>
+      {on && <ServerUpdateNote version={1} />}
       {!on ? (
         <p className="text-dim">{t.usage.off}</p>
       ) : days.length === 0 ? (

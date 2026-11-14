@@ -123,6 +123,10 @@ export interface GameState {
    * pays costs, and runs the other side.
    */
   manual: Side[]
+  /** Online: which game of the match this is (a rematch adds one), when the turn started, and the turn clock in seconds (0: none). */
+  matchNo?: number
+  turnStartedAt?: string
+  clockSeconds?: number
   /** Sides that have finished their mulligan. */
   kept: Side[]
   winner: Side | null

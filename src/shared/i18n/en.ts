@@ -1431,7 +1431,23 @@ export const en = {
     offline: (err: string) => `Can’t reach the game right now (${err}). Retrying…`,
     missingCards: 'Your card data is missing cards from this game. Update your Riftbound card data, then join again.',
     leave: 'Leave',
+    you: 'You',
+    clock: 'Turn clock',
+    noClock: 'None',
+    clockMinutes: (s: number): string => (s % 60 ? `${s} seconds a turn` : `${s / 60} minute${s === 60 ? '' : 's'} a turn`),
+    clockLabel: 'Time left this turn',
+    timeUp: 'Time’s up',
+    reactions: 'Reactions',
+    react: (r: string) => `Send ${r}`,
+    rematch: 'Rematch',
+    rematchWait: 'Your friend can start a rematch.',
+    gameCode: (code: string) => `Game ${code}`,
     mightNow: (n: number) => `${n} toughness left`,
+  },
+
+  serverUpdate: {
+    intro: 'The server this needs hasn’t been updated yet. Whoever runs the Brewhouse’s Pawmodoro project should run these in its Supabase SQL Editor:',
+    skipDone: 'The server can’t tell which of the older ones were already run: skip any that were.',
   },
 
   banLists: {

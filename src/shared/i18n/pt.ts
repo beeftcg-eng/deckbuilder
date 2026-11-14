@@ -1467,7 +1467,23 @@ export const pt: Messages = {
     offline: (err) => `Não dá para alcançar a partida agora (${err}). Tentando de novo…`,
     missingCards: 'Faltam cartas desta partida nos seus dados de cartas. Atualize os dados de Riftbound e entre de novo.',
     leave: 'Sair',
+    you: 'Você',
+    clock: 'Relógio por turno',
+    noClock: 'Nenhum',
+    clockMinutes: (s) => (s % 60 ? `${s} segundos por turno` : `${s / 60} minuto${s === 60 ? '' : 's'} por turno`),
+    clockLabel: 'Tempo restante neste turno',
+    timeUp: 'Acabou o tempo',
+    reactions: 'Reações',
+    react: (r) => `Enviar ${r}`,
+    rematch: 'Revanche',
+    rematchWait: 'Seu amigo pode começar a revanche.',
+    gameCode: (code) => `Partida ${code}`,
     mightNow: (n) => `resta ${n} de resistência`,
+  },
+
+  serverUpdate: {
+    intro: 'O servidor de que isto precisa ainda não foi atualizado. Quem administra o projeto Pawmodoro do Brewhouse deve executar isto no SQL Editor do Supabase:',
+    skipDone: 'O servidor não sabe quais dos anteriores já foram executados: pule os que já foram.',
   },
 
   banLists: {

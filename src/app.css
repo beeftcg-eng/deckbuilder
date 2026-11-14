@@ -6016,3 +6016,34 @@
 .rb-status {
   background: var(--bg-elevated-2);
 }
+
+/* An online game's bar: the turn clock, reactions, rematch (practice/OnlineGame.tsx). */
+.rb-online-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.rb-clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.rb-clock.low {
+  color: var(--danger);
+}
+
+.rb-reactions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.server-update-note p {
+  margin: 4px 0;
+}
+
+.server-update-note ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
