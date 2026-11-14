@@ -1442,6 +1442,7 @@ export const en = {
     rematch: 'Rematch',
     rematchWait: 'Your friend can start a rematch.',
     gameCode: (code: string) => `Game ${code}`,
+    unitLabel: (name: string, might: number, damage: number, state: string, tags: string) => `${name}, ${might} Might${damage ? `, ${damage} damage` : ''}, ${state}${tags ? `, ${tags}` : ''}`,
     mightNow: (n: number) => `${n} toughness left`,
   },
 

@@ -1478,6 +1478,7 @@ export const es: Messages = {
     rematch: 'Revancha',
     rematchWait: 'Tu amigo puede empezar la revancha.',
     gameCode: (code) => `Partida ${code}`,
+    unitLabel: (name, might, damage, state, tags) => `${name}, ${might} de Poderío${damage ? `, ${damage} de daño` : ''}, ${state}${tags ? `, ${tags}` : ''}`,
     mightNow: (n) => `le queda ${n} de resistencia`,
   },
 

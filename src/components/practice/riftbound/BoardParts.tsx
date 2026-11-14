@@ -31,7 +31,7 @@ export function UnitChip({ unit, selected, targetable, drag, onClick, onDetail }
         {...drag}
         className="rb-unit-main"
         aria-pressed={selected}
-        aria-label={`${name}, ${might} Might${unit.damage ? `, ${unit.damage} damage` : ''}, ${unit.exhausted ? t.practiceGame.exhausted : t.practiceGame.ready}${tags ? `, ${tags}` : ''}`}
+        aria-label={t.practiceGame.unitLabel(name, might, unit.damage, unit.exhausted ? t.practiceGame.exhausted : t.practiceGame.ready, tags)}
         onClick={onClick}
         title={unit.card.text ?? undefined}
       >
