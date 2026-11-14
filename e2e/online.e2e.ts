@@ -119,3 +119,43 @@ test('two friends play a Riftbound game online', async ({ browser, isMobile }) =
   await expect(first.getByRole('button', { name: /Undo/ })).toBeDisabled({ timeout: 10_000 })
   await expect(first.getByText(`${secondName}’s turn 1`).first()).toBeVisible({ timeout: 10_000 })
 })
+
+test('a best-of-3 online: both pick a battlefield between games, the host starts the next', async ({ browser, isMobile }) => {
+  test.skip(isMobile, 'One size is enough for the protocol.')
+  test.setTimeout(90_000)
+  const host = await open(browser)
+  await host.getByLabel('Your name').fill('Ann')
+  await host.locator('label.rb-setup-row', { hasText: /^Match/ }).locator('select').selectOption('3')
+  await host.getByRole('button', { name: 'Start a game' }).click()
+  const codeText = await host.getByText(/Give your friend this code/).textContent()
+  const code = /code: ([A-Z0-9]{6})/.exec(codeText ?? '')![1]
+  const guest = await open(browser)
+  await guest.getByLabel('Your name').fill('Bo')
+  await guest.getByRole('group', { name: 'Your battlefield' }).getByRole('button', { name: 'Field 3' }).click()
+  await guest.getByLabel('Their code').fill(code)
+  await guest.getByRole('button', { name: 'Join' }).click()
+  await Promise.all([host.getByRole('button', { name: 'Keep', exact: true }).click(), guest.getByRole('button', { name: 'Keep', exact: true }).click()])
+  await expect(host.getByText('Game 1 · match 0–0')).toBeVisible({ timeout: 10_000 })
+  // The guest's pick is their battlefield (the second one, from the host's side).
+  await expect(host.locator('.rb-bf').nth(1)).toHaveAttribute('aria-label', 'Field 3')
+
+  // The host wins game 1 on points.
+  for (let i = 0; i < 8; i++) {
+    await host.getByRole('button', { name: 'Add a point' }).first().click()
+    await expect(guest.getByLabel(`${i + 1} points`)).toBeVisible({ timeout: 10_000 })
+  }
+  const hostBetween = host.getByRole('region', { name: 'Before game 2' })
+  const guestBetween = guest.getByRole('region', { name: 'Before game 2' })
+  await expect(guestBetween.getByText('The match is 0–1.')).toBeVisible({ timeout: 10_000 })
+  // Field 3 was the guest's: not offered to them again.
+  await expect(guestBetween.getByRole('group', { name: 'Your battlefield' }).getByRole('button', { name: 'Field 3' })).toHaveCount(0)
+  await expect(hostBetween.getByRole('button', { name: 'Start game 2' })).toBeDisabled()
+  await Promise.all([hostBetween.getByRole('button', { name: 'Ready for the next game' }).click(), guestBetween.getByRole('button', { name: 'Ready for the next game' }).click()])
+  await expect(hostBetween.getByRole('button', { name: 'Start game 2' })).toBeEnabled({ timeout: 10_000 })
+  await hostBetween.getByRole('button', { name: 'Start game 2' }).click()
+  await Promise.all([host.getByRole('button', { name: 'Keep', exact: true }).click(), guest.getByRole('button', { name: 'Keep', exact: true }).click()])
+  await expect(host.getByText('Game 2 · match 1–0')).toBeVisible({ timeout: 10_000 })
+  await expect(guest.getByText('Game 2 · match 0–1')).toBeVisible({ timeout: 10_000 })
+  // The loser of game 1 (the guest) goes first.
+  await expect(guest.locator('.rb-topbar strong')).toHaveText(/Your turn 1/, { timeout: 10_000 })
+})

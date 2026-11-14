@@ -36,16 +36,23 @@ export type Effect =
   | { kind: 'exhaust'; target: Target }
   | { kind: 'toHand'; target: Target }
   | { kind: 'buff'; target: Target }
-  | { kind: 'draw'; amount: number }
+  /** Draw; `ifHandAtMost`: only with that many cards in hand or fewer. */
+  | { kind: 'draw'; amount: number; ifHandAtMost?: number }
   | { kind: 'discard'; amount: number }
   | { kind: 'channel'; amount: number; exhausted: boolean }
   | { kind: 'token'; count: number; might: number; name: string; ready: boolean; here: boolean; temporary: boolean }
+  /** Bomb gear tokens ([Deploy]; when one dies, 2 to an enemy there and the other Bombs there die), to one battlefield. */
+  | { kind: 'bomb'; count: number }
   /** Back to its owner's base (recall, or "move ... to its base"). */
   | { kind: 'recall'; target: Target }
   /** A keyword for this turn: [Assault N], [Shield N], [Tank], [Ganking], [Backline]. */
   | { kind: 'keyword'; keyword: TurnKeyword; amount: number; target: Target }
   /** Counters the newest spell on the chain below this one. */
   | { kind: 'counter' }
+  /** "Choose a friendly unit": picked for what follows ("it", "they deal damage to each other"). */
+  | { kind: 'pick'; target: Target }
+  /** "They deal damage equal to their Mights to each other": the unit picked before (or the card itself) and this one. `vs` is filled in as it runs, for the chooser. */
+  | { kind: 'duel'; target: Target; vs?: number }
   /** "Choose one —": the player picks one of these as the card is played. */
   | { kind: 'modes'; modes: Effect[][] }
 
@@ -72,7 +79,7 @@ export interface Activated {
  * A unit's own triggers ('play': when you play me, 'attack': when I attack...), and the ones about
  * you, on Legends, gear and units: when you play a unit or a spell, conquer, hold, or win a combat.
  */
-export type Trigger = 'play' | 'attack' | 'defend' | 'conquer' | 'hold' | 'death' | 'move' | 'youUnit' | 'youSpell' | 'youConquer' | 'youHold' | 'youWin'
+export type Trigger = 'play' | 'attack' | 'defend' | 'conquer' | 'hold' | 'death' | 'move' | 'youUnit' | 'youSpell' | 'youConquer' | 'youHold' | 'youWin' | 'youAttack' | 'youBegin' | 'foeAttack' | 'youStun'
 
 export interface Ability {
   trigger: Trigger
@@ -115,6 +122,20 @@ export interface CardScript {
   deploy: boolean
   /** "Friendly units here have [Assault]": what gear at a battlefield gives your units there. */
   here: Partial<Record<TurnKeyword, number>>
+  /** "This enters exhausted." (gear) */
+  entersExhausted: boolean
+  /** "You may play me to an open battlefield" (this unit), "Friendly units may be played to open battlefields" (all of yours, while it's in play). */
+  openPlay: 'me' | 'friendly' | null
+  /** What it gives other units: "Other friendly units have +1 Might here", "Your Mechs have [Shield]". */
+  auras: Aura[]
+}
+
+/** A lasting bonus for other units of yours: all, those at this card's location, or those with a tag. */
+export interface Aura {
+  scope: 'others' | 'othersHere' | 'tag'
+  tag?: string
+  might: number
+  keywords: Partial<Record<TurnKeyword, number>>
 }
 
 const WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 }
@@ -122,7 +143,7 @@ const num = (s: string) => WORDS[s.toLowerCase()] ?? Number(s)
 
 /** Keywords that need nothing from the effect parser: the engine reads them (or they don't matter here). */
 /** Hidden is read too: the practice game simply plays such cards normally, face up. */
-const QUIET_KEYWORDS = /^(assault|shield|tank|backline|ganking|accelerate|temporary|deflect|vision|ambush|action|reaction|deathknell|hidden|hunt|deploy)\b/i
+const QUIET_KEYWORDS = /^(assault|shield|tank|backline|ganking|accelerate|temporary|deflect|vision|ambush|action|reaction|deathknell|hidden|hunt|deploy|predict)\b/i
 
 const KEYWORD_LIST = /\[(assault|shield|tank|ganking|backline)(?: (\d+))?\]/gi
 
@@ -211,9 +232,11 @@ function readEffect(raw: string): Effect[] | null {
     const target = readTarget(m[1])
     return target ? [{ kind: 'buff', target }] : null
   }
+  if ((m = /^draw (\d+|one|two) if you have (one|two|three|\d+) or fewer cards in your hand$/i.exec(s))) return [{ kind: 'draw', amount: num(m[1]), ifHandAtMost: num(m[2]) }]
   if ((m = /^draw (\d+|a card|one|two|three)(?: cards?)?$/i.exec(s))) return [{ kind: 'draw', amount: m[1].startsWith('a') ? 1 : num(m[1]) }]
   if ((m = /^discard (\d+|one|two)$/i.exec(s))) return [{ kind: 'discard', amount: num(m[1]) }]
   if ((m = /^channel (\d+|one|two|a) runes?( exhausted)?$/i.exec(s))) return [{ kind: 'channel', amount: num(m[1]), exhausted: !!m[2] }]
+  if ((m = /^play (a|an|one|two|three|four) bomb gear tokens? to a (?:single )?battlefield$/i.exec(s))) return [{ kind: 'bomb', count: num(m[1]) }]
   if ((m = /^play (a|an|one|two|three|four) (ready )?(\d+) might ([a-z' ]+?) unit tokens?(?: with \[temporary\])?(?: (?:to|into) your base| here)?$/i.exec(s))) {
     return [{ kind: 'token', count: num(m[1]), ready: !!m[2], might: Number(m[3]), name: m[4].trim(), here: / here$/i.test(s), temporary: /\[temporary\]/i.test(s) }]
   }
@@ -226,6 +249,28 @@ function readEffect(raw: string): Effect[] | null {
   return null
 }
 
+/**
+ * Two units fighting it out: "Choose a friendly unit and an enemy unit." / "Choose two units." /
+ * "Then choose an enemy unit." / "choose an enemy unit at a battlefield", followed by "They (We) deal
+ * damage equal to their (our) Mights to each other." Null when it isn't that.
+ */
+function readDuel(first: string, next: string | undefined): Effect[] | null {
+  if (!next || !/^(they|we) deal damage equal to (their|our) mights to each other\.?$/i.test(next.trim())) return null
+  const s = first.trim().replace(/\.$/, '').replace(/^then,? /i, '')
+  let m: RegExpExecArray | null
+  if ((m = /^choose (a|an) (.+? unit) and (a|an) (.+? unit)$/i.exec(s))) {
+    const a = readTarget(`${m[1]} ${m[2]}`)
+    const b = readTarget(`${m[3]} ${m[4]}`)
+    return a && b ? [{ kind: 'pick', target: a }, { kind: 'duel', target: b }] : null
+  }
+  if (/^choose two units$/i.test(s)) return [{ kind: 'pick', target: { who: 'any', where: 'anywhere', all: false, self: false } }, { kind: 'duel', target: { who: 'any', where: 'anywhere', all: false, self: false } }]
+  if ((m = /^choose ((?:a|an) .+? unit(?: at a battlefield| here)?)$/i.exec(s))) {
+    const b = readTarget(m[1])
+    return b ? [{ kind: 'duel', target: b }] : null
+  }
+  return null
+}
+
 const TRIGGERS: [RegExp, Trigger][] = [
   [/^when you play (?:me|this),? (.+)$/i, 'play'],
   [/^when you play a unit,? (.+)$/i, 'youUnit'],
@@ -233,6 +278,10 @@ const TRIGGERS: [RegExp, Trigger][] = [
   [/^when you conquer(?: here)?,? (.+)$/i, 'youConquer'],
   [/^when you (?:or an ally )?hold(?: here)?,? (.+)$/i, 'youHold'],
   [/^when you win a combat(?: here)?,? (.+)$/i, 'youWin'],
+  [/^when one or more friendly units attack(?: here)?,? (.+)$/i, 'youAttack'],
+  [/^at (?:the )?start of your beginning phase,? (.+)$/i, 'youBegin'],
+  [/^when an enemy unit attacks a battlefield you control,? (.+)$/i, 'foeAttack'],
+  [/^when you stun (?:one or more enemy units|an enemy unit),? (.+)$/i, 'youStun'],
   [/^when i attack,? (.+)$/i, 'attack'],
   [/^when i defend,? (.+)$/i, 'defend'],
   [/^when i conquer,? (.+)$/i, 'conquer'],
@@ -271,7 +320,7 @@ export function scriptOf(card: Card): CardScript {
   const key = `${card.id}|${card.text ?? ''}`
   const hit = cache.get(key)
   if (hit) return hit
-  const script: CardScript = { spell: [], abilities: [], entersReady: false, timing: null, full: true, prefix: [], leftover: null, activated: [], levels: [], deploy: false, here: {} }
+  const script: CardScript = { spell: [], abilities: [], entersReady: false, timing: null, full: true, prefix: [], leftover: null, activated: [], levels: [], deploy: false, here: {}, entersExhausted: false, auras: [], openPlay: null }
   const spell = card.category === 'Spell'
   const all = sentences(card.text ?? '')
   /** The first sentence not read, for a spell's leftover. */
@@ -300,6 +349,8 @@ export function scriptOf(card: Card): CardScript {
       if (/^action$/i.test(name)) timing ??= 'action'
       else if (/^reaction$/i.test(name)) timing = 'reaction'
       else if (/^deathknell$/i.test(name)) break
+      // "[Stun] an enemy unit", "[Buff] a friendly unit": the instruction itself, not a keyword.
+      else if (/^(stun|buff)$/i.test(name) && sentence.length > kw[0].length) break
       else if (name === '>' || name === '&gt;') {
         // "[Action][>] ..." just joins a timing to what follows.
       } else if (!QUIET_KEYWORDS.test(name)) unread(i)
@@ -339,6 +390,51 @@ export function scriptOf(card: Card): CardScript {
       script.entersReady = true
       continue
     }
+    if (/^you may play me to an open battlefield$/i.test(sentence.replace(/\.$/, ''))) {
+      script.openPlay ??= 'me'
+      continue
+    }
+    if (/^friendly units may be played to open battlefields$/i.test(sentence.replace(/\.$/, ''))) {
+      script.openPlay = 'friendly'
+      continue
+    }
+    if (/^this enters exhausted$/i.test(sentence.replace(/\.$/, ''))) {
+      script.entersExhausted = true
+      continue
+    }
+    // A lone "." left after a keyword ("[Predict].").
+    if (/^[.\s]*$/.test(sentence)) continue
+    // "Other friendly units have +1 Might here.", "Your Mechs have [Shield]."
+    const grant = /^(other friendly units|your ([a-z]+?)s) (?:have|has) (.+?)( here)?\.?$/i.exec(sentence)
+    if (grant && (grant[1].toLowerCase().startsWith('other') || grant[2].toLowerCase() !== 'unit')) {
+      const bonus = readLevelBonus(0, `your units have ${grant[3]}`)
+      if (bonus) {
+        const tag = grant[2] ? grant[2][0].toUpperCase() + grant[2].slice(1).toLowerCase() : undefined
+        script.auras.push({ scope: tag ? 'tag' : grant[4] ? 'othersHere' : 'others', ...(tag ? { tag } : {}), might: bonus.might, keywords: bonus.keywords })
+        continue
+      }
+    }
+    // "Choose a friendly unit and an enemy unit. They deal damage equal to their Mights to each other." and the like.
+    const duel = readDuel(sentence, all[i + 1])
+    if (duel) {
+      i++
+      if (spell) {
+        script.spell.push(...duel)
+        if (brokeAt == null) script.prefix.push(...duel)
+      } else unread(i)
+      continue
+    }
+    // "Choose a unit. Kill it." : the next sentence's "it" is the unit chosen.
+    const chosen = /^choose (a|an) ((?:friendly |enemy )?unit(?: at a battlefield| here)?)\.?$/i.exec(sentence)
+    if (chosen && i + 1 < all.length && /\bit\b/i.test(all[i + 1])) {
+      const linked = readEffect(all[i + 1].replace(/\bit\b/i, `${chosen[1]} ${chosen[2]}`))
+      if (linked && linked.length === 1 && spell) {
+        i++
+        script.spell.push(...linked)
+        if (brokeAt == null) script.prefix.push(...linked)
+        continue
+      }
+    }
     // "Choose one —": this sentence's rest and every one after it are the choices.
     const choose = /^choose one\s*—\s*(.+)$/i.exec(sentence)
     if (choose && spell) {
@@ -360,13 +456,33 @@ export function scriptOf(card: Card): CardScript {
     }
     // "When you play this or when you conquer here, ...": two triggers with one effect.
     const both = /^when you play (?:me|this) or when you (conquer|hold) here,? (.+)$/i.exec(sentence)
-    const parts: [Trigger, string][] = both ? [['play', both[2]], [both[1].toLowerCase() === 'conquer' ? 'youConquer' : 'youHold', both[2]]] : []
+    const attackOrDefend = /^when i attack or defend,? (.+)$/i.exec(sentence)
+    // "When you play me or when I hold, ...", "When I'm played and when I conquer, ...": both of my own.
+    const playAnd = /^when (?:you play me or when|i'm played and when) i (hold|conquer|attack|defend|move),? (.+)$/i.exec(sentence)
+    const parts: [Trigger, string][] = both
+      ? [['play', both[2]], [both[1].toLowerCase() === 'conquer' ? 'youConquer' : 'youHold', both[2]]]
+      : attackOrDefend
+        ? [['attack', attackOrDefend[1]], ['defend', attackOrDefend[1]]]
+        : playAnd
+          ? [['play', playAnd[2]], [playAnd[1].toLowerCase() as Trigger, playAnd[2]]]
+          : []
     const trigger = TRIGGERS.find(([re]) => re.test(sentence))
-    if (!both && trigger) parts.push([trigger[1], trigger[0].exec(sentence)![1]])
+    if (!both && !attackOrDefend && !playAnd && trigger) parts.push([trigger[1], trigger[0].exec(sentence)![1]])
+    // "When you play me, choose an enemy unit at a battlefield. We deal damage equal to our Mights to each other."
+    if (parts.length === 1) {
+      const d = readDuel(parts[0][1], all[i + 1])
+      if (d) {
+        i++
+        script.abilities.push({ trigger: parts[0][0], effects: d })
+        continue
+      }
+    }
     if (parts.length) {
-      const here = /^when you (?:play (?:me|this) or when you )?(?:conquer|(?:or an ally )?hold|win a combat) here\b/i.test(sentence)
+      const here = /^when (?:you (?:play (?:me|this) or when you )?(?:conquer|(?:or an ally )?hold|win a combat)|one or more friendly units attack) here\b/i.test(sentence)
       for (const [kind, text] of parts) {
-        let body = text
+        // "...attack here, give one of them +2 Might": one of your units there. "An enemy unit attacks ..., give it": one of the attackers.
+        let body = text.replace(/\bone of them\b/i, 'a friendly unit here')
+        if (kind === 'foeAttack') body = body.replace(/^give it\b/i, 'give an enemy unit here')
         const exhaust = /^you may exhaust (?:me|this) to /i.test(body)
         if (exhaust) body = body.replace(/^you may exhaust (?:me|this) to /i, '')
         const effects = readEffect(body)
@@ -416,6 +532,8 @@ export function describeEffect(e: Effect): string {
       return `Discard ${e.amount}`
     case 'channel':
       return `Channel ${e.amount}`
+    case 'bomb':
+      return `Play ${e.count} Bomb gear token${e.count > 1 ? 's' : ''} to a battlefield`
     case 'token':
       return `Play ${e.count} ${e.might} Might ${e.name} token${e.count > 1 ? 's' : ''}`
     case 'recall':
@@ -424,6 +542,10 @@ export function describeEffect(e: Effect): string {
       return `Give ${who(e.target)} [${e.keyword[0].toUpperCase()}${e.keyword.slice(1)}${e.keyword === 'assault' || e.keyword === 'shield' ? ` ${e.amount}` : ''}] this turn`
     case 'counter':
       return 'Counter a spell'
+    case 'pick':
+      return `Choose ${who(e.target)}`
+    case 'duel':
+      return `${who(e.target)} and the unit chosen deal damage equal to their Mights to each other`
     case 'modes':
       return e.modes.map((m) => m.map(describeEffect).join(', ')).join(' or ')
   }

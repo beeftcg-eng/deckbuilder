@@ -674,3 +674,160 @@ describe('[Deploy] gear, moving gear, and picking your battlefield', () => {
     expect(s.players[1].gear[0]?.at).not.toBeUndefined()
   })
 })
+
+describe('more [Deploy]: Bombs, returning to hand, attacking here, contesting', () => {
+  const piece = (uid: string, owner: 0 | 1, card = unit(`P${uid}`, 2, 2)): Unit => ({ uid, card, owner, might: card.might ?? 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: keywordsOf(card) })
+  const deploy = (name: string, text: string) => makeCard('riftbound', { name, category: 'Gear', cost: '0', text: `[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)${text}` })
+
+  it('plays Bombs where the enemy is; one dying deals 2 there and sets off the others', () => {
+    const ziggs = unit('Ziggs', 0, 2, { text: 'When you play me, play a Bomb gear token to a battlefield.' })
+    expect(scriptOf(ziggs).full).toBe(true)
+    let s = structuredClone(started())
+    s.battlefields[1].units = [piece('d', 1, unit('Big', 3, 3))]
+    s.players[0].hand = [ziggs, ziggs]
+    s = play(play(s, 0, 0), 0, 0)
+    expect(s.players[0].gear.map((g) => [g.card.name, g.at])).toEqual([
+      ['Bomb token', 1],
+      ['Bomb token', 1],
+    ])
+    s = applyTool(s, { kind: 'moveGear', side: 0, gear: s.players[0].gear[0].uid, to: 'trash' })
+    expect(s.players[0].gear).toEqual([])
+    expect(s.players[0].trash.filter((c) => c.name === 'Bomb token')).toEqual([]) // tokens leave the game
+    expect(s.battlefields[1].units).toEqual([]) // 2 + 2 killed the 3 Might unit
+  })
+
+  it('"When you hold here, return this to its owner\'s hand"', () => {
+    const stuff = deploy('Good Stuff', "When you hold here, return this to its owner's hand.")
+    let s = structuredClone(started())
+    s.players[0].gear = [{ uid: 'g', card: stuff, exhausted: false, at: 0 }]
+    s.battlefields[0].controller = 0
+    s = endTurn(endTurn(s))
+    expect(s.players[0].gear).toEqual([])
+    expect(s.players[0].hand.some((c) => c.name === 'Good Stuff')).toBe(true)
+  })
+
+  it('"When one or more friendly units attack here, give one of them +2 Might this turn"', () => {
+    const standard = deploy('Standard', 'When one or more friendly units attack here, give one of them +2 :rb_might: this turn.')
+    expect(scriptOf(standard).abilities).toMatchObject([{ trigger: 'youAttack', here: true }])
+    let s = structuredClone(started())
+    s.players[0].gear = [{ uid: 'g', card: standard, exhausted: false, at: 0 }]
+    s.players[0].base = [piece('a', 0)]
+    s.battlefields[0].units = [piece('d', 1, unit('Wall', 3, 3))]
+    s = settle(move(s, 0, ['a'], 0))
+    for (let i = 0; i < 4 && s.showdown; i++) s = pass(s, s.showdown.focus)
+    // 2 + 2 beats 3: the attacker holds the battlefield.
+    expect(s.battlefields[0].controller).toBe(0)
+  })
+
+  it('deployed where enemy units stand, it opens a showdown there', () => {
+    const banner = deploy('Banner', 'Friendly units here have [Assault].')
+    let s = structuredClone(started())
+    s.players[0].hand = [banner]
+    s.battlefields[1].units = [piece('d', 1)]
+    s.battlefields[1].controller = 1
+    s = play(s, 0, 0, { battlefield: 1 })
+    expect(s.showdown).toMatchObject({ battlefield: 1, attacker: 0 })
+    s = pass(s, s.showdown!.focus)
+    s = pass(s, s.showdown!.focus)
+    expect(s.showdown).toBeNull()
+    expect(s.battlefields[1].controller).toBe(1)
+  })
+})
+
+describe('more card text: fights, "it", auras, Beginning Phase, attacks and stuns', () => {
+  const piece = (uid: string, owner: 0 | 1, card = unit(`P${uid}`, 2, 2)): Unit => ({ uid, card, owner, might: card.might ?? 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: keywordsOf(card) })
+  const spell = (name: string, text: string) => makeCard('riftbound', { name, category: 'Spell', cost: '0', colors: ['Fury'], text })
+
+  it('"Choose a friendly unit and an enemy unit. They deal damage equal to their Mights to each other."', () => {
+    const challenge = spell('Challenge', '[Action] Choose a friendly unit and an enemy unit. They deal damage equal to their Mights to each other.')
+    expect(scriptOf(challenge).full).toBe(true)
+    let s = structuredClone(started())
+    s.players[0].hand = [challenge]
+    s.players[0].base = [piece('a', 0, unit('Big', 4, 4))]
+    s.battlefields[0].units = [piece('d', 1, unit('Small', 3, 3)), piece('e', 1, unit('Huge', 6, 6))]
+    s = play(s, 0, 0) // the bot's picks for you: your 4 and the biggest enemy it kills
+    expect(s.battlefields[0].units.map((u) => u.uid)).toEqual(['e'])
+    expect(s.players[0].base[0].damage).toBe(3)
+  })
+
+  it('"When you play me, choose an enemy unit at a battlefield. We deal damage..." fights the unit itself', () => {
+    const snapvine = unit('Snapvine', 0, 5, { text: 'When you play me, choose an enemy unit at a battlefield. We deal damage equal to our Mights to each other.' })
+    expect(scriptOf(snapvine).full).toBe(true)
+    let s = structuredClone(started())
+    s.players[0].hand = [snapvine]
+    s.battlefields[0].units = [piece('d', 1, unit('Wall', 3, 3))]
+    s = play(s, 0, 0)
+    expect(s.battlefields[0].units).toEqual([])
+    expect(s.players[0].base[0].damage).toBe(3)
+  })
+
+  it('"Choose a unit. Kill it." and [Predict]. read', () => {
+    const verdict = spell('Doom', '[Action] Choose an enemy unit. Kill it.')
+    expect(scriptOf(verdict)).toMatchObject({ full: true, spell: [{ kind: 'kill', target: { who: 'enemy' } }] })
+    expect(scriptOf(spell('Eclipse', 'Deal 1 to a unit. [Predict].')).full).toBe(true)
+  })
+
+  it('"Other friendly units have +1 Might here" and "Your Mechs have [Shield]"', () => {
+    const garen = unit('Garen', 4, 4, { text: 'Other friendly units have +1 :rb_might: here.' })
+    const mech = unit('Mech token', 0, 3)
+    let s = structuredClone(started())
+    s.players[0].legend = makeCard('riftbound', { name: 'Rumble', category: 'Legend', text: 'Your Mechs have [Shield].' })
+    s.battlefields[0].units = [piece('g', 0, garen), piece('a', 0), piece('m', 0, mech)]
+    s.players[0].base = [piece('b', 0)]
+    s = applyTool(s, { kind: 'xp', side: 0, amount: 0 }) // anything that settles the board
+    const at = (id: string) => [...s.battlefields[0].units, ...s.players[0].base].find((u) => u.uid === id)!
+    expect(mightNow(at('a'))).toBe(3)
+    expect(mightNow(at('g'))).toBe(4) // not itself
+    expect(mightNow(at('b'))).toBe(2) // not elsewhere
+    expect(combatMight(at('m'), false)).toBe(5) // +1 here, +1 Shield as a Mech defending
+  })
+
+  it('"At start of your Beginning Phase, draw 1 if you have one or fewer cards in your hand"', () => {
+    let s = structuredClone(started())
+    s.players[0].legend = makeCard('riftbound', { name: 'Jinx', category: 'Legend', text: 'At start of your Beginning Phase, draw 1 if you have one or fewer cards in your hand.' })
+    s.players[0].hand = [s.players[0].hand[0]]
+    s = endTurn(endTurn(s))
+    expect(s.players[0].hand).toHaveLength(3) // 1 + Jinx + the turn's draw
+    s.players[0].hand = s.players[0].hand.slice(0, 2)
+    s = endTurn(endTurn(s))
+    expect(s.players[0].hand).toHaveLength(3) // 2: no Jinx draw
+  })
+
+  it('"When an enemy unit attacks a battlefield you control, give it -1 Might" and "When you stun, buff a friendly unit"', () => {
+    let s = structuredClone(started())
+    s.players[1].legend = makeCard('riftbound', { name: 'Ahri', category: 'Legend', text: 'When an enemy unit attacks a battlefield you control, give it -1 :rb_might: this turn, to a minimum of 1 :rb_might:.' })
+    s.battlefields[0].controller = 1
+    s.battlefields[0].units = [piece('d', 1)]
+    s.players[0].base = [piece('a', 0, unit('Three', 3, 3))]
+    s = move(s, 0, ['a'], 0)
+    expect(mightNow(s.battlefields[0].units.find((u) => u.uid === 'a')!)).toBe(2)
+
+    let t = structuredClone(started())
+    t.players[0].legend = makeCard('riftbound', { name: 'Leona', category: 'Legend', text: 'When you stun one or more enemy units, buff a friendly unit.' })
+    t.players[0].base = [piece('a', 0)]
+    t.battlefields[0].units = [piece('d', 1)]
+    t.players[0].hand = [spell('Zap', '[Stun] an enemy unit.')]
+    t = play(t, 0, 0)
+    expect(t.players[0].base[0].buffed).toBe(true)
+  })
+})
+
+describe('playing to an open battlefield, and triggers that come in pairs', () => {
+  it('"You may play me to an open battlefield": it goes there and conquers it', () => {
+    const mf = unit('Miss Fortune', 0, 3, { text: 'You may play me to an open battlefield.' })
+    let s = structuredClone(started())
+    s.players[0].hand = [mf, unit('Plain', 0, 2)]
+    s = play(s, 0, 0, { battlefield: 1 })
+    expect(s.battlefields[1].units.map((u) => u.card.name)).toEqual(['Miss Fortune'])
+    expect(s.battlefields[1].controller).toBe(0)
+    expect(s.players[0].points).toBe(1)
+    // A plain unit can't: only to battlefields you control.
+    s = play(s, 0, 0, { battlefield: 0 })
+    expect(s.players[0].base.map((u) => u.card.name)).toEqual(['Plain'])
+  })
+
+  it('"When you play me or when I hold" and "When I attack or defend" are both triggers', () => {
+    expect(scriptOf(unit('A', 1, 1, { text: 'When you play me or when I hold, draw 1.' })).abilities.map((a) => a.trigger)).toEqual(['play', 'hold'])
+    expect(scriptOf(unit('B', 1, 1, { text: 'When I attack or defend, give an enemy unit here -2 :rb_might: this turn, to a minimum of 1 :rb_might:.' })).abilities.map((a) => a.trigger)).toEqual(['attack', 'defend'])
+  })
+})

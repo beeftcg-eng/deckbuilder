@@ -6603,3 +6603,25 @@ button.rb-rune {
   flex: none;
   white-space: nowrap;
 }
+
+.rb-sb-card {
+  flex: none;
+  width: 30px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.rb-sb-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rb-sideboard-cols li span {
+  flex: 1;
+}

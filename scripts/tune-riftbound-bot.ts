@@ -6,6 +6,8 @@
  *
  *   npx rolldown scripts/tune-riftbound-bot.ts --platform node --format esm -o .tune/tune.mjs
  *   node .tune/tune.mjs [games per candidate, default 40] [level, default normal]
+ *   LEVELS_ONLY=1 node .tune/tune.mjs 30     (only the levels against each other)
+ *   HARD_VS_NORMAL=1 node .tune/tune.mjs 40  (Hard's own weights tried against Normal)
  *
  * Card data comes from riftcodex (the app's own download, with each unit's Might), the lists from
  * the deployed community/riftbound.json. Needs the network; takes a few minutes.
@@ -103,6 +105,37 @@ async function main() {
     console.log(`${better} vs ${worse}`.padEnd(22), `${played ? ((100 * wins) / played).toFixed(0) : '–'}% of ${played}`, played < games * 2 ? `(${games * 2 - played} unfinished)` : '')
   }
   if (process.env.LEVELS_ONLY) return
+  // HARD_VS_NORMAL=1: Hard's own weights (threat, reserve) tried against Normal on the defaults.
+  if (process.env.HARD_VS_NORMAL) {
+    const hard: [string, Weights][] = [
+      ['hard defaults', DEFAULT_WEIGHTS],
+      ['no threat', { ...DEFAULT_WEIGHTS, threat: 0 }],
+      ['threat 2', { ...DEFAULT_WEIGHTS, threat: 2 }],
+      ['threat 8', { ...DEFAULT_WEIGHTS, threat: 8 }],
+      ['no reserve', { ...DEFAULT_WEIGHTS, reserve: 0 }],
+      ['reserve 0.8', { ...DEFAULT_WEIGHTS, reserve: 0.8 }],
+      ['threat 2, no reserve', { ...DEFAULT_WEIGHTS, threat: 2, reserve: 0 }],
+    ]
+    for (const [name, w] of hard) {
+      let wins = 0
+      let played = 0
+      for (let g = 0; g < games; g++) {
+        const a = decks[(g * 7) % decks.length]
+        const b = decks[(g * 13 + 5) % decks.length]
+        const first: Side = g % 2 === 0 ? 0 : 1
+        for (const side of [0, 1] as Side[]) {
+          const levels: [Level, Level] = side === 0 ? ['hard', 'normal'] : ['normal', 'hard']
+          const weights: [Weights, Weights] = side === 0 ? [w, DEFAULT_WEIGHTS] : [DEFAULT_WEIGHTS, w]
+          const winner = playGame(a, b, weights, levels, 3000 + g, first)
+          if (winner == null) continue
+          played++
+          if (winner === side) wins++
+        }
+      }
+      console.log(`${name.padEnd(22)} ${played ? ((100 * wins) / played).toFixed(0) : '–'}% of ${played} against Normal`)
+    }
+    return
+  }
 
   for (const [name, w] of candidates) {
     let wins = 0

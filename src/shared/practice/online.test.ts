@@ -140,4 +140,13 @@ describe('online practice games', () => {
     const moved = applyTool(guestView, { kind: 'control', battlefield: 0, side: 0 })
     expect(mergeOwnMove(guestView, moved, seen(hostKept, 1))).toBeNull()
   })
+
+  it("merges the host's keep too, though its game came from the server with fields in another order and no chain", () => {
+    const start = newGame(setup(), setup(), { first: 0, random: () => 0.4, manual: 'both' })
+    // As the server hands it back: fields reordered, the empty chain missing.
+    const fromServer = JSON.parse(JSON.stringify(Object.fromEntries(Object.entries({ ...start, chain: undefined }).reverse())))
+    const hostKept = mulligan(fromServer, 0, [])
+    const guestKept = flipState(mulligan(seen(start, 1), 0, []))
+    expect(mergeOwnMove(fromServer, hostKept, guestKept)?.phase).toBe('main')
+  })
 })

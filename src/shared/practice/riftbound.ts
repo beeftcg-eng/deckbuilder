@@ -76,7 +76,7 @@ export interface Player {
   trash: Card[]
   base: Unit[]
   /** Gear on the board, with whether it's exhausted: in base, or at battlefield `at` ([Deploy]). */
-  gear: { uid: string; card: Card; exhausted: boolean; at?: number }[]
+  gear: { uid: string; card: Card; exhausted: boolean; at?: number; token?: boolean }[]
   runeDeck: string[]
   runes: Rune[]
   points: number
@@ -90,6 +90,8 @@ export interface Player {
   hadChampion?: boolean
   /** True for a side with nobody playing it (goldfishing): it never takes turns. */
   empty: boolean
+  /** Online, between the games of a match: the battlefield this player picked for the next one. */
+  bfPick?: string
 }
 
 export interface Battlefield {
@@ -172,6 +174,8 @@ export interface GameState {
    * pays costs, and runs the other side.
    */
   manual: Side[]
+  /** Online, a best-of-3: games won before this one (each side's), and the battlefields each side has played. */
+  series?: { bestOf: 3; wins: [number, number]; used: [string[], string[]] }
   /** Online: which game of the match this is (a rematch adds one), when the turn started, and the turn clock in seconds (0: none). */
   matchNo?: number
   turnStartedAt?: string
@@ -285,6 +289,21 @@ function refreshLevels(s: GameState) {
       const on = [...forAll, ...scriptOf(u.card).levels.filter((l) => l.who === 'me' && xp >= l.level)]
       // "Friendly units here have [Assault]": gear at the unit's battlefield.
       const at = s.battlefields.findIndex((b) => b.units.includes(u))
+      // "Other friendly units have +1 Might (here)", "Your Mechs have [Shield]": from your other units, Legend and gear.
+      const givers: { card: Card; uid?: string; at?: number | 'base' }[] = [
+        ...(p.legend ? [{ card: p.legend }] : []),
+        ...p.gear.map((g) => ({ card: g.card })),
+        ...units.map((x) => ({ card: x.card, uid: x.uid, at: s.battlefields.findIndex((b) => b.units.includes(x)) })).map((x) => ({ ...x, at: x.at < 0 ? ('base' as const) : x.at })),
+      ]
+      for (const g of givers) {
+        for (const a of scriptOf(g.card).auras) {
+          const applies =
+            a.scope === 'tag'
+              ? [...(u.card.subtypes ?? []), u.card.name].some((t) => t.toLowerCase().includes(a.tag!.toLowerCase()))
+              : g.uid !== u.uid && g.uid != null && (a.scope === 'others' || g.at === (at < 0 ? 'base' : at))
+          if (applies) on.push({ level: 0, who: 'yours', might: a.might, keywords: a.keywords })
+        }
+      }
       if (at >= 0) for (const g of p.gear.filter((x) => x.at === at)) if (Object.keys(scriptOf(g.card).here).length) on.push({ level: 0, who: 'yours', might: 0, keywords: scriptOf(g.card).here })
       if (!on.length) {
         delete u.lvl
@@ -527,6 +546,14 @@ export function bestTarget(side: Side): Chooser {
         return strongest(mine.filter((u) => u.exhausted)) ?? null
       case 'buff':
         return strongest(mine.filter((u) => !u.buffed)) ?? null
+      // A fight: your biggest unit (or their biggest, when it can be anyone's), then the biggest enemy it kills, else the smallest.
+      case 'pick':
+        return effect.target.who === 'any' ? (strongest(theirs) ?? strongest(mine)) : (strongest(mine) ?? strongest(theirs))
+      case 'duel': {
+        const vs = effect.vs ?? 0
+        const kills = theirs.filter((u) => mightNow(u) - u.damage <= vs)
+        return strongest(kills) ?? [...theirs].sort((a, b) => mightNow(a) - mightNow(b))[0] ?? null
+      }
       default:
         return null
     }
@@ -546,17 +573,37 @@ const lethal = (u: Unit) => u.damage > 0 && u.damage >= mightNow(u)
  * with lethal damage die at the end.
  */
 export function runEffects(s: GameState, side: Side, effects: Effect[], choose: Chooser, here: number | null, source?: string) {
-  for (const effect of effects) {
+  /** The unit the last effect went to: "they deal damage to each other" fights it. */
+  let last: Unit | null = null
+  for (const raw of effects) {
+    // A duel's chooser gets to know the Might it's up against.
+    const partner = raw.kind === 'duel' ? (last ?? (source ? (allUnits(s).find((u) => u.uid === source) ?? null) : null)) : null
+    const effect: Effect = raw.kind === 'duel' ? { ...raw, vs: partner ? mightNow(partner) - partner.damage : 0 } : raw
     if (s.phase === 'over') return
+    // "Return this to its owner's hand" on gear.
+    const gear = source ? s.players[side].gear.find((g) => g.uid === source) : undefined
+    if (gear && effect.kind === 'toHand' && effect.target.self) {
+      s.players[side].gear = s.players[side].gear.filter((g) => g !== gear)
+      if (!gear.token) s.players[side].hand.push(gear.card)
+      log(s, side, 'effect', `${gear.card.name} went back to hand.`)
+      continue
+    }
+    if (effect.kind === 'bomb') {
+      const at = bombSpot(s, side)
+      for (let i = 0; i < effect.count; i++) s.players[side].gear.push({ uid: uid(s), card: BOMB, exhausted: false, at, token: true })
+      log(s, side, 'effect', `${effect.count} Bomb${effect.count > 1 ? 's' : ''} to ${bfName(s, at)}.`)
+      continue
+    }
     let targets: Unit[] = []
     if ('target' in effect) {
-      const legal = legalTargets(s, side, effect.target, here, source)
+      const legal = legalTargets(s, side, effect.target, here, source).filter((u) => effect.kind !== 'duel' || u !== partner)
       if (effect.target.all || effect.target.self) targets = legal
       else {
         const pick = choose(effect, legal)
         if (pick && legal.some((u) => u.uid === pick.uid)) targets = [legal.find((u) => u.uid === pick.uid)!]
       }
       if (!targets.length) continue
+      if (!effect.target.all) last = targets[0]
     }
     const names = targets.map((u) => u.card.name).join(', ')
     switch (effect.kind) {
@@ -572,7 +619,19 @@ export function runEffects(s: GameState, side: Side, effects: Effect[], choose: 
         break
       case 'stun':
         for (const u of targets) u.stunned = true
+        if (targets.some((u) => u.owner !== side)) youTrigger(s, side, 'youStun')
         break
+      case 'pick':
+        break
+      case 'duel': {
+        if (!partner || !targets[0] || !allUnits(s).includes(partner)) break
+        const them = targets[0]
+        const [a, b] = [mightNow(partner), mightNow(them)]
+        partner.damage += b
+        them.damage += a
+        log(s, side, 'effect', `${partner.card.name} and ${them.card.name} deal damage to each other (${a} and ${b}).`)
+        break
+      }
       case 'kill':
         for (const u of targets) kill(s, u.uid)
         break
@@ -615,6 +674,7 @@ export function runEffects(s: GameState, side: Side, effects: Effect[], choose: 
         runEffects(s, side, effect.modes[0], choose, here, source)
         continue
       case 'draw':
+        if (effect.ifHandAtMost != null && s.players[side].hand.length > effect.ifHandAtMost) continue
         draw(s, side, effect.amount)
         break
       case 'discard': {
@@ -694,10 +754,10 @@ function hunt(s: GameState, unit: Unit) {
  */
 function youTrigger(s: GameState, side: Side, kind: Trigger, except?: string, where?: number) {
   const p = s.players[side]
-  type Src = { card: Card; exhausted: () => boolean; exhaust: () => void; unit?: Unit; at?: number }
+  type Src = { card: Card; exhausted: () => boolean; exhaust: () => void; unit?: Unit; at?: number; gear?: string }
   const sources: Src[] = [
     ...(p.legend ? [{ card: p.legend, exhausted: () => p.legendExhausted, exhaust: () => (p.legendExhausted = true) }] : []),
-    ...p.gear.map((g) => ({ card: g.card, exhausted: () => g.exhausted, exhaust: () => (g.exhausted = true), at: g.at })),
+    ...p.gear.map((g) => ({ card: g.card, exhausted: () => g.exhausted, exhaust: () => (g.exhausted = true), at: g.at, gear: g.uid })),
     ...allUnits(s, side)
       .filter((u) => u.uid !== except)
       .map((u) => ({ card: u.card, exhausted: () => u.exhausted, exhaust: () => (u.exhausted = true), unit: u })),
@@ -713,8 +773,8 @@ function youTrigger(s: GameState, side: Side, kind: Trigger, except?: string, wh
       if (kind === 'youUnit' || kind === 'youSpell') queueTrigger(s, side, src.card, a.effects, src.unit?.uid)
       else {
         log(s, side, 'effect', `${src.card.name}: triggered${a.exhaust ? ' (exhausted)' : ''}.`, src.card)
-        const at = src.unit ? whereIs(s, src.unit.uid) : (src.at ?? null)
-        runEffects(s, side, a.effects, bestTarget(side), typeof at === 'number' ? at : null, src.unit?.uid)
+        const at = src.unit ? whereIs(s, src.unit.uid) : (src.at ?? where ?? null)
+        runEffects(s, side, a.effects, bestTarget(side), typeof at === 'number' ? at : null, src.unit?.uid ?? src.gear)
       }
     }
   }
@@ -741,6 +801,61 @@ function queueTrigger(s: GameState, side: Side, card: Card, effects: Effect[], s
   chain.priority = other(side)
   s.chain = chain
   log(s, side, 'effect', `${card.name}: its ability waits on the chain. ${other(side) === 0 ? 'You' : 'Opponent'} may answer with a Reaction, or pass.`, card)
+}
+
+/** A Bomb gear token. */
+export const BOMB: Card = {
+  id: 'riftbound:token-bomb',
+  gameId: 'riftbound',
+  sourceId: 'token',
+  name: 'Bomb token',
+  imageUrl: null,
+  imageUrlSmall: null,
+  orientation: 'portrait',
+  setId: 'token',
+  setName: 'Token',
+  setCode: 'TOKEN',
+  number: '0',
+  rarity: null,
+  category: 'Gear',
+  subtypes: ['Token', 'Bomb'],
+  colors: [],
+  cost: '0',
+  might: undefined,
+  text: '[Deploy] When this dies, deal 2 to an enemy there and kill your other Bombs there.',
+  legality: null,
+}
+const isBomb = (c: Card) => c.id === BOMB.id
+
+/** Where `side` sends its Bombs: the battlefield with the most enemy Might, else one it doesn't hold. */
+function bombSpot(s: GameState, side: Side): number {
+  let best = 0
+  let bestScore = -1
+  s.battlefields.forEach((bf, i) => {
+    const score = bf.units.filter((u) => u.owner !== side).reduce((n, u) => n + mightNow(u), 0) * 10 + (bf.controller !== side ? 1 : 0)
+    if (score > bestScore) [best, bestScore] = [i, score]
+  })
+  return best
+}
+
+/** Gear dies: to its owner's trash (a token leaves the game). A Bomb deals 2 to an enemy there, and the owner's other Bombs there die too. */
+function killGear(s: GameState, side: Side, gearUid: string, why: string) {
+  const p = s.players[side]
+  const g = p.gear.find((x) => x.uid === gearUid)
+  if (!g) return
+  p.gear = p.gear.filter((x) => x !== g)
+  if (!g.token) p.trash.push(g.card)
+  log(s, side, 'effect', `${g.card.name} died (${why}).`)
+  if (!isBomb(g.card) || g.at == null) return
+  const at = g.at
+  const enemies = s.battlefields[at].units.filter((u) => u.owner !== side)
+  const target = bestTarget(side)({ kind: 'damage', amount: 2, target: { who: 'enemy', where: 'here', all: false, self: false } }, enemies)
+  if (target) {
+    target.damage += 2
+    log(s, side, 'effect', `Bomb: 2 to ${target.card.name}.`)
+    if (lethal(target) && !s.showdown) kill(s, target.uid, 'damage')
+  }
+  for (const other of p.gear.filter((x) => x.at === at && isBomb(x.card))) killGear(s, side, other.uid, 'another Bomb went off')
 }
 
 /** A unit leaving the board leaves its equipment behind, recalled to its owner's base. */
@@ -781,8 +896,9 @@ function startTurn(state: GameState): GameState {
   for (const r of p.runes) r.exhausted = false
   for (const g of p.gear) g.exhausted = false
   p.legendExhausted = false
-  // Beginning: Temporary units die, then hold every battlefield you control.
+  // Beginning: Temporary units die, "at start of your Beginning Phase", then hold every battlefield you control.
   for (const u of allUnits(s, side).filter((x) => x.keywords.temporary)) kill(s, u.uid, 'Temporary')
+  youTrigger(s, side, 'youBegin')
   holdAll(s, side)
   if ((s.phase as GameState['phase']) === 'over') return s
   // Channel 2 runes (3 on the second player's first turn), then draw 1.
@@ -804,6 +920,7 @@ export function startOfTurn(state: GameState, side: Side): GameState {
   for (const r of p.runes) r.exhausted = false
   for (const g of p.gear) g.exhausted = false
   for (const u of allUnits(s, side).filter((x) => x.keywords.temporary)) kill(s, u.uid, 'Temporary')
+  youTrigger(s, side, 'youBegin')
   holdAll(s, side)
   if ((s.phase as GameState['phase']) === 'over') return s
   const channel = s.turn === 1 && side !== s.first ? 3 : 2
@@ -820,11 +937,7 @@ function holdAll(s: GameState, side: Side) {
     if (bf.controller === side && !bf.scored.includes(side)) {
       // [Deploy]: an opponent's gear here dies when you hold it.
       const foe = s.players[other(side)]
-      for (const g of foe.gear.filter((x) => x.at === i)) {
-        foe.gear = foe.gear.filter((x) => x !== g)
-        foe.trash.push(g.card)
-        log(s, other(side), 'effect', `${g.card.name} was killed: ${who(side) === 'You' ? 'you' : 'the opponent'} held ${bfName(s, i)}.`)
-      }
+      for (const g of foe.gear.filter((x) => x.at === i)) killGear(s, other(side), g.uid, `${who(side) === 'You' ? 'you' : 'the opponent'} held ${bfName(s, i)}`)
       bf.scored.push(side)
       p.points += 1
       log(s, side, 'score', `${who(side)} held ${bfName(s, i)}: +1 (${p.points}).`)
@@ -905,6 +1018,20 @@ export interface PlayOptions {
   marked?: string[]
   /** "Choose one —": which one. */
   mode?: number
+}
+
+/**
+ * Whether `side` may play unit `card` to battlefield `index`: one it controls, any one by hand, or an
+ * open one (nobody's, empty) when the card or something of `side`'s allows it ("You may play me to an
+ * open battlefield", "Friendly units may be played to open battlefields").
+ */
+export function canPlayTo(s: GameState, side: Side, card: Card, index: number): boolean {
+  const bf = s.battlefields[index]
+  if (!bf) return false
+  if (bf.controller === side || s.manual.includes(side)) return true
+  if (bf.controller != null || bf.units.length) return false
+  const p = s.players[side]
+  return scriptOf(card).openPlay != null || [...(p.legend ? [p.legend] : []), ...p.gear.map((g) => g.card), ...allUnits(s, side).map((u) => u.card)].some((c) => scriptOf(c).openPlay === 'friendly')
 }
 
 /** The cost of a card as played: Energy and Power, with Accelerate's extra when asked for. */
@@ -1124,9 +1251,15 @@ function resolveItem(s: GameState, item: ChainItem) {
   if (isUnit(card)) {
     const unit = newUnit(s, card, side, !accelerate && !script.entersReady)
     const bf = item.battlefield != null ? s.battlefields[item.battlefield] : null
-    if (bf && (bf.controller === side || s.manual.includes(side))) {
+    if (bf && canPlayTo(s, side, card, item.battlefield!)) {
+      const open = bf.controller !== side
       bf.units.push(unit)
       log(s, side, 'play', `${card.name} entered ${bfName(s, item.battlefield!)}${accelerate ? ' (accelerated)' : ''}.`, card)
+      // Played to an open battlefield: you conquer it (by hand, the board offers to).
+      if (open && !bf.units.some((u) => u.owner !== side)) {
+        if (s.manual.includes(side)) s.fight = { battlefield: item.battlefield!, attacker: side }
+        else takeControl(s, item.battlefield!, side)
+      }
     } else {
       p.base.push(unit)
       log(s, side, 'play', `${card.name} entered ${who(side) === 'You' ? 'your' : 'their'} base${accelerate ? ' (accelerated, ready)' : ''}.`, card)
@@ -1137,8 +1270,14 @@ function resolveItem(s: GameState, item: ChainItem) {
     if (!script.full) leftToYou(`${card.name} has text the game doesn't run: apply it with the tools if it matters.`)
   } else if (isGear(card)) {
     const at = script.deploy && item.battlefield != null ? item.battlefield : undefined
-    p.gear.push({ uid: uid(s), card, exhausted: false, ...(at != null ? { at } : {}) })
+    p.gear.push({ uid: uid(s), card, exhausted: script.entersExhausted, ...(at != null ? { at } : {}) })
     log(s, side, 'play', `${card.name} entered ${at != null ? bfName(s, at) : 'play'}.`, card)
+    // Gear deployed where enemy units stand contests it: a showdown there (Radiance rules).
+    const bf = at != null ? s.battlefields[at] : null
+    if (bf && !s.showdown && !s.players[other(side)].empty && bf.controller !== side && bf.units.some((u) => u.owner !== side)) {
+      openShowdown(s, at!, side)
+      log(s, side, 'combat', `${card.name} contests ${bfName(s, at!)}: a showdown there.`)
+    }
     const own = script.abilities.filter((x) => x.trigger === 'play').flatMap((a) => a.effects)
     if (own.length) queueTrigger(s, side, card, own, undefined, item.targets, at)
     if (!script.full) leftToYou(`${card.name} has text the game doesn't run: apply it with the tools if it matters.`)
@@ -1219,6 +1358,8 @@ export function move(state: GameState, side: Side, unitUids: string[], to: 'base
   for (const u of moving) trigger(s, u, 'move')
   if (bf.units.some((u) => u.owner !== side)) {
     for (const u of bf.units.filter((x) => x.owner === side)) trigger(s, u, 'attack')
+    youTrigger(s, side, 'youAttack', undefined, to)
+    if (bf.controller === other(side)) youTrigger(s, other(side), 'foeAttack', undefined, to)
     for (const u of bf.units.filter((x) => x.owner !== side)) trigger(s, u, 'defend')
     for (const u of allUnits(s).filter(lethal)) kill(s, u.uid, 'damage')
     if (!bf.units.some((u) => u.owner === side)) {
@@ -1264,7 +1405,8 @@ export function pass(state: GameState, side: Side): GameState {
   sd.focus = other(side)
   if (sd.passes >= 2) {
     s.showdown = null
-    if (s.manual.includes(sd.attacker)) {
+    // A showdown over [Deploy] gear, with no units of the player who started it there: nothing to fight.
+    if (s.manual.includes(sd.attacker) && s.battlefields[sd.battlefield].units.some((u) => u.owner === sd.attacker)) {
       s.fight = { battlefield: sd.battlefield, attacker: sd.attacker }
       log(s, sd.attacker, 'combat', `The showdown at ${bfName(s, sd.battlefield)} is over: resolve the combat, or fight it out with the tools.`)
       return s
@@ -1341,6 +1483,8 @@ function assignDamage(total: number, targets: Unit[], defending: boolean) {
 }
 
 function combat(s: GameState, index: number, attacker: Side) {
+  // Bonuses from where everyone stands now ("Other friendly units have +1 Might here").
+  refreshLevels(s)
   const bf = s.battlefields[index]
   const attackers = bf.units.filter((u) => u.owner === attacker)
   const defenders = bf.units.filter((u) => u.owner !== attacker)
@@ -1645,10 +1789,11 @@ export function applyTool(state: GameState, tool: Tool): GameState {
       const p = s.players[tool.side]
       const g = p.gear.find((x) => x.uid === tool.gear)
       if (!g) return state
-      if (tool.to === 'hand' || tool.to === 'trash') {
+      if (tool.to === 'trash') killGear(s, tool.side, g.uid, 'by hand')
+      else if (tool.to === 'hand') {
         p.gear = p.gear.filter((x) => x !== g)
-        ;(tool.to === 'hand' ? p.hand : p.trash).push(g.card)
-        log(s, tool.side, 'tool', `${g.card.name} went back to ${tool.to === 'hand' ? 'hand' : 'the trash'}.`)
+        if (!g.token) p.hand.push(g.card)
+        log(s, tool.side, 'tool', `${g.card.name} went back to hand${g.token ? ' (a token: it left the game)' : ''}.`)
       } else if (tool.to === 'base') {
         delete g.at
         log(s, tool.side, 'tool', `${g.card.name} moved to base.`)

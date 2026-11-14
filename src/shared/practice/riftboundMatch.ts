@@ -1,4 +1,5 @@
 import type { Deck, DeckCardEntry } from '../types'
+import type { GameState } from './riftbound'
 
 /**
  * A best-of-3 match against the bot: the score, the battlefields each side has played (in a match a
@@ -6,6 +7,8 @@ import type { Deck, DeckCardEntry } from '../types'
  * swapped one for one between the main deck and the sideboard).
  */
 export interface Match {
+  /** Ties the match's games together in your practice record. */
+  id?: string
   bestOf: 3
   /** Games won: yours, the bot's. */
   wins: [number, number]
@@ -20,7 +23,7 @@ export interface Match {
 
 export type DeckLists = Pick<Deck, 'zones' | 'freeTextZones'>
 
-export const newMatch = (bot: DeckLists | null): Match => ({ bestOf: 3, wins: [0, 0], used: [[], []], out: {}, in: {}, bot })
+export const newMatch = (bot: DeckLists | null, id = `m${Date.now().toString(36)}`): Match => ({ id, bestOf: 3, wins: [0, 0], used: [[], []], out: {}, in: {}, bot })
 
 /** Games needed to win the match. */
 const needed = (m: Match) => Math.ceil(m.bestOf / 2)
@@ -91,5 +94,36 @@ export const swapCounts = (m: Pick<Match, 'out' | 'in'>) => ({
 export function openBattlefields<T extends { id: string }>(battlefields: T[], m: Match | null | undefined, side: 0 | 1): T[] {
   if (!m) return battlefields
   const left = battlefields.filter((b) => !m.used[side].includes(b.id))
+  return left.length ? left : battlefields
+}
+
+// ---------- online, against a friend: the match lives in the game state ----------
+
+type Series = NonNullable<GameState['series']>
+
+/** The score with a finished game counted: yours (side 0 from where you sit), theirs. */
+export function seriesScore(s: GameState): [number, number] {
+  const w = s.series?.wins ?? [0, 0]
+  if (s.phase !== 'over' || s.winner == null) return w
+  return s.winner === 0 ? [w[0] + 1, w[1]] : [w[0], w[1] + 1]
+}
+
+/** Who won the match (0 or 1), or null while it goes on (or there's none). */
+export function seriesWinner(s: GameState): 0 | 1 | null {
+  if (!s.series) return null
+  const [a, b] = seriesScore(s)
+  const need = Math.ceil(s.series.bestOf / 2)
+  return a >= need ? 0 : b >= need ? 1 : null
+}
+
+/** The next game's series: this game's result counted, and the battlefields it will be played on. */
+export function nextSeries(prev: GameState, mine: string | null, theirs: string | null): Series {
+  const series = prev.series ?? { bestOf: 3 as const, wins: [0, 0] as [number, number], used: [[], []] as [string[], string[]] }
+  return { ...series, wins: seriesScore(prev), used: [mine ? [...series.used[0], mine] : series.used[0], theirs ? [...series.used[1], theirs] : series.used[1]] }
+}
+
+/** The battlefields side 0 may pick for the next game of an online match. */
+export function seriesOpen<T extends { id: string }>(battlefields: T[], s: GameState): T[] {
+  const left = battlefields.filter((b) => !(s.series?.used[0] ?? []).includes(b.id))
   return left.length ? left : battlefields
 }

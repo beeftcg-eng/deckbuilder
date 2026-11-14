@@ -12,7 +12,8 @@ import { beginIfKept, other, type GameState, type Side } from './riftbound'
  */
 
 /** The deck as it travels: its cards by id (the other player has the card data). */
-export type SharedDeck = Pick<Deck, 'name' | 'zones' | 'freeTextZones'>
+/** A player's deck as the other player's app gets it, with the battlefield they picked for the first game. */
+export type SharedDeck = Pick<Deck, 'name' | 'zones' | 'freeTextZones'> & { battlefield?: string }
 
 export interface OnlineSeat {
   code: string
@@ -259,6 +260,7 @@ export function flipState(s: GameState): GameState {
     showdown: s.showdown ? { ...s.showdown, attacker: f(s.showdown.attacker), focus: f(s.showdown.focus) } : null,
     ...(s.fight !== undefined ? { fight: s.fight ? { ...s.fight, attacker: f(s.fight.attacker) } : null } : {}),
     chain: s.chain ? { priority: f(s.chain.priority), items: s.chain.items.map((i) => ({ ...i, side: f(i.side) })) } : null,
+    ...(s.series ? { series: { ...s.series, wins: [s.series.wins[1], s.series.wins[0]] as [number, number], used: [s.series.used[1], s.series.used[0]] as [string[], string[]] } } : {}),
     active: f(s.active),
     first: f(s.first),
     kept: s.kept.map(f),
@@ -273,8 +275,13 @@ export function flipState(s: GameState): GameState {
  * side (side 0 from where you sit: hand, deck, runes, points...) and the log, it goes on top of
  * theirs as is. Null when yours touched anything shared; then it has to be made again.
  */
+/** JSON with object keys sorted, and a missing field the same as a null one: equal states compare equal, however their fields were made. */
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_, v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([, x]) => x != null).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : v))
+}
+
 export function mergeOwnMove(before: GameState, mine: GameState, theirs: GameState): GameState | null {
-  const shared = (s: GameState) => JSON.stringify({ ...s, players: [null, s.players[1]], kept: null, log: null, nextUid: null })
+  const shared = (s: GameState) => stableJson({ ...s, players: [null, s.players[1]], kept: null, log: null, nextUid: null })
   if (shared(before) !== shared(mine)) return null
   const merged: GameState = {
     ...theirs,

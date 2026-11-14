@@ -10,6 +10,7 @@ export function PracticeRecord({ records }: { records: PracticeRecordRow[] }) {
         {records.map((r) => (
           <li key={r.opponentId}>
             {r.opponentName}: {t.practiceGame.winLoss(r.wins, r.losses)}
+            {r.matchWins + r.matchLosses > 0 && ` · ${t.practiceGame.matchRecord(r.matchWins, r.matchLosses)}`}
           </li>
         ))}
       </ul>

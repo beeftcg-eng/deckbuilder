@@ -10,9 +10,12 @@ describe('practice results', () => {
   it("adds up a deck's record against each opponent", () => {
     const records = recordsFor([result({}), result({ won: false }), result({ opponentId: 'deck:x', opponentName: 'Mine' }), result({ deckId: 'other' })], 'd1')
     expect(records).toEqual([
-      { opponentId: 'VEN-155', opponentName: 'Kennen', wins: 1, losses: 1 },
-      { opponentId: 'deck:x', opponentName: 'Mine', wins: 1, losses: 0 },
+      { opponentId: 'VEN-155', opponentName: 'Kennen', wins: 1, losses: 1, matchWins: 0, matchLosses: 0 },
+      { opponentId: 'deck:x', opponentName: 'Mine', wins: 1, losses: 0, matchWins: 0, matchLosses: 0 },
     ])
+    // Best of 3: the games count, and the match once, on its last game.
+    const match = recordsFor([result({ matchId: 'm' }), result({ matchId: 'm', won: false }), result({ matchId: 'm', matchWon: true })], 'd1')
+    expect(match[0]).toMatchObject({ wins: 2, losses: 1, matchWins: 1, matchLosses: 0 })
     expect(sanitizePracticeResults([result({}), { nope: 1 }])).toHaveLength(1)
   })
 })

@@ -73,6 +73,8 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
         points: [next.players[0].points, next.players[1].points],
         level: m.level,
         byHand: m.byHand,
+        ...(m.match?.id ? { matchId: m.match.id } : {}),
+        ...(m.match && matchWinner(m.match) != null ? { matchWon: matchWinner(m.match) === 0 } : {}),
       })
     }
     const bots = !next.players[BOT].empty && botShouldAct(next, BOT)

@@ -15,6 +15,9 @@ export interface PracticeResult {
   points: [number, number]
   level: string
   byHand: boolean
+  /** A game of a best-of-3 match: the match's id, and on its last game whether you won the match. */
+  matchId?: string
+  matchWon?: boolean
 }
 
 export const MAX_RESULTS = 300
@@ -24,6 +27,9 @@ export interface Record {
   opponentName: string
   wins: number
   losses: number
+  /** Best-of-3 matches won and lost (their games count in wins and losses too). */
+  matchWins: number
+  matchLosses: number
 }
 
 /** A deck's record against each opponent, most played first. */
@@ -31,9 +37,11 @@ export function recordsFor(results: readonly PracticeResult[] | undefined, deckI
   const out = new Map<string, Record>()
   for (const r of results ?? []) {
     if (r.deckId !== deckId) continue
-    const rec = out.get(r.opponentId) ?? out.set(r.opponentId, { opponentId: r.opponentId, opponentName: r.opponentName, wins: 0, losses: 0 }).get(r.opponentId)!
+    const rec = out.get(r.opponentId) ?? out.set(r.opponentId, { opponentId: r.opponentId, opponentName: r.opponentName, wins: 0, losses: 0, matchWins: 0, matchLosses: 0 }).get(r.opponentId)!
     if (r.won) rec.wins++
     else rec.losses++
+    if (r.matchWon === true) rec.matchWins++
+    else if (r.matchWon === false) rec.matchLosses++
   }
   return [...out.values()].sort((a, b) => b.wins + b.losses - (a.wins + a.losses) || a.opponentName.localeCompare(b.opponentName))
 }

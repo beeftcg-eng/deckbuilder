@@ -11,7 +11,9 @@ import {
   combatMight,
   endTurn,
   energyCost,
+  canPlayTo,
   isGear,
+  isUnit,
   isSpell,
   keywordsOf,
   mightNow,
@@ -131,7 +133,15 @@ function threatened(s: GameState, side: Side): number {
 
 /** Gear in play, a card's worth each; [Deploy] gear a little more where `side` holds, less where the opponent does (it dies when they hold). */
 function gearWorth(s: GameState, side: Side): number {
-  return s.players[side].gear.reduce((n, g) => n + 1 + (g.at == null ? 0 : s.battlefields[g.at]?.controller === side ? 0.25 : s.battlefields[g.at]?.controller === other(side) ? -0.75 : 0), 0)
+  return s.players[side].gear.reduce((n, g) => {
+    if (g.at == null) return n + 1
+    const bf = s.battlefields[g.at]
+    if (!bf) return n + 1
+    // What it gives your units there ("Friendly units here have [Assault]"): a little per unit.
+    const aura = Object.values(scriptOf(g.card).here).reduce((a, b) => a + (b ?? 0), 0)
+    const mine = bf.units.filter((u) => u.owner === side).length
+    return n + 1 + (bf.controller === side ? 0.25 : bf.controller === other(side) ? -0.75 : 0) + 0.2 * aura * mine
+  }, 0)
 }
 
 /** How good the position is for `side` (higher is better). */
@@ -179,6 +189,8 @@ function playOptions(s: GameState, side: Side, level: Level): GameState[] {
     if (isGear(card) && scriptOf(card).deploy) s.battlefields.forEach((_, battlefield) => out.push(play(s, side, i, { battlefield })))
     else if (modes.length) modes.forEach((_, mode) => out.push(play(s, side, i, { mode })))
     else out.push(play(s, side, i))
+    // Units that may go to an open battlefield: tried there too (it's a free conquer of sorts).
+    if (isUnit(card)) s.battlefields.forEach((bf, battlefield) => bf.controller == null && canPlayTo(s, side, card, battlefield) && out.push(play(s, side, i, { battlefield })))
     if (keywordsOf(card).accelerate && canPlay(s, side, card, true)) out.push(play(s, side, i, { accelerate: true }))
   }
   return out.filter((x) => x !== s)

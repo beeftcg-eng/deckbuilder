@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useCardsById } from '../../../state/useAppStore'
-import { abilitiesOf, allUnits, bfName, canPlay, combatMight, mightNow, costOf, isGear, isUnit, keywordsOf, runeCount, type GameState, type Side, type Tool, type Unit } from '../../../shared/practice/riftbound'
+import { abilitiesOf, allUnits, bfName, canPlay, canPlayTo, combatMight, mightNow, costOf, isGear, isUnit, keywordsOf, runeCount, type GameState, type Side, type Tool, type Unit } from '../../../shared/practice/riftbound'
 import { scriptOf } from '../../../shared/practice/riftboundEffects'
 import { DOMAIN_COLORS } from '../../../lib/domainColors'
 import type { Card } from '../../../shared/types'
@@ -576,8 +576,8 @@ export function HandMenu({
         </button>
       )}
       {isUnit(card) &&
-        game.battlefields.map((bf, i) =>
-          bf.controller === 0 || manual ? (
+        game.battlefields.map((_, i) =>
+          canPlayTo(game, 0, card, i) || manual ? (
             <button key={i} className="btn" disabled={!yourTurn || !canPlay(game, 0, card)} onClick={() => onPlay({ battlefield: i })}>
               {t.practiceGame.playTo(bfName(game, i))}
             </button>
