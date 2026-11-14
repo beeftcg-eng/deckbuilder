@@ -30,6 +30,8 @@ import { ServerUpdateNote } from '../ServerUpdateNote'
 
 /** How often the game is checked for the other player's moves: often without Realtime, rarely with it (it nudges). */
 const POLL_MS = 1500
+/** How many of your own moves in a row can be taken back online. */
+const UNDO_LIMIT = 30
 const POLL_WITH_NUDGES_MS = 6000
 const NAME_KEY = 'brewhouse.practice.name'
 const CLOCKS = [0, 60, 90, 120, 180]
@@ -65,6 +67,12 @@ export function OnlineGame({ deck, onClose }: { deck: Deck; onClose: () => void 
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [now, setNow] = useState(() => Date.now())
+  /**
+   * Your own moves, to take back: the game before each, and the state number your move made. Only
+   * while nothing has happened since (the number is still the latest); the other player's move
+   * clears it.
+   */
+  const [undoStack, setUndoStack] = useState<{ before: GameState; after: number }[]>([])
   // The latest values for the timers and the Realtime callback.
   const live = useRef({ seat, seq, sending: false, game, guestDeck: null as SharedDeck | null, dealtFor: -1, lastPoll: 0 })
   const nudger = useRef<Nudger | null>(null)
@@ -113,6 +121,8 @@ export function OnlineGame({ deck, onClose }: { deck: Deck; onClose: () => void 
     // The host starts the game once the guest has joined with their deck.
     if (s.seat === 0 && snap.seq === 0 && snap.guestDeck && !live.current.game) return startMatch(s, snap.guestDeck, 1, 0)
     if (!snap.state || (snap.seq <= since && !snap.gifts.length)) return
+    // The other player moved: your moves before theirs can't be taken back now.
+    if (snap.seq > since) setUndoStack([])
     let state = joinForClient(snap.state, snap.private, snap.gifts, s.seat, cardsById)
     if (!state) {
       setError(t.practiceGame.missingCards)
@@ -162,8 +172,9 @@ export function OnlineGame({ deck, onClose }: { deck: Deck; onClose: () => void 
   }, [clockOn])
 
   /** Your move: shown at once, then sent. If the other player moved first, a move of your own side's goes on top. */
-  async function move(proposed: GameState) {
+  async function move(proposed: GameState, undoing = false) {
     if (!seat || !game || proposed === game) return
+    const before = game
     // A new turn starts its clock.
     const next = proposed.active !== game.active ? { ...proposed, turnStartedAt: new Date().toISOString() } : proposed
     setGame(next)
@@ -181,6 +192,8 @@ export function OnlineGame({ deck, onClose }: { deck: Deck; onClose: () => void 
           setSeq(n)
           setGame(merged)
           setStatus(null)
+          // Their move came in between: what went before it can't be taken back.
+          setUndoStack([])
         } else {
           if (theirs) {
             setSeq(snap.seq)
@@ -191,6 +204,13 @@ export function OnlineGame({ deck, onClose }: { deck: Deck; onClose: () => void 
       } else {
         setSeq(n)
         setStatus(null)
+        const after = n
+        // Taking one back makes the move before it the latest again, so it can be taken back too.
+        setUndoStack((st) => {
+          if (!undoing) return [...st, { before, after }].slice(-UNDO_LIMIT)
+          const rest = st.slice(0, -1)
+          return rest.length ? [...rest.slice(0, -1), { ...rest.at(-1)!, after }] : rest
+        })
       }
       if (n != null) nudger.current?.nudge({ seq: n })
     } catch (err) {
@@ -198,6 +218,14 @@ export function OnlineGame({ deck, onClose }: { deck: Deck; onClose: () => void 
     } finally {
       live.current.sending = false
     }
+  }
+
+  /** Takes back your last move: the game before it goes to the server as a new move, noted in the log. */
+  function undo() {
+    const last = undoStack.at(-1)
+    if (!last || last.after !== seq || !game) return
+    const back = { ...last.before, log: [...last.before.log, { turn: last.before.turn, side: 0 as const, kind: 'info' as const, text: `${name.trim() || t.practiceGame.you}: ${t.practiceGame.tookBack}` }] }
+    void move(back, true)
   }
 
   /** A quick reaction, into the game log both players see. */
@@ -259,8 +287,8 @@ export function OnlineGame({ deck, onClose }: { deck: Deck; onClose: () => void 
         <Board
           game={game}
           busy={false}
-          canUndo={false}
-          onUndo={() => {}}
+          canUndo={!!undoStack.length && undoStack.at(-1)!.after === seq && !live.current.sending}
+          onUndo={undo}
           onChange={(next) => void move(next)}
           onRestart={onClose}
           onClose={onClose}

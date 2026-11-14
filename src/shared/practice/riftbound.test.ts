@@ -279,3 +279,40 @@ describe('table actions by hand', () => {
     expect(s.players[0].points).toBe(0)
   })
 })
+
+describe('table tools: XP, runes and equipment', () => {
+  it('keeps XP, exhausts, readies and recycles a single rune', () => {
+    let s = applyTool(applyTool(started(), { kind: 'xp', side: 0, amount: 1 }), { kind: 'xp', side: 0, amount: 1 })
+    expect(s.players[0].xp).toBe(2)
+    s = applyTool(s, { kind: 'xp', side: 0, amount: -5 })
+    expect(s.players[0].xp).toBe(0)
+    const rune = s.players[0].runes[0]
+    s = applyTool(s, { kind: 'rune', side: 0, rune: rune.uid, action: 'toggle' })
+    expect(runeCount(s, 0)).toEqual({ ready: 1, total: 2 })
+    const deck = s.players[0].runeDeck.length
+    s = applyTool(s, { kind: 'rune', side: 0, rune: rune.uid, action: 'recycle' })
+    expect(runeCount(s, 0).total).toBe(1)
+    expect(s.players[0].runeDeck).toHaveLength(deck + 1)
+    expect(s.players[0].runeDeck.at(-1)).toBe('Fury')
+  })
+
+  it('equips gear to a unit, takes it off, and recalls it to base when the unit dies', () => {
+    const sword = makeCard('riftbound', { name: 'Long Sword', category: 'Gear', cost: '0', text: '[Equip] :rb_rune_fury:' })
+    let s = started(setup([sword, ...Array.from({ length: 39 }, (_, i) => unit(`U${i}`, 0, 2))]))
+    // Put the sword and a unit in play for free.
+    s.players[0].hand.unshift(sword)
+    s = play(s, 0, 0)
+    s = play(s, 0, s.players[0].hand.findIndex((c) => c.category === 'Unit'))
+    const gear = s.players[0].gear[0]
+    const u = s.players[0].base[0]
+    s = applyTool(s, { kind: 'equip', side: 0, gear: gear.uid, unit: u.uid })
+    expect(s.players[0].gear).toHaveLength(0)
+    expect(s.players[0].base[0].equipment?.map((e) => e.card.name)).toEqual(['Long Sword'])
+    s = applyTool(s, { kind: 'unequip', unit: u.uid, gear: gear.uid })
+    expect(s.players[0].gear).toHaveLength(1)
+    s = applyTool(s, { kind: 'equip', side: 0, gear: gear.uid, unit: u.uid })
+    s = applyTool(s, { kind: 'kill', unit: u.uid })
+    expect(s.players[0].base).toHaveLength(0)
+    expect(s.players[0].gear.map((g) => g.card.name)).toEqual(['Long Sword'])
+  })
+})

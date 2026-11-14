@@ -5469,10 +5469,26 @@
   font-weight: 600;
 }
 
-.rb-points {
+/* Points and XP: a labelled counter with − and + on your side. */
+.rb-counter {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+}
+
+.rb-counter-name {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.rb-counter-value {
+  min-width: 2ch;
+  text-align: center;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -5491,6 +5507,38 @@
 
 .rb-rune.exhausted {
   opacity: 0.3;
+}
+
+button.rb-rune {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.rb-rune.picked {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The Champion Zone: the chosen Champion waiting to be played. */
+.rb-champion {
+  padding: 2px 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.rb-champion-art {
+  width: 44px;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  border-radius: 3px;
+}
+
+.rb-equip {
+  max-width: 120px;
+  font-size: 12px;
+  padding: 2px 4px;
 }
 
 .rb-champion,

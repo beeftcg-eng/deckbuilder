@@ -50,6 +50,8 @@ export interface Unit {
   stunned: boolean
   token: boolean
   keywords: Keywords
+  /** Gear attached to it ([Equip]); recalled to its owner's base when it leaves the board. */
+  equipment?: { uid: string; card: Card }[]
 }
 
 export interface Rune {
@@ -68,10 +70,14 @@ export interface Player {
   runeDeck: string[]
   runes: Rune[]
   points: number
+  /** XP (Unleashed): gained by Hunt and card text, spent by abilities; [Level N] is on while you have N. */
+  xp?: number
   legend: Card | null
   legendExhausted: boolean
   /** The Chosen Champion while it waits in the Champion Zone (null once played). */
   champion: Card | null
+  /** Whether the deck had a Chosen Champion at all (false: the Champion Zone says so rather than "played"). */
+  hadChampion?: boolean
   /** True for a side with nobody playing it (goldfishing): it never takes turns. */
   empty: boolean
 }
@@ -218,7 +224,7 @@ function emptyPlayer(empty: boolean): Player {
  * shared. Much faster than a deep copy, which matters when the bot tries out hundreds of moves.
  */
 function clone(state: GameState): GameState {
-  const unit = (u: Unit): Unit => ({ ...u, keywords: u.keywords })
+  const unit = (u: Unit): Unit => ({ ...u, keywords: u.keywords, ...(u.equipment ? { equipment: [...u.equipment] } : {}) })
   const player = (p: Player): Player => ({
     ...p,
     deck: [...p.deck],
@@ -266,6 +272,7 @@ export function newGame(you: DeckSetup, opponent: DeckSetup | null, options: { f
     p.runeDeck = shuffled(setup.runes, random)
     p.legend = setup.legend
     p.champion = setup.champion
+    p.hadChampion = !!setup.champion
     p.hand = p.deck.splice(0, 4)
   })
   const picks = [you.battlefields, opponent?.battlefields ?? []].map((bfs) => shuffled(bfs, random))
@@ -473,6 +480,7 @@ export function runEffects(s: GameState, side: Side, effects: Effect[], choose: 
       case 'toHand':
         for (const u of targets) {
           takeUnit(s, u.uid)
+          dropEquipment(s, u)
           if (!u.token) s.players[u.owner].hand.push(u.card)
         }
         break
@@ -543,9 +551,16 @@ function trigger(s: GameState, unit: Unit, kind: Trigger) {
   }
 }
 
+/** A unit leaving the board leaves its equipment behind, recalled to its owner's base. */
+function dropEquipment(s: GameState, unit: Unit) {
+  for (const e of unit.equipment ?? []) s.players[unit.owner].gear.push({ uid: e.uid, card: e.card, exhausted: false })
+  unit.equipment = []
+}
+
 function kill(s: GameState, unitUid: string, why?: string) {
   const unit = takeUnit(s, unitUid)
   if (!unit) return
+  dropEquipment(s, unit)
   // Tokens leave the game; cards go to their owner's trash.
   if (!unit.token) s.players[unit.owner].trash.push(unit.card)
   if (why) log(s, unit.owner, 'tool', `${unit.card.name} died (${why}).`)
@@ -959,6 +974,12 @@ export type Tool =
   | { kind: 'hide'; side: Side; handIndex: number; battlefield: number }
   | { kind: 'unhide'; battlefield: number; hidden: string }
   | { kind: 'readyAll'; side: Side }
+  | { kind: 'xp'; side: Side; amount: number }
+  /** One rune: exhaust or ready it, or recycle it (to the bottom of the rune deck, as paying Power does). */
+  | { kind: 'rune'; side: Side; rune: string; action: 'toggle' | 'recycle' }
+  /** Attach gear from base to one of your units ([Equip]), or take it off again. */
+  | { kind: 'equip'; side: Side; gear: string; unit: string }
+  | { kind: 'unequip'; unit: string; gear: string }
 
 /** Applies a card effect by hand. Damage that reaches a unit's Might kills it. */
 export function applyTool(state: GameState, tool: Tool): GameState {
@@ -1001,6 +1022,7 @@ export function applyTool(state: GameState, tool: Tool): GameState {
     case 'toHand': {
       const u = takeUnit(s, tool.unit)
       if (!u) return state
+      dropEquipment(s, u)
       if (!u.token) s.players[u.owner].hand.push(u.card)
       log(s, u.owner, 'tool', `${u.card.name} returned to hand.`)
       break
@@ -1132,6 +1154,43 @@ export function applyTool(state: GameState, tool: Tool): GameState {
       for (const r of p.runes) r.exhausted = false
       for (const g of p.gear) g.exhausted = false
       log(s, tool.side, 'tool', 'Readied everything.')
+      break
+    }
+    case 'xp': {
+      const p = s.players[tool.side]
+      p.xp = Math.max(0, (p.xp ?? 0) + tool.amount)
+      log(s, tool.side, 'tool', `${tool.amount > 0 ? '+' : ''}${tool.amount} XP (${p.xp}).`)
+      break
+    }
+    case 'rune': {
+      const p = s.players[tool.side]
+      const rune = p.runes.find((r) => r.uid === tool.rune)
+      if (!rune) return state
+      if (tool.action === 'toggle') rune.exhausted = !rune.exhausted
+      else {
+        p.runes = p.runes.filter((r) => r.uid !== tool.rune)
+        p.runeDeck.push(rune.domain)
+        log(s, tool.side, 'tool', `${who(tool.side)} recycled a ${rune.domain} rune.`)
+      }
+      break
+    }
+    case 'equip': {
+      const p = s.players[tool.side]
+      const g = p.gear.find((x) => x.uid === tool.gear)
+      const u = find(tool.unit)
+      if (!g || !u || u.owner !== tool.side) return state
+      p.gear = p.gear.filter((x) => x.uid !== tool.gear)
+      u.equipment = [...(u.equipment ?? []), { uid: g.uid, card: g.card }]
+      log(s, tool.side, 'tool', `${g.card.name} attached to ${u.card.name}.`)
+      break
+    }
+    case 'unequip': {
+      const u = find(tool.unit)
+      const e = u?.equipment?.find((x) => x.uid === tool.gear)
+      if (!u || !e) return state
+      u.equipment = u.equipment!.filter((x) => x.uid !== tool.gear)
+      s.players[u.owner].gear.push({ uid: e.uid, card: e.card, exhausted: false })
+      log(s, u.owner, 'tool', `${e.card.name} taken off ${u.card.name}, back to base.`)
       break
     }
     case 'control': {

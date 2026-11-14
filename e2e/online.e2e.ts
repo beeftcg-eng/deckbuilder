@@ -97,7 +97,20 @@ test('two friends play a Riftbound game online', async ({ browser, isMobile }) =
   // Each player's hand is their own: the other side only ever shows a count.
   expect(await first.locator('.rb-hand-card').count()).toBeGreaterThan(0)
   expect(await first.getByText('Face-down card').count()).toBe(0)
+  // A point, taken back with Undo: both screens go back to 0.
+  await first.getByRole('button', { name: 'Add a point' }).click()
+  await expect(second.getByLabel('1 points')).toBeVisible({ timeout: 10_000 })
+  await expect(first.getByRole('button', { name: /Undo/ })).toBeEnabled({ timeout: 10_000 })
+  await first.getByRole('button', { name: /Undo/ }).click()
+  await expect(second.getByLabel('0 points')).toHaveCount(2, { timeout: 10_000 })
+  await expect(first.getByLabel('0 points')).toHaveCount(2)
+  // The unit played before it can be taken back too.
+  await expect(first.getByRole('button', { name: /Undo/ })).toBeEnabled({ timeout: 10_000 })
   await first.getByRole('button', { name: 'End turn' }).click()
   await expect(second.getByText(/Your turn 1/).first()).toBeVisible({ timeout: 10_000 })
+  // Ending the turn can be taken back until the other player does something; then it can't.
+  await expect(first.getByRole('button', { name: /Undo/ })).toBeEnabled({ timeout: 10_000 })
+  await second.getByRole('button', { name: 'Start of turn' }).click()
+  await expect(first.getByRole('button', { name: /Undo/ })).toBeDisabled({ timeout: 10_000 })
   await expect(first.getByText(`${secondName}’s turn 1`).first()).toBeVisible({ timeout: 10_000 })
 })

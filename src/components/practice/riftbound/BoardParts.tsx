@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { bfName, canPlay, combatMight, mightNow, costOf, isUnit, keywordsOf, runeCount, type GameState, type Side, type Tool, type Unit } from '../../../shared/practice/riftbound'
+import { allUnits, bfName, canPlay, combatMight, mightNow, costOf, isUnit, keywordsOf, runeCount, type GameState, type Side, type Tool, type Unit } from '../../../shared/practice/riftbound'
 import { DOMAIN_COLORS } from '../../../lib/domainColors'
 import type { Card } from '../../../shared/types'
 import { t } from '../../../shared/i18n'
@@ -20,7 +20,7 @@ export type DropProps = { onDragOver: (e: React.DragEvent) => void; onDragLeave:
 export function UnitChip({ unit, selected, targetable, drag, onClick, onDetail }: { unit: Unit; selected: boolean; targetable?: boolean; drag?: DragProps; onClick: () => void; onDetail: () => void }) {
   const might = mightNow(unit)
   const kw = unit.keywords
-  const tags = [kw.tank && 'Tank', kw.assault && `Assault ${kw.assault}`, kw.shield && `Shield ${kw.shield}`, kw.ganking && 'Ganking', kw.backline && 'Backline', kw.temporary && 'Temporary', unit.stunned && t.practiceGame.stunned, unit.buffed && t.practiceGame.buffed, unit.temp !== 0 && t.practiceGame.thisTurn(unit.temp)]
+  const tags = [kw.tank && 'Tank', kw.assault && `Assault ${kw.assault}`, kw.shield && `Shield ${kw.shield}`, kw.ganking && 'Ganking', kw.backline && 'Backline', kw.temporary && 'Temporary', unit.stunned && t.practiceGame.stunned, unit.buffed && t.practiceGame.buffed, unit.temp !== 0 && t.practiceGame.thisTurn(unit.temp), ...(unit.equipment ?? []).map((e) => `⚙ ${e.card.name}`)]
     .filter(Boolean)
     .join(' · ')
   const color = DOMAIN_COLORS[unit.card.colors[0]] ?? 'var(--accent)'
@@ -108,6 +108,16 @@ export function Base({
             <button className="rb-unit-info" aria-label={t.practiceGame.details(g.card.name)} onClick={() => onDetail(g.card)}>
               ⓘ
             </button>
+            {onTool && allUnits(game, side).length > 0 && (
+              <select className="rb-equip" aria-label={t.practiceGame.equipTo(g.card.name)} value="" onChange={(e) => e.target.value && onTool({ kind: 'equip', side, gear: g.uid, unit: e.target.value })}>
+                <option value="">{t.practiceGame.equip}</option>
+                {allUnits(game, side).map((u) => (
+                  <option key={u.uid} value={u.uid}>
+                    {u.card.name.replace(/\s*\([^)]*\)$/, '')}
+                  </option>
+                ))}
+              </select>
+            )}
           </span>
         ))}
         {!p.base.length && !p.gear.length && <span className="text-dim">{t.practiceGame.empty}</span>}
@@ -139,6 +149,8 @@ export function PlayerBar({
   const runes = runeCount(game, side)
   const champion = p.champion
   const [makingToken, setMakingToken] = useState(false)
+  const [pickedRune, setPickedRune] = useState<string | null>(null)
+  const picked = p.runes.find((r) => r.uid === pickedRune)
   const { className: trashClass = '', ...trashHandlers } = trashDrop ?? { className: '' }
   return (
     <div className={`rb-player ${side === 0 ? 'mine' : 'theirs'}`}>
@@ -154,27 +166,71 @@ export function PlayerBar({
           {p.legendExhausted ? ` · ${t.practiceGame.exhausted}` : ''}
         </span>
       )}
-      <span className="rb-points" aria-label={t.practiceGame.pointsLabel(p.points)}>
-        ★ {p.points}
+      <span className="rb-counter rb-points" role="group" aria-label={t.practiceGame.pointsLabel(p.points)}>
+        <span className="rb-counter-name">{t.practiceGame.pointsWord}</span>
         {side === 0 && (
-          <>
-            <button className="btn stepper-btn" aria-label={t.practiceGame.pointMinus} onClick={() => onTool({ kind: 'points', side, amount: -1 })}>
-              −
-            </button>
-            <button className="btn stepper-btn" aria-label={t.practiceGame.pointPlus} onClick={() => onTool({ kind: 'points', side, amount: 1 })}>
-              +
-            </button>
-          </>
+          <button className="btn stepper-btn" aria-label={t.practiceGame.pointMinus} onClick={() => onTool({ kind: 'points', side, amount: -1 })}>
+            −
+          </button>
+        )}
+        <span className="rb-counter-value">★ {p.points}</span>
+        {side === 0 && (
+          <button className="btn stepper-btn" aria-label={t.practiceGame.pointPlus} onClick={() => onTool({ kind: 'points', side, amount: 1 })}>
+            +
+          </button>
         )}
       </span>
-      <span className="rb-runes" aria-label={t.practiceGame.runesLabel(runes.ready, runes.total)}>
-        {p.runes.map((r) => (
-          <span key={r.uid} className={`rb-rune ${r.exhausted ? 'exhausted' : ''}`} style={{ background: DOMAIN_COLORS[r.domain] ?? 'var(--accent)' }} title={r.domain} aria-hidden />
-        ))}
+      <span className="rb-counter rb-xp" role="group" aria-label={t.practiceGame.xpLabel(p.xp ?? 0)} title={t.practiceGame.xpTitle}>
+        <span className="rb-counter-name">XP</span>
+        {side === 0 && (
+          <button className="btn stepper-btn" aria-label={t.practiceGame.xpMinus} disabled={!p.xp} onClick={() => onTool({ kind: 'xp', side, amount: -1 })}>
+            −
+          </button>
+        )}
+        <span className="rb-counter-value">{p.xp ?? 0}</span>
+        {side === 0 && (
+          <button className="btn stepper-btn" aria-label={t.practiceGame.xpPlus} onClick={() => onTool({ kind: 'xp', side, amount: 1 })}>
+            +
+          </button>
+        )}
+      </span>
+      <span className="rb-runes" role="group" aria-label={t.practiceGame.runesLabel(runes.ready, runes.total)}>
+        {p.runes.map((r) =>
+          side === 0 ? (
+            <button
+              key={r.uid}
+              className={`rb-rune ${r.exhausted ? 'exhausted' : ''} ${pickedRune === r.uid ? 'picked' : ''}`}
+              style={{ background: DOMAIN_COLORS[r.domain] ?? 'var(--accent)' }}
+              title={t.practiceGame.runeTitle(r.domain)}
+              aria-label={t.practiceGame.runeLabel(r.domain, r.exhausted)}
+              aria-pressed={pickedRune === r.uid}
+              onClick={() => setPickedRune(pickedRune === r.uid ? null : r.uid)}
+            />
+          ) : (
+            <span key={r.uid} className={`rb-rune ${r.exhausted ? 'exhausted' : ''}`} style={{ background: DOMAIN_COLORS[r.domain] ?? 'var(--accent)' }} title={r.domain} aria-hidden />
+          ),
+        )}
         <span className="text-dim">
           {' '}
           {runes.ready}/{runes.total}
         </span>
+        {side === 0 && picked && (
+          <>
+            <button className="btn" onClick={() => onTool({ kind: 'rune', side, rune: picked.uid, action: 'toggle' })}>
+              {picked.exhausted ? t.practiceGame.readyIt : t.practiceGame.exhaustIt}
+            </button>
+            <button
+              className="btn"
+              title={t.practiceGame.recycleTitle}
+              onClick={() => {
+                onTool({ kind: 'rune', side, rune: picked.uid, action: 'recycle' })
+                setPickedRune(null)
+              }}
+            >
+              {t.practiceGame.recycle}
+            </button>
+          </>
+        )}
       </span>
       <span className="text-dim rb-counts">{t.practiceGame.counts(p.hand.length, p.deck.length, p.trash.length)}</span>
       {onZones && (
@@ -187,16 +243,21 @@ export function PlayerBar({
           </button>
         </>
       )}
-      {champion && (
-        <span className="rb-champion" {...championDrag}>
-          {t.practiceGame.champion}: {champion.name}
-          {onPlayChampion && (
-            <button className="btn" disabled={!canPlay(game, side, champion)} onClick={onPlayChampion}>
-              {t.practiceGame.play(costOf(champion).energy, costOf(champion).power)}
-            </button>
-          )}
-        </span>
-      )}
+      <span className={`rb-champion ${champion ? '' : 'empty'}`} role="group" aria-label={t.practiceGame.championZone} {...(champion ? championDrag : {})}>
+        <span className="rb-counter-name">{t.practiceGame.championZone}</span>
+        {champion ? (
+          <>
+            {champion.imageUrlSmall ? <img className="rb-champion-art" src={champion.imageUrlSmall} alt={champion.name} title={champion.text ?? champion.name} loading="lazy" /> : <span>{champion.name}</span>}
+            {onPlayChampion && (
+              <button className="btn" disabled={!canPlay(game, side, champion)} onClick={onPlayChampion}>
+                {t.practiceGame.play(costOf(champion).energy, costOf(champion).power)}
+              </button>
+            )}
+          </>
+        ) : (
+          <span className="text-dim">{p.hadChampion === false ? t.practiceGame.championNone : t.practiceGame.championGone}</span>
+        )}
+      </span>
       {side === 0 && (
         <span className="rb-player-tools">
           {onStartOfTurn && (
@@ -444,6 +505,15 @@ export function UnitTools({ unit, onTool, onDone }: { unit: Unit; onTool: (tl: T
         {t.practiceGame.kill}
       </button>
       <span className="text-dim">{t.practiceGame.mightNow(combatMight(unit, false) - unit.damage)}</span>
+      {(unit.equipment ?? []).map((e) => (
+        <span key={e.uid} className="rb-gear" title={e.card.text ?? undefined}>
+          ⚙ {e.card.name}
+          <button className="btn" onClick={() => onTool({ kind: 'unequip', unit: id, gear: e.uid })}>
+            {t.practiceGame.unequip}
+          </button>
+        </span>
+      ))}
+      {(unit.equipment ?? []).length > 0 && <span className="text-dim">{t.practiceGame.equipMightHint}</span>}
     </div>
   )
 }

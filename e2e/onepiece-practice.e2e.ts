@@ -95,6 +95,11 @@ test('a One Piece practice game against the bot plays through to the end', async
       await page.getByRole('button', { name: 'Add to hand' }).click()
       continue
     }
+    // A sixth Character: trash the first one for it.
+    if (await page.getByText('pick one to trash').isVisible()) {
+      await page.getByRole('region', { name: 'Your Characters' }).locator('.op-piece.targetable').first().click()
+      continue
+    }
     if (await page.getByRole('button', { name: 'Skip' }).isVisible()) {
       await page.getByRole('button', { name: 'Skip' }).click()
       continue
