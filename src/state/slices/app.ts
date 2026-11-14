@@ -166,6 +166,12 @@ export function createAppSlice(ctx: StoreContext) {
       set((s) => ({ settings: { ...s.settings, currency: code }, currencyKey: `${displayCurrency()}:${s.settings.currencyRates?.updatedAt ?? ''}` }))
       persistSettings({ currency: code })
     },
+    addPracticeResult: (result) => {
+      const practiceResults = [result, ...(get().settings.practiceResults ?? [])].slice(0, 300)
+      set((s) => ({ settings: { ...s.settings, practiceResults } }))
+      persistSettings({ practiceResults })
+    },
+
     setUsageStats: (on) => {
       set((s) => ({ settings: { ...s.settings, usageStats: on } }))
       persistSettings({ usageStats: on })

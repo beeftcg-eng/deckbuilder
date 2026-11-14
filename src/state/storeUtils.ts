@@ -237,6 +237,8 @@ export interface AppState {
   setTheme: (id: string) => void
   /** Turns the anonymous usage counts (shared/usage.ts) on or off. */
   setUsageStats: (on: boolean) => void
+  /** Records how a practice game against the bot ended (practice/results.ts). */
+  addPracticeResult: (result: import('../shared/practice/results').PracticeResult) => void
   /** Shows prices in this currency (converted from US dollars at the day's rate). */
   setCurrency: (code: string) => void
   /** Saves today's collection value for a game whose cards are loaded (valueHistory.ts). */

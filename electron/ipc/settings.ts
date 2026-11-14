@@ -14,6 +14,7 @@ import { sanitizePackOpenings } from '../../src/shared/packOpenings'
 import { sanitizeCollectionBatches } from '../../src/shared/collectionBatches'
 import { sanitizeCollectionDetails } from '../../src/shared/copyDetails'
 import { sanitizeBanListsSeen } from '../../src/shared/banLists'
+import { sanitizePracticeResults } from '../../src/shared/practice/results'
 import { hasItemFields, joinSettings, splitSettings, touchesItemFields } from '../../src/shared/settingsItems'
 import { firstMerge, itemOps, settingsFromItems, touchesItems, type ItemRow } from '../../src/shared/sync/items'
 import type { SyncOp } from '../../src/shared/sync/ops'
@@ -73,6 +74,7 @@ export function sanitize(raw: unknown): AppSettings {
   if (source.collectionDetails !== undefined) settings.collectionDetails = sanitizeCollectionDetails(source.collectionDetails)
   if (source.itemsSynced === true) settings.itemsSynced = true
   if (typeof source.usageStats === 'boolean') settings.usageStats = source.usageStats
+  if (source.practiceResults !== undefined) settings.practiceResults = sanitizePracticeResults(source.practiceResults)
   if (source.banListsSeen !== undefined) settings.banListsSeen = sanitizeBanListsSeen(source.banListsSeen)
   if (Array.isArray(source.tradeSeen)) settings.tradeSeen = source.tradeSeen.filter((k): k is string => typeof k === 'string').slice(0, 3000)
   if (isPlainObject(source.tradeProfile)) {

@@ -4,6 +4,8 @@ import { compareToMeta } from '../shared/communityMeta'
 import type { Deck } from '../shared/types'
 import { t } from '../shared/i18n'
 import { useDeckLists } from './community/useDeckLists'
+import { PracticeRecord } from './practice/PracticeRecord'
+import { recordsFor } from '../shared/practice/results'
 
 /** Fewer lists than this and the comparison says so instead of guessing. */
 const MIN_LISTS = 5
@@ -19,6 +21,8 @@ export function DeckMetaCompare({ deck }: { deck: Deck }) {
   const { supported, gameId, game, cardsById, lists, archetype: legendCode, decks, identityCard } = useDeckLists(deck, open)
   const alerted = useAppStore((s) => (legendCode ? (s.settings.listAlerts?.legends ?? []).includes(legendCode) : false))
   const setLegendAlert = useAppStore((s) => s.setLegendAlert)
+  const practiceResults = useAppStore((s) => s.settings.practiceResults)
+  const practice = useMemo(() => recordsFor(practiceResults, deck.id), [practiceResults, deck.id])
 
   const comparison = useMemo(() => (open && lists && legendCode ? compareToMeta(deck, decks, cardsById) : null), [open, lists, legendCode, deck, decks, cardsById])
 
@@ -68,6 +72,7 @@ export function DeckMetaCompare({ deck }: { deck: Deck }) {
             )}
           </div>
         ))}
+      {open && practice.length > 0 && <PracticeRecord records={practice} />}
     </section>
   )
 }

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useCardsById } from '../../state/useAppStore'
+import { useAppStore, useCardsById } from '../../state/useAppStore'
+import { recordsFor } from '../../shared/practice/results'
+import { PracticeRecord } from './PracticeRecord'
+import { packState, unpackState } from '../../shared/practice/serialize'
 import { useCommunityLists } from '../../state/communityLists'
 import { communityGame } from '../../shared/communityGames'
 import { legendMeta, listDeck } from '../../shared/communityMeta'
@@ -40,69 +43,148 @@ import { CardDetailModal } from '../CardDetailModal'
 const BOT_STEP_MS = 650
 const HISTORY = 60
 
-type Opponent = { kind: 'none' } | { kind: 'legend'; legendId: string }
+/** Who the bot plays: a random recent list for a Legend, one list, or one of your decks. */
+type Opponent = { kind: 'none' } | { kind: 'legend'; legendId: string; listId: string | null } | { kind: 'deck'; deckId: string }
+
+/** What a game is against, for its result. */
+interface GameMeta {
+  opponentId: string
+  opponentName: string
+  level: Level
+  byHand: boolean
+}
+
+/** The game in progress for a deck, kept on this device to resume. */
+const saveKey = (deckId: string) => `brewhouse.practice.riftbound.${deckId}`
+const TIMELINE = 800
+
+function readSave(deckId: string, cardsById: Map<string, Card>): { meta: GameMeta; state: GameState } | null {
+  try {
+    const raw = localStorage.getItem(saveKey(deckId))
+    if (!raw) return null
+    const { meta, state } = JSON.parse(raw) as { meta: GameMeta; state: string }
+    const game = unpackState(state, cardsById)
+    return game && meta ? { meta, state: game } : null
+  } catch {
+    return null
+  }
+}
+
+function writeSave(deckId: string, meta: GameMeta, state: GameState | null) {
+  try {
+    if (!state || state.phase === 'over') localStorage.removeItem(saveKey(deckId))
+    else localStorage.setItem(saveKey(deckId), JSON.stringify({ meta, state: packState(state) }))
+  } catch {
+    // storage full or blocked: the game just can't be resumed
+  }
+}
 
 /**
  * A Riftbound practice game (shared/practice/riftbound.ts) on a real board: against nobody, or
- * against the bot playing a recent Community list (riftboundBot.ts). You play your side by hand.
- * The game runs turns, paying, moves, showdowns, combat and scoring, and the card text it can read;
- * anything else is yours to apply with the tools on a selected unit or the side bars.
+ * against the bot playing a recent Community list or one of your decks (riftboundBot.ts). The game
+ * in progress is saved on the device to resume; a finished one can be replayed step by step, and
+ * its result counts toward your record with the deck (practice/results.ts).
  */
 export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => void }) {
   const cardsById = useCardsById('riftbound')
+  const addPracticeResult = useAppStore((s) => s.addPracticeResult)
   const [game, setGame] = useState<GameState | null>(null)
+  const [meta, setMeta] = useState<GameMeta | null>(null)
   const [history, setHistory] = useState<GameState[]>([])
   const [botRunning, setBotRunning] = useState(false)
-  const [level, setLevel] = useState<Level>('normal')
+  /** Every state the game went through, for the replay. */
+  const [timeline, setTimeline] = useState<GameState[]>([])
+  const [replayAt, setReplayAt] = useState<number | null>(null)
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
   /**
    * Shows a new state; while the bot has a move (its turn, or a showdown waiting on it), it makes
-   * them one at a time, stopping when a showdown waits on you.
+   * them one at a time, stopping when a showdown waits on you. Saves it, and records the result
+   * when the game ends.
    */
-  function show(next: GameState, botLevel = level) {
+  function show(next: GameState, m: GameMeta, previous: GameState | null) {
     setGame(next)
+    setTimeline((t) => [...t, next].slice(-TIMELINE))
+    writeSave(deck.id, m, next)
+    if (next.phase === 'over' && previous?.phase !== 'over' && !next.players[BOT].empty && next.winner != null) {
+      addPracticeResult({
+        at: new Date().toISOString(),
+        deckId: deck.id,
+        opponentId: m.opponentId,
+        opponentName: m.opponentName,
+        won: next.winner === 0,
+        points: [next.players[0].points, next.players[1].points],
+        level: m.level,
+        byHand: m.byHand,
+      })
+    }
     const bots = !next.players[BOT].empty && botShouldAct(next, BOT)
     setBotRunning(bots)
     if (!bots) return
-    timers.current.push(setTimeout(() => show(botAct(next, BOT, botLevel), botLevel), BOT_STEP_MS))
+    timers.current.push(setTimeout(() => show(botAct(next, BOT, m.level), m, next), BOT_STEP_MS))
   }
 
   function update(next: GameState) {
-    if (!game || next === game) return
+    if (!game || !meta || next === game) return
     setHistory((h) => [...h, game].slice(-HISTORY))
-    show(next)
+    show(next, meta, game)
   }
 
-  if (!game) {
-    return (
-      <Setup
-        deck={deck}
-        cardsById={cardsById}
-        onStart={(g, l) => {
-          setLevel(l)
-          show(g, l)
-        }}
-        onClose={onClose}
-      />
-    )
+  function begin(g: GameState, m: GameMeta) {
+    setMeta(m)
+    setHistory([])
+    setTimeline([])
+    setReplayAt(null)
+    show(g, m, null)
   }
 
+  if (!game || !meta) {
+    return <Setup deck={deck} cardsById={cardsById} onStart={begin} onClose={onClose} />
+  }
+
+  const replaying = replayAt != null
   return (
     <Modal label={t.practiceGame.title(deck.name)} className="rb-game-modal" onClose={onClose}>
+      {replaying && (
+        <div className="rb-prompt rb-replay" role="group" aria-label={t.practiceGame.replay}>
+          <button className="btn" disabled={replayAt === 0} onClick={() => setReplayAt((i) => Math.max(0, (i ?? 0) - 1))} aria-label={t.practiceGame.replayBack}>
+            ◀
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={timeline.length - 1}
+            value={replayAt}
+            aria-label={t.practiceGame.replayStep(replayAt + 1, timeline.length)}
+            onChange={(e) => setReplayAt(Number(e.target.value))}
+          />
+          <button className="btn" disabled={replayAt >= timeline.length - 1} onClick={() => setReplayAt((i) => Math.min(timeline.length - 1, (i ?? 0) + 1))} aria-label={t.practiceGame.replayForward}>
+            ▶
+          </button>
+          <span className="text-dim">{t.practiceGame.replayStep(replayAt + 1, timeline.length)}</span>
+          <button className="btn" onClick={() => setReplayAt(null)}>
+            {t.practiceGame.replayExit}
+          </button>
+        </div>
+      )}
       <Board
-        game={game}
-        busy={botRunning}
-        canUndo={history.length > 0 && !botRunning}
+        game={replaying ? timeline[replayAt] : game}
+        busy={botRunning || replaying}
+        canUndo={history.length > 0 && !botRunning && !replaying}
         onUndo={() => {
-          setGame(history[history.length - 1])
+          const back = history[history.length - 1]
+          setGame(back)
           setHistory((h) => h.slice(0, -1))
+          writeSave(deck.id, meta, back)
         }}
         onChange={update}
+        onReplay={game.phase === 'over' && timeline.length > 1 && !replaying ? () => setReplayAt(0) : undefined}
         onRestart={() => {
+          writeSave(deck.id, meta, null)
           setGame(null)
+          setMeta(null)
           setHistory([])
         }}
         onClose={onClose}
@@ -113,13 +195,17 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
 
 // ---------- choosing the opponent ----------
 
-function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: Map<string, Card>; onStart: (g: GameState, level: Level) => void; onClose: () => void }) {
+function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: Map<string, Card>; onStart: (g: GameState, meta: GameMeta) => void; onClose: () => void }) {
   const { lists } = useCommunityLists('riftbound', true)
   const legends = useMemo(() => legendMeta(lists ?? []).slice(0, 30), [lists])
+  const myDecks = useAppStore((s) => s.decks).filter((d) => d.gameId === 'riftbound')
+  const results = useAppStore((s) => s.settings.practiceResults)
+  const records = useMemo(() => recordsFor(results, deck.id), [results, deck.id])
   const [opponent, setOpponent] = useState<Opponent>({ kind: 'none' })
   const [first, setFirst] = useState<'random' | 'me' | 'them'>('random')
   const [level, setLevel] = useState<Level>('normal')
   const [manual, setManual] = useState(true)
+  const saved = useMemo(() => readSave(deck.id, cardsById), [deck.id, cardsById])
   const mine = useMemo(() => setupFromDeck(deck, cardsById), [deck, cardsById])
   // How many of the deck's different cards the game runs by itself.
   const coverage = useMemo(() => {
@@ -132,24 +218,34 @@ function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: M
     mine.main.length + (mine.champion ? 1 : 0) < 20 && t.practiceGame.needCards,
     mine.runes.length === 0 && t.practiceGame.needRunes,
   ].filter(Boolean) as string[]
+  const legendLists = opponent.kind === 'legend' ? (lists ?? []).filter((l) => l.legendId === opponent.legendId) : []
+  const opponentId = opponent.kind === 'legend' ? opponent.legendId : opponent.kind === 'deck' ? `deck:${opponent.deckId}` : null
+  const record = opponentId ? records.find((r) => r.opponentId === opponentId) : undefined
 
   function start() {
     let them = null
+    let name = ''
     if (opponent.kind === 'legend' && lists) {
       const index = communityGame('riftbound').index(cardsById.values())
-      // A random recent list with that Legend.
-      const pool = lists.filter((l) => l.legendId === opponent.legendId)
-      for (const list of [...pool].sort(() => Math.random() - 0.5)) {
+      const pool = opponent.listId ? legendLists.filter((l) => l.id === opponent.listId) : [...legendLists].sort(() => Math.random() - 0.5)
+      for (const list of pool) {
         const d = listDeck(list, index)
         if (d) {
           them = setupFromDeck(d, cardsById)
+          name = list.legendName
           break
         }
+      }
+    } else if (opponent.kind === 'deck') {
+      const theirs = myDecks.find((d) => d.id === opponent.deckId)
+      if (theirs) {
+        them = setupFromDeck(theirs, cardsById)
+        name = theirs.name
       }
     }
     let g = newGame(mine, them, { first: first === 'me' ? 0 : first === 'them' ? 1 : undefined, manual })
     if (them) g = botMulligan(g)
-    onStart(g, level)
+    onStart(g, { opponentId: them && opponentId ? opponentId : 'nobody', opponentName: them ? name : t.practiceGame.nobody, level, byHand: manual })
   }
 
   return (
@@ -161,6 +257,14 @@ function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: M
         </button>
       </div>
       <p className="text-dim">{t.practiceGame.intro}</p>
+      {saved && (
+        <div className="rb-prompt">
+          <span>{t.practiceGame.resumeText(saved.meta.opponentName, saved.state.turn, saved.state.players[0].points, saved.state.players[1].points)}</span>
+          <button className="btn btn-primary" onClick={() => onStart(saved.state, saved.meta)}>
+            {t.practiceGame.resume}
+          </button>
+        </div>
+      )}
       {problems.length > 0 ? (
         <ul className="sync-error">
           {problems.map((p) => (
@@ -172,37 +276,65 @@ function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: M
           <label className="rb-setup-row">
             <span>{t.practiceGame.opponent}</span>
             <select
-              value={opponent.kind === 'none' ? '' : opponent.legendId}
-              onChange={(e) => setOpponent(e.target.value ? { kind: 'legend', legendId: e.target.value } : { kind: 'none' })}
+              value={opponent.kind === 'none' ? '' : opponent.kind === 'legend' ? `legend:${opponent.legendId}` : `deck:${opponent.deckId}`}
+              onChange={(e) => {
+                const v = e.target.value
+                setOpponent(v.startsWith('legend:') ? { kind: 'legend', legendId: v.slice(7), listId: null } : v.startsWith('deck:') ? { kind: 'deck', deckId: v.slice(5) } : { kind: 'none' })
+              }}
             >
               <option value="">{t.practiceGame.nobody}</option>
-              {legends.map((m) => (
-                <option key={m.legendId} value={m.legendId}>
-                  {t.practiceGame.botWith(m.legendName, m.lists)}
-                </option>
-              ))}
+              {legends.length > 0 && (
+                <optgroup label={t.practiceGame.botLists}>
+                  {legends.map((m) => (
+                    <option key={m.legendId} value={`legend:${m.legendId}`}>
+                      {t.practiceGame.botWith(m.legendName, m.lists)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label={t.practiceGame.botDecks}>
+                {myDecks.map((d) => (
+                  <option key={d.id} value={`deck:${d.id}`}>
+                    {d.id === deck.id ? t.practiceGame.mirror(d.name) : d.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </label>
-          {!lists && <p className="text-dim">{t.communityLists.loading}</p>}
-          {opponent.kind !== 'none' && (
+          {opponent.kind === 'legend' && legendLists.length > 0 && (
             <label className="rb-setup-row">
-              <span>{t.practiceGame.goesFirst}</span>
-              <select value={first} onChange={(e) => setFirst(e.target.value as typeof first)}>
-                <option value="random">{t.practiceGame.firstRandom}</option>
-                <option value="me">{t.practiceGame.firstMe}</option>
-                <option value="them">{t.practiceGame.firstThem}</option>
+              <span>{t.practiceGame.whichList}</span>
+              <select value={opponent.listId ?? ''} onChange={(e) => setOpponent({ ...opponent, listId: e.target.value || null })}>
+                <option value="">{t.practiceGame.randomList}</option>
+                {legendLists.slice(0, 40).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {[l.eventName, l.rank != null ? `#${l.rank}` : null, l.player].filter(Boolean).join(' · ')}
+                  </option>
+                ))}
               </select>
             </label>
           )}
+          {record && <p className="rb-record">{t.practiceGame.recordAgainst(record.wins, record.losses)}</p>}
+          {!lists && <p className="text-dim">{t.communityLists.loading}</p>}
           {opponent.kind !== 'none' && (
-            <label className="rb-setup-row">
-              <span>{t.practiceGame.level}</span>
-              <select value={level} onChange={(e) => setLevel(e.target.value as Level)}>
-                <option value="easy">{t.practiceGame.easy}</option>
-                <option value="normal">{t.practiceGame.normal}</option>
-                <option value="hard">{t.practiceGame.hard}</option>
-              </select>
-            </label>
+            <>
+              <label className="rb-setup-row">
+                <span>{t.practiceGame.goesFirst}</span>
+                <select value={first} onChange={(e) => setFirst(e.target.value as typeof first)}>
+                  <option value="random">{t.practiceGame.firstRandom}</option>
+                  <option value="me">{t.practiceGame.firstMe}</option>
+                  <option value="them">{t.practiceGame.firstThem}</option>
+                </select>
+              </label>
+              <label className="rb-setup-row">
+                <span>{t.practiceGame.level}</span>
+                <select value={level} onChange={(e) => setLevel(e.target.value as Level)}>
+                  <option value="easy">{t.practiceGame.easy}</option>
+                  <option value="normal">{t.practiceGame.normal}</option>
+                  <option value="hard">{t.practiceGame.hard}</option>
+                </select>
+              </label>
+            </>
           )}
           <label className="rb-setup-row">
             <span>{t.practiceGame.rules}</span>
@@ -214,6 +346,7 @@ function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: M
           <p className="text-dim">{manual ? t.practiceGame.manualHelp : t.practiceGame.coverage(coverage.auto, coverage.total)}</p>
           {noMight && <p className="text-dim">{t.practiceGame.noMight}</p>}
           <p className="text-dim">{opponent.kind === 'none' ? t.practiceGame.nobodyHelp : t.practiceGame.botHelp}</p>
+          {records.length > 0 && <PracticeRecord records={records} />}
           <div className="announcement-actions">
             <button className="btn btn-primary" onClick={start}>
               {t.practiceGame.start}
@@ -233,11 +366,13 @@ interface BoardProps {
   canUndo: boolean
   onUndo: () => void
   onChange: (g: GameState) => void
+  /** After the game: step through it again. */
+  onReplay?: () => void
   onRestart: () => void
   onClose: () => void
 }
 
-function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: BoardProps) {
+function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onRestart, onClose }: BoardProps) {
   const [selected, setSelected] = useState<string[]>([])
   const [handPick, setHandPick] = useState<number | null>(null)
   const [mulliganPick, setMulliganPick] = useState<number[]>([])
@@ -382,6 +517,11 @@ function Board({ game, busy, canUndo, onUndo, onChange, onRestart, onClose }: Bo
           <button className="btn" onClick={() => setShowLog((v) => !v)} aria-pressed={showLog}>
             {t.practiceGame.log}
           </button>
+          {onReplay && (
+            <button className="btn" onClick={onReplay}>
+              {t.practiceGame.replay}
+            </button>
+          )}
           <button className="btn" onClick={onRestart}>
             {t.practiceGame.newGame}
           </button>

@@ -5993,3 +5993,17 @@
   font-size: 12px;
   padding: 3px 6px;
 }
+
+.rb-record {
+  font-weight: 600;
+}
+
+.rb-records ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+
+.rb-replay input[type='range'] {
+  flex: 1 1 200px;
+}

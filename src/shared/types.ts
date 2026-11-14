@@ -364,6 +364,8 @@ export interface AppSettings {
   banListsSeen?: Record<string, import('./banLists').BanSnapshot>
   /** Ticked "Share anonymous usage counts" (shared/usage.ts). Unset or false: nothing is counted or sent. */
   usageStats?: boolean
+  /** Practice games played against the bot, newest first (practice/results.ts). This device only. */
+  practiceResults?: import('./practice/results').PracticeResult[]
 }
 
 /** A community list whose cost to finish you're watching: say so once when it drops to `target` (USD) or below. */
