@@ -41,13 +41,13 @@ npx vitest run
 npx vite build
 npx electron-builder --linux --publish never --config.directories.output="$WORK/linux"
 
-# A test version (0.60.0-beta.1) goes out as a GitHub pre-release. Its build writes beta.yml; the app
-# always reads latest.yml (electron/ipc/updater.ts), so the release carries that too. Copies without
-# early access never see a pre-release.
+# A test version (0.60.0-beta.1) goes out as a GitHub pre-release. The app always reads latest.yml
+# (electron/ipc/updater.ts); electron-builder normally writes that even for a beta version, and if it
+# wrote beta.yml instead, that's copied over. Copies without early access never see a pre-release.
 case "$VERSION" in *-beta.*) PRE=1 ;; *) PRE=0 ;; esac
 if [ "$PRE" = 1 ]; then
-  [ -f "$WORK/win/beta.yml" ] && cp "$WORK/win/beta.yml" "$WORK/win/latest.yml"
-  [ -f "$WORK/linux/beta-linux.yml" ] && cp "$WORK/linux/beta-linux.yml" "$WORK/linux/latest-linux.yml"
+  if [ -f "$WORK/win/beta.yml" ]; then cp "$WORK/win/beta.yml" "$WORK/win/latest.yml"; fi
+  if [ -f "$WORK/linux/beta-linux.yml" ]; then cp "$WORK/linux/beta-linux.yml" "$WORK/linux/latest-linux.yml"; fi
 fi
 for f in "$WORK/win/Deckbuilder-Setup.exe" "$WORK/win/latest.yml" "$WORK/win/Deckbuilder-Setup.exe.blockmap" \
          "$WORK/linux/Deckbuilder.AppImage" "$WORK/linux/latest-linux.yml"; do
