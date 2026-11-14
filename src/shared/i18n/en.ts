@@ -305,6 +305,8 @@ export const en = {
     restore: 'Restore…',
     autoBackupsTitle: 'Snapshots are taken automatically on launch and before edits',
     openAutoBackups: 'Open auto-backups folder',
+    earlyAccess: 'Early access: get test versions first',
+    earlyAccessTitle: 'Test versions come out before everyone gets them, and may have rough edges. You still get every regular update. Untick to go back to regular updates only (from the next one on).',
     checkUpdates: 'Check for updates',
     patchNotes: 'Patch notes',
     support: 'Support the project',

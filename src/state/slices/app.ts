@@ -44,6 +44,8 @@ export function createAppSlice(ctx: StoreContext) {
         const [decks, settings] = await Promise.all([window.api.decks.list(), window.api.settings.get()])
         set({ decks, settings })
         applyTheme(settings.theme)
+        // The updater learns whether to take test versions before its first check.
+        if (settings.earlyAccess) void window.api.updater.setEarlyAccess(true)
         // Prices: the picked currency with the last known rate straight away, fresher rates in the background.
         const currency = settings.currency ?? (typeof navigator !== 'undefined' && /^es-MX/i.test(navigator.language) ? 'MXN' : 'USD')
         setDisplayCurrency(currency, settings.currencyRates?.rates)
@@ -170,6 +172,12 @@ export function createAppSlice(ctx: StoreContext) {
       const practiceResults = [result, ...(get().settings.practiceResults ?? [])].slice(0, 300)
       set((s) => ({ settings: { ...s.settings, practiceResults } }))
       persistSettings({ practiceResults })
+    },
+
+    setEarlyAccess: (on) => {
+      set((s) => ({ settings: { ...s.settings, earlyAccess: on } }))
+      persistSettings({ earlyAccess: on })
+      void window.api.updater.setEarlyAccess(on)
     },
 
     setUsageStats: (on) => {

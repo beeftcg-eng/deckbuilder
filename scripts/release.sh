@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # One command from "the work is committed" to a published release:
 #
-#   scripts/release.sh <release-notes.md> [patch|minor|major]     (default: minor)
+#   scripts/release.sh <release-notes.md> [patch|minor|major|beta]     (default: minor)
+#
+# beta: a test version for early access (0.60.0-beta.0, then -beta.1...), published as a GitHub
+# pre-release that only copies with Early access ticked take. The next minor release finishes it.
 #
 # Bumps the version, commits "vX.Y.Z: <the notes' first line>", tags it, pushes master and the tag
 # (which starts the "Build Windows installer" workflow), waits for that build, then runs
@@ -17,7 +20,7 @@ cd "$(dirname "$0")/.."
 NOTES="${1:-}"
 BUMP="${2:-minor}"
 [ -n "$NOTES" ] && [ -f "$NOTES" ] || { sed -n '4p' "$0" | sed 's/^#   //' >&2; exit 1; }
-case "$BUMP" in patch|minor|major) ;; *) echo "The bump is patch, minor or major, not '$BUMP'." >&2; exit 1 ;; esac
+case "$BUMP" in patch|minor|major|beta) ;; *) echo "The bump is patch, minor, major or beta, not '$BUMP'." >&2; exit 1 ;; esac
 [ "$(git rev-parse --abbrev-ref HEAD)" = master ] || { echo "Switch to master first." >&2; exit 1; }
 [ -z "$(git status --porcelain)" ] || { echo "Working tree isn't clean; commit the work first." >&2; exit 1; }
 
@@ -26,7 +29,13 @@ npx tsc -b
 npx oxlint >/dev/null
 npx vitest run >/dev/null
 
-npm version "$BUMP" --no-git-tag-version >/dev/null
+if [ "$BUMP" = beta ]; then
+  # 0.59.0 -> 0.60.0-beta.0, then 0.60.0-beta.1...
+  if node -p "require('./package.json').version" | grep -q -- '-beta\.'; then npm version prerelease --preid beta --no-git-tag-version >/dev/null
+  else npm version preminor --preid beta --no-git-tag-version >/dev/null; fi
+else
+  npm version "$BUMP" --no-git-tag-version >/dev/null
+fi
 VERSION="$(node -p "require('./package.json').version")"
 TAG="v$VERSION"
 TITLE="$(grep -m1 . "$NOTES" | sed -E 's/\*\*//g; s/^#+ *//')"

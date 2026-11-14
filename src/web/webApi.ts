@@ -648,6 +648,8 @@ const updater = {
     const reg = await navigator.serviceWorker?.getRegistration()
     await reg?.update()
   },
+  /** The phone app has no test versions: it's always the one published. */
+  setEarlyAccess: async (_on: boolean): Promise<void> => {},
   install: async (): Promise<void> => {
     window.location.reload()
   },

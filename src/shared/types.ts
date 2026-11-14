@@ -366,6 +366,8 @@ export interface AppSettings {
   usageStats?: boolean
   /** Practice games played against the bot, newest first (practice/results.ts). This device only. */
   practiceResults?: import('./practice/results').PracticeResult[]
+  /** Early access: the desktop app takes test versions as well (electron/ipc/updater.ts). */
+  earlyAccess?: boolean
 }
 
 /** A community list whose cost to finish you're watching: say so once when it drops to `target` (USD) or below. */

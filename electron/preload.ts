@@ -126,6 +126,8 @@ const api = {
     status: (): Promise<UpdateStatus> => ipcRenderer.invoke('updater:status'),
     check: (): Promise<void> => ipcRenderer.invoke('updater:check'),
     install: (): Promise<void> => ipcRenderer.invoke('updater:install'),
+    /** Early access: test versions as well (GitHub pre-releases on the beta channel). */
+    setEarlyAccess: (on: boolean): Promise<void> => ipcRenderer.invoke('updater:earlyAccess', on),
     onStatus: (callback: (status: UpdateStatus) => void): (() => void) => {
       const listener = (_e: unknown, status: UpdateStatus) => callback(status)
       ipcRenderer.on('updater:status', listener)

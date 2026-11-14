@@ -111,6 +111,7 @@ export function Sidebar() {
   const [showAccount, setShowAccount] = useState(false)
   const [showPairings, setShowPairings] = useState(false)
   const pairingsConfig = useAppStore((s) => s.pairingsConfig)
+  const earlyAccess = useAppStore((s) => s.settings.earlyAccess === true)
   // The command palette (CommandPalette.tsx) opens these windows.
   useCommand('import', () => setShowImport(true))
   useCommand('community', () => setShowCommunity(true))
@@ -586,6 +587,12 @@ export function Sidebar() {
             )}
           </div>
           {describeUpdate(updateStatus) && <div className={updateStatus.state === 'error' ? 'sync-error' : 'text-dim'}>{describeUpdate(updateStatus)}</div>}
+          {!__WEB__ && updateStatus.state !== 'disabled' && (
+            <label className="usage-toggle" title={t.sidebar.earlyAccessTitle}>
+              <input type="checkbox" checked={earlyAccess} onChange={(e) => useAppStore.getState().setEarlyAccess(e.target.checked)} />
+              {t.sidebar.earlyAccess}
+            </label>
+          )}
           <div className="version-line">
             <button className="link-btn" onClick={() => setShowPatchNotes(true)}>
               {t.sidebar.patchNotes}

@@ -29,13 +29,23 @@ function setStatus(next: UpdateStatus): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('updater:status', status)
 }
 
+/**
+ * Early access (the setting): test versions as well, published as GitHub pre-releases
+ * (scripts/release.sh beta). Without it, GitHub's newest regular release is all the app sees.
+ */
+let earlyAccess = false
+
 let configured = false
 function configure(): void {
   if (configured) return
   configured = true
   autoUpdater.autoDownload = true // fetch in the background as soon as one is found…
   autoUpdater.autoInstallOnAppQuit = true // …and install it when the app is closed, even if the banner is ignored
-  autoUpdater.allowPrerelease = false
+  // Always the latest.yml files (a test version's release carries them too): with early access, the
+  // newest release including pre-releases; without, the newest regular one. Never backwards.
+  autoUpdater.channel = 'latest'
+  autoUpdater.allowDowngrade = false
+  autoUpdater.allowPrerelease = earlyAccess
   autoUpdater.logger = console
 
   autoUpdater.on('checking-for-update', () => setStatus({ state: 'checking', version }))
@@ -57,6 +67,13 @@ function checkNow(): void {
 export function registerUpdaterIpc(): void {
   ipcMain.handle('updater:status', (): UpdateStatus => status)
   ipcMain.handle('updater:check', (): void => checkNow())
+  ipcMain.handle('updater:earlyAccess', (_e, on: unknown): void => {
+    const next = on === true
+    if (next === earlyAccess) return
+    earlyAccess = next
+    if (configured) autoUpdater.allowPrerelease = earlyAccess
+    checkNow()
+  })
   ipcMain.handle('updater:install', (): void => {
     if (status.state === 'ready') autoUpdater.quitAndInstall(false, true) // close, install, and reopen the new version
   })

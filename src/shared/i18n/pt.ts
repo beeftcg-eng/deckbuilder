@@ -294,6 +294,8 @@ export const pt: Messages = {
     restore: 'Restaurar…',
     autoBackupsTitle: 'Instantâneos são feitos automaticamente ao abrir o app e antes de cada mudança',
     openAutoBackups: 'Abrir pasta de backups automáticos',
+    earlyAccess: 'Acesso antecipado: receba primeiro as versões de teste',
+    earlyAccessTitle: 'As versões de teste saem antes de chegar a todos e podem ter arestas. Você continua recebendo todas as atualizações normais. Desmarque para voltar só às normais (a partir da próxima).',
     checkUpdates: 'Procurar atualizações',
     patchNotes: 'Notas da versão',
     support: 'Apoie o projeto',

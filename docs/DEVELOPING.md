@@ -24,7 +24,7 @@ The app's state is one zustand store (`src/state/useAppStore.ts`) built from sli
 
 **Publishing a release** (maintainers): with the work committed on master, `scripts/release.sh notes.md [patch|minor|major]` does it all: checks, bumps the version, commits `vX.Y.Z: <the notes' first line>`, tags and pushes, waits for the Windows build, and publishes (it stops before publishing if that build fails). By hand: bump the version in `package.json`, commit and push, push a `v*` tag (or run the *Build Windows installer* workflow) and wait for it to succeed, then run `scripts/publish-release.sh [notes-file]`. It fetches the Windows build, builds the AppImage, checks both update manifests match the version, and creates the release in the downloads repo. The manifests (`latest.yml`, `latest-linux.yml`) are what installed copies read, so a release without them can't update anyone.
 
-Release in batches: a handful of changes a week as one version, not one release per fix. Each release is an update prompt for everyone, and fewer, fuller patch notes are easier to read.
+Release in batches (and use `scripts/release.sh notes.md beta` for a test version first: it goes out as a GitHub pre-release that only copies with **Early access** ticked take, at the bottom of the sidebar): a handful of changes a week as one version, not one release per fix. Each release is an update prompt for everyone, and fewer, fuller patch notes are easier to read.
 
 ## Building an installer
 
