@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyTool, canPlay, endTurn, move, mulligan, newGame, pass, play as playOnChain, runeCount, settle, type DeckSetup, type GameState, type Unit } from './riftbound'
+import { activate, applyTool, canActivate, canPlay, combatMight, endTurn, move, mulligan, newGame, pass, play as playOnChain, runeCount, settle, type DeckSetup, type GameState, type Unit } from './riftbound'
 import { BOT, botAct, botMulligan, botShouldAct, setupFromDeck, type Level } from './riftboundBot'
 import { makeCard, makeDeck } from '../testFixtures'
 import { scriptOf } from './riftboundEffects'
@@ -149,7 +149,7 @@ describe('card text the game runs', () => {
     expect(scriptOf(rally)).toMatchObject({ full: true, timing: 'action', spell: [{ kind: 'might', amount: 3, target: { who: 'friendly' } }] })
     expect(scriptOf(scout).abilities).toEqual([{ trigger: 'play', effects: [{ kind: 'draw', amount: 1 }] }])
     expect(scriptOf(bomber).abilities[0]).toMatchObject({ trigger: 'death', effects: [{ kind: 'token', count: 2, might: 1, name: 'Recruit' }] })
-    expect(scriptOf(makeCard('riftbound', { name: 'X', category: 'Spell', text: 'Counter a spell.' })).full).toBe(false)
+    expect(scriptOf(makeCard('riftbound', { name: 'X', category: 'Spell', text: 'Banish a spell.' })).full).toBe(false)
     expect(scriptOf(makeCard('riftbound', { name: 'Y', category: 'Spell', text: 'Give enemy units -2 :rb_might: this turn, to a minimum of 1 :rb_might:.' })).spell[0]).toMatchObject({ kind: 'might', amount: -2, floor: 1, target: { who: 'enemy', all: true } })
   })
 
@@ -181,7 +181,10 @@ describe('card text the game runs', () => {
     state.battlefields[0].units = [{ uid: 'd', card: unit('Guard', 2, 2), owner: 1, might: 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: { assault: 0, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false } }]
     state.players[0].base = [{ uid: 'a', card: unit('Two', 2, 2), owner: 0, might: 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: { assault: 0, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false } }]
     let t = move(state, 0, ['a'], 0)
-    expect(t.showdown).toMatchObject({ battlefield: 0, attacker: 0, focus: 1 })
+    // The attacker has the focus first (Core Rules 345), then the defender.
+    expect(t.showdown).toMatchObject({ battlefield: 0, attacker: 0, focus: 0 })
+    expect(canPlay(t, 1, rally)).toBe(false)
+    t = pass(t, 0)
     expect(canPlay(t, 1, rally)).toBe(true) // the defender may answer with an Action
     t = play(t, 1, 0, { targets: ['d'] })
     expect(t.showdown?.focus).toBe(0)
@@ -222,12 +225,12 @@ describe('the bot', () => {
     const k = { assault: 0, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false }
     state.battlefields[0] = { ...state.battlefields[0], controller: 1, units: [{ uid: 'd', card: unit('Guard', 2, 2), owner: 1, might: 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: k }] }
     state.players[0].base = [{ uid: 'a', card: unit('Two', 2, 2), owner: 0, might: 2, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: k }]
-    s = move(state, 0, ['a'], 0)
+    s = pass(move(state, 0, ['a'], 0), 0)
     expect(botShouldAct(s, BOT)).toBe(true)
     const hard = botAct(s, BOT, 'hard')
     expect(hard.chain?.items.map((i) => i.card.name)).toEqual(['Rally'])
     const normal = botAct(s, BOT, 'normal')
-    expect(normal.showdown?.passes).toBe(1)
+    expect(normal.showdown).toBeNull() // it passed too: combat happened
   })
 
   it('reads a deck: Legend, Chosen Champion out of the main deck, battlefields and runes', () => {
@@ -406,7 +409,7 @@ describe('the chain: priority and answering with a Reaction', () => {
     s.players[0].hand = []
     s.players[1].hand = [gust]
     s.players[0].base = [piece('a', unit('Two', 2, 2), 0)]
-    let t = move(s, 0, ['a'], 0)
+    let t = pass(move(s, 0, ['a'], 0), 0)
     expect(t.showdown?.focus).toBe(1)
     t = playOnChain(t, 1, 0, { targets: ['a'] })
     expect(t.chain?.priority).toBe(0)
@@ -414,5 +417,96 @@ describe('the chain: priority and answering with a Reaction', () => {
     expect(t.chain).toBeNull()
     expect(t.showdown?.focus).toBe(0)
     expect(t.players[0].hand.map((c) => c.name)).toEqual(['Two'])
+  })
+})
+
+describe('more card text: recall, keywords this turn, counters, modes, abilities', () => {
+  const k = { assault: 0, shield: 0, tank: false, backline: false, ganking: false, accelerate: false, temporary: false }
+  const piece = (uid: string, owner: 0 | 1, might = 2): Unit => ({ uid, card: unit(`P${uid}`, 2, might), owner, might, bonus: 0, temp: 0, buffed: false, token: false, damage: 0, exhausted: false, stunned: false, keywords: k })
+  const spell = (name: string, text: string, cost = '0') => makeCard('riftbound', { name, category: 'Spell', cost, colors: ['Fury'], text })
+
+  it('reads the new wordings, and runs what it can of a spell it only partly reads', () => {
+    expect(scriptOf(spell('Isolate', 'Move an enemy unit from a battlefield to its base.')).spell).toEqual([{ kind: 'recall', target: { who: 'enemy', where: 'battlefield', all: false, self: false } }])
+    expect(scriptOf(spell('VB', '[Action] Give a unit [Assault 2] and [Ganking] this turn.')).spell.map((e) => e.kind === 'keyword' && `${e.keyword} ${e.amount}`)).toEqual(['assault 2', 'ganking 1'])
+    expect(scriptOf(spell('Flurry', '[Reaction]Choose one —Counter a spell. Draw 2.')).spell).toEqual([{ kind: 'modes', modes: [[{ kind: 'counter' }], [{ kind: 'draw', amount: 2 }]] }])
+    const partly = scriptOf(spell('Strike', 'Deal 2 to a unit at a battlefield. If you control a facedown card, deal 4 to it instead.'))
+    expect(partly).toMatchObject({ full: false, prefix: [{ kind: 'damage', amount: 2 }], leftover: 'If you control a facedown card, deal 4 to it instead.' })
+    const pyke = scriptOf(makeCard('riftbound', { name: 'Pyke', category: 'Legend', text: ":rb_energy_1:, :rb_exhaust:: Return a friendly unit at a battlefield to its owner's hand. Play a Gold gear token exhausted." }))
+    expect(pyke.activated).toMatchObject([{ energy: 1, power: 0, otherCost: null, effects: null, text: "Return a friendly unit at a battlefield to its owner's hand. Play a Gold gear token exhausted." }])
+    const bloom = scriptOf(makeCard('riftbound', { name: 'Bloom', category: 'Gear', text: '[Action][&gt;] Kill this, :rb_exhaust:: Give a unit +2 :rb_might: this turn.' }))
+    expect(bloom.activated).toMatchObject([{ timing: 'action', otherCost: 'Kill this', effects: [{ kind: 'might', amount: 2 }] }])
+  })
+
+  it('a partly read spell runs its first part and logs the rest', () => {
+    let s = structuredClone(started())
+    s.players[0].hand = [spell('Strike', 'Deal 2 to a unit at a battlefield. If you control a facedown card, deal 4 to it instead.')]
+    s.battlefields[0].units = [piece('d', 1, 3)]
+    s = play(s, 0, 0, { targets: ['d'] })
+    expect(s.battlefields[0].units[0].damage).toBe(2)
+    expect(s.log.at(-1)?.text).toMatch(/the rest is yours: "If you control a facedown card/)
+  })
+
+  it('gives Assault for a turn, and recalls a unit to base', () => {
+    let s = structuredClone(started())
+    s.players[0].hand = [spell('VB', '[Action] Give a unit [Assault 2] this turn.'), spell('Iso', 'Move an enemy unit from a battlefield to its base.')]
+    s.players[0].base = [piece('a', 0)]
+    s.battlefields[0].units = [piece('d', 1)]
+    s = play(s, 0, 0, { targets: ['a'] })
+    expect(combatMight(s.players[0].base[0], true)).toBe(4)
+    s = play(s, 0, 0, { targets: ['d'] })
+    expect(s.players[1].base.map((u) => u.uid)).toEqual(['d'])
+    s = endTurn(s)
+    expect(combatMight(s.players[0].base[0], true)).toBe(2) // the turn ended
+  })
+
+  it('counters the spell below it, with a "Choose one" mode picked', () => {
+    let s = structuredClone(started())
+    const flurry = spell('Flurry', '[Reaction]Choose one —Counter a spell. Draw 2.')
+    s.players[0].hand = [spell('Bolt', 'Deal 3 to a unit.')]
+    s.players[1].hand = [flurry]
+    s.battlefields[0].units = [piece('d', 1)]
+    s = playOnChain(s, 0, 0, { targets: ['d'] })
+    s = playOnChain(s, 1, 0, { mode: 0 })
+    s = settle(s)
+    expect(s.battlefields[0].units).toHaveLength(1) // the Bolt never resolved
+    expect(s.players[0].trash.map((c) => c.name)).toEqual(['Bolt'])
+    expect(s.log.some((l) => l.text === 'Countered Bolt.')).toBe(true)
+  })
+
+  it('counters a card on the chain with the tool', () => {
+    let s = structuredClone(started())
+    s.players[0].hand = [spell('Bolt', 'Deal 3 to a unit.')]
+    s.battlefields[0].units = [piece('d', 1)]
+    s = playOnChain(s, 0, 0, { targets: ['d'] })
+    s = applyTool(s, { kind: 'counter', item: s.chain!.items[0].uid })
+    expect(s.chain).toBeNull()
+    expect(s.battlefields[0].units).toHaveLength(1)
+    expect(s.players[0].trash.map((c) => c.name)).toEqual(['Bolt'])
+  })
+
+  it("uses a Legend's ability: exhausts it, waits on the chain, then resolves", () => {
+    let s = structuredClone(started())
+    s.players[0].legend = makeCard('riftbound', { name: 'Seer', category: 'Legend', text: ':rb_energy_1:, :rb_exhaust:: Draw 1.' })
+    const hand = s.players[0].hand.length
+    expect(canActivate(s, 0, 'legend', 0)).toBe(true)
+    s = activate(s, 0, 'legend', 0)
+    expect(s.players[0].legendExhausted).toBe(true)
+    expect(s.chain?.items[0]).toMatchObject({ ability: 0, card: { name: 'Seer' } })
+    expect(canActivate(s, 0, 'legend', 0)).toBe(false)
+    s = pass(s, 1)
+    expect(s.players[0].hand).toHaveLength(hand + 1)
+    expect(s.players[0].trash).toHaveLength(0) // a Legend stays where it is
+  })
+
+  it('by hand, moving into enemy units opens a showdown, and the fight after it is yours', () => {
+    let s: GameState = structuredClone({ ...started(), manual: [0 as const] })
+    s.players[0].base = [piece('a', 0)]
+    s.battlefields[0].units = [piece('d', 1)]
+    s = move(s, 0, ['a'], 0)
+    expect(s.showdown).toMatchObject({ attacker: 0, focus: 0 })
+    s = pass(pass(s, 0), 1)
+    expect(s.showdown).toBeNull()
+    expect(s.battlefields[0].units).toHaveLength(2) // no automatic combat
+    expect(s.log.at(-1)?.text).toMatch(/fight it out with the tools/)
   })
 })

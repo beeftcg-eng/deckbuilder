@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useCardsById } from '../../../state/useAppStore'
-import { allUnits, bfName, canPlay, combatMight, mightNow, costOf, isUnit, keywordsOf, runeCount, type GameState, type Side, type Tool, type Unit } from '../../../shared/practice/riftbound'
+import { abilitiesOf, allUnits, bfName, canPlay, combatMight, mightNow, costOf, isUnit, keywordsOf, runeCount, type GameState, type Side, type Tool, type Unit } from '../../../shared/practice/riftbound'
 import { DOMAIN_COLORS } from '../../../lib/domainColors'
 import type { Card } from '../../../shared/types'
 import { t } from '../../../shared/i18n'
@@ -27,6 +27,26 @@ function useRuneArt(): Map<string, string> {
 function RuneFace({ domain, art }: { domain: string; art: Map<string, string> }) {
   const src = art.get(domain)
   return src ? <img src={src} alt="" loading="lazy" /> : <span className="rb-rune-noart" style={{ background: DOMAIN_COLORS[domain] ?? 'var(--accent)' }} />
+}
+
+/** Using abilities: whether one can be used now, and using it (Board.tsx picks targets first). */
+export type AbilityHandlers = { ready: (source: string, index: number) => boolean; use: (source: string, index: number) => void }
+
+/** A button per ability of `card` you use by exhausting it. */
+export function AbilityButtons({ card, source, handlers }: { card: Card; source: string; handlers?: AbilityHandlers }) {
+  if (!handlers) return null
+  return (
+    <>
+      {abilitiesOf(card).map((a, i) => {
+        const short = a.text.length > 38 ? `${a.text.slice(0, 36)}…` : a.text
+        return (
+          <button key={i} className="btn rb-ability" disabled={!handlers.ready(source, i)} title={t.practiceGame.abilityTitle(a.text, a.energy, a.power, a.otherCost)} onClick={() => handlers.use(source, i)}>
+            ⚡ {short}
+          </button>
+        )
+      })}
+    </>
+  )
 }
 
 export function CardFace({ card }: { card: Card }) {
@@ -95,6 +115,7 @@ export function Base({
   dragFor,
   drop,
   opponentName,
+  abilities,
 }: {
   game: GameState
   side: Side
@@ -108,6 +129,7 @@ export function Base({
   dragFor?: (u: Unit) => DragProps
   drop?: DropProps
   opponentName?: string
+  abilities?: AbilityHandlers
 }) {
   const p = game.players[side]
   const { className: dropClassName = '', ...dropHandlers } = drop ?? { className: '' }
@@ -132,6 +154,7 @@ export function Base({
             <button className="rb-unit-info" aria-label={t.practiceGame.details(g.card.name)} onClick={() => onDetail(g.card)}>
               ⓘ
             </button>
+            <AbilityButtons card={g.card} source={g.uid} handlers={abilities} />
             {onTool && allUnits(game, side).length > 0 && (
               <select className="rb-equip" aria-label={t.practiceGame.equipTo(g.card.name)} value="" onChange={(e) => e.target.value && onTool({ kind: 'equip', side, gear: g.uid, unit: e.target.value })}>
                 <option value="">{t.practiceGame.equip}</option>
@@ -159,6 +182,7 @@ export function PlayerBar({
   onZones,
   championDrag,
   trashDrop,
+  abilities,
 }: {
   game: GameState
   side: Side
@@ -168,6 +192,7 @@ export function PlayerBar({
   onZones?: (kind: 'deck' | 'trash') => void
   championDrag?: DragProps
   trashDrop?: DropProps
+  abilities?: AbilityHandlers
 }) {
   const p = game.players[side]
   const runes = runeCount(game, side)
@@ -191,6 +216,7 @@ export function PlayerBar({
           {p.legendExhausted ? ` · ${t.practiceGame.exhausted}` : ''}
         </span>
       )}
+      {side === 0 && p.legend && <AbilityButtons card={p.legend} source="legend" handlers={abilities} />}
       <span className="rb-counter rb-points" role="group" aria-label={t.practiceGame.pointsLabel(p.points)}>
         <span className="rb-counter-name">{t.practiceGame.pointsWord}</span>
         {side === 0 && (
@@ -494,11 +520,12 @@ export function HandMenu({
   )
 }
 
-export function UnitTools({ unit, onTool, onDone }: { unit: Unit; onTool: (tl: Tool) => void; onDone: () => void }) {
+export function UnitTools({ unit, onTool, onDone, abilities }: { unit: Unit; onTool: (tl: Tool) => void; onDone: () => void; abilities?: AbilityHandlers }) {
   const id = unit.uid
   return (
     <div className="rb-tools" role="group" aria-label={t.practiceGame.toolsFor(unit.card.name)}>
       <span className="text-dim">{t.practiceGame.toolsFor(unit.card.name)}</span>
+      <AbilityButtons card={unit.card} source={unit.uid} handlers={abilities} />
       <button className="btn" onClick={() => onTool({ kind: 'damage', unit: id, amount: 1 })}>
         {t.practiceGame.damage}
       </button>

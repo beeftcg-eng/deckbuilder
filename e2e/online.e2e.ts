@@ -92,8 +92,11 @@ test('two friends play a Riftbound game online', async ({ browser, isMobile }) =
   await first.getByRole('button', { name: 'Start of turn' }).click()
   await first.getByLabel('Your hand').getByRole('button').first().click()
   await first.getByRole('button', { name: /^Play \(/ }).first().click()
-  // It waits on the chain for the other player, whose app passes for them (nothing to answer with).
+  // It waits on the chain for the other player, who passes (online it never passes by itself: that
+  // would tell you they hold no Reaction).
   await expect(second.getByRole('region', { name: 'On the chain' })).toBeVisible({ timeout: 10_000 })
+  await second.getByRole('button', { name: 'Pass (let it resolve)' }).click()
+  await expect(first.getByLabel('Your base').locator('.rb-unit')).toHaveCount(1, { timeout: 10_000 })
   // The other player sees that unit in the first player's base, on the other side of the board.
   await expect(second.getByLabel(`${firstName}’s base`).locator('.rb-unit')).toHaveCount(1, { timeout: 10_000 })
   // Each player's hand is their own: the other side only ever shows a count.
@@ -106,8 +109,7 @@ test('two friends play a Riftbound game online', async ({ browser, isMobile }) =
   await first.getByRole('button', { name: /Undo/ }).click()
   await expect(second.getByLabel('0 points')).toHaveCount(2, { timeout: 10_000 })
   await expect(first.getByLabel('0 points')).toHaveCount(2)
-  // The unit played before it can't: it went on the chain and the other player answered it (with no
-  // Reaction to play, their app passed for them).
+  // The unit played before it can't: it went on the chain and the other player answered it.
   await expect(first.getByRole('button', { name: /Undo/ })).toBeDisabled()
   await first.getByRole('button', { name: 'End turn' }).click()
   await expect(second.getByText(/Your turn 1/).first()).toBeVisible({ timeout: 10_000 })

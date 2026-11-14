@@ -1530,6 +1530,12 @@ export const en = {
     chainCard: (who: string, card: string) => `${who}: ${card}`,
     markPrompt: (card: string) => `What does ${card} target? Click units (optional), then play it.`,
     markPlay: 'Play it',
+    chainAbility: (card: string) => `${card}'s ability`,
+    counter: 'Counter',
+    counterTitle: 'Counter it: it’s gone (a card goes to its owner’s trash), as a counter spell does',
+    autoPass: 'Pass for me when I can’t answer',
+    modePrompt: (card: string) => `${card}: choose one.`,
+    abilityTitle: (text: string, energy: number, power: number, other: string | null) => `${text}\n\nCost: exhaust${energy ? `, ${energy} Energy` : ''}${power ? `, ${power} Power` : ''}${other ? `, ${other} (do it with the tools)` : ''}`,
     mightNow: (n: number) => `${n} toughness left`,
   },
 

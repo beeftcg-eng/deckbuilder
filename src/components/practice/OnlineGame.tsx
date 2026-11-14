@@ -287,6 +287,8 @@ export function OnlineGame({ deck, onClose }: { deck: Deck; onClose: () => void 
         <Board
           game={game}
           busy={false}
+          // Passing by itself would tell your friend you hold no Reaction: online, you always pass yourself.
+          autoPass={false}
           canUndo={!!undoStack.length && undoStack.at(-1)!.after === seq && !live.current.sending}
           onUndo={undo}
           onChange={(next) => void move(next)}

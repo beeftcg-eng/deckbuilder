@@ -33,12 +33,12 @@ function playGame(a: DeckSetup, b: DeckSetup, weights: [Weights, Weights], level
   for (let step = 0; step < 3000 && s.phase !== 'over'; step++) {
     const side = ([0, 1] as Side[]).find((x) => botShouldAct(s, x))
     if (side == null) {
-      // Nobody's move: a showdown nobody owns, or a stuck turn. Move it along.
-      s = s.showdown ? pass(s, s.showdown.focus) : endTurn(s)
+      // Nobody's move: a chain or showdown nobody owns, or a stuck turn. Move it along.
+      s = s.chain?.items.length ? pass(s, s.chain.priority) : s.showdown ? pass(s, s.showdown.focus) : endTurn(s)
       continue
     }
     const next = botAct(s, side, levels[side], weights[side], random)
-    s = next === s ? (s.showdown ? pass(s, side) : endTurn(s)) : next
+    s = next === s ? (s.chain?.items.length || s.showdown ? pass(s, side) : endTurn(s)) : next
   }
   return s.winner
 }
@@ -100,7 +100,7 @@ async function main() {
         if (winner === side) wins++
       }
     }
-    console.log(`${better} vs ${worse}`.padEnd(22), `${played ? ((100 * wins) / played).toFixed(0) : '–'}% of ${played}`)
+    console.log(`${better} vs ${worse}`.padEnd(22), `${played ? ((100 * wins) / played).toFixed(0) : '–'}% of ${played}`, played < games * 2 ? `(${games * 2 - played} unfinished)` : '')
   }
   if (process.env.LEVELS_ONLY) return
 

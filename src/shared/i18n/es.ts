@@ -1566,6 +1566,12 @@ export const es: Messages = {
     chainCard: (who: string, card: string) => `${who}: ${card}`,
     markPrompt: (card: string) => `¿A qué apunta ${card}? Haz clic en unidades (opcional) y luego juégala.`,
     markPlay: 'Jugarla',
+    chainAbility: (card: string) => `habilidad de ${card}`,
+    counter: 'Contrarrestar',
+    counterTitle: 'Contrarréstala: desaparece (una carta va al descarte de su dueño), como hace un hechizo de contrarrestar',
+    autoPass: 'Pasar por mí cuando no pueda responder',
+    modePrompt: (card: string) => `${card}: elige uno.`,
+    abilityTitle: (text: string, energy: number, power: number, other: string | null) => `${text}\n\nCoste: agotar${energy ? `, ${energy} de Energía` : ''}${power ? `, ${power} de Poder` : ''}${other ? `, ${other} (hazlo con las herramientas)` : ''}`,
     mightNow: (n) => `le queda ${n} de resistencia`,
   },
 

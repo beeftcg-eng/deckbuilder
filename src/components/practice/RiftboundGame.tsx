@@ -11,6 +11,7 @@ import { Setup } from './riftbound/Setup'
 import { writeSave, type GameMeta, TIMELINE } from './riftbound/saves'
 
 /** How long each of the bot's moves stays on screen before the next. */
+const AUTO_PASS_KEY = 'brewhouse.practice.riftbound.autoPass'
 const BOT_STEP_MS = 650
 const HISTORY = 60
 
@@ -32,6 +33,14 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
   const [replayAt, setReplayAt] = useState<number | null>(null)
   const [online, setOnline] = useState(false)
 
+  // "Pass for me when I can't answer": a per-device convenience.
+  const [autoPass, setAutoPass] = useState(() => {
+    try {
+      return localStorage.getItem(AUTO_PASS_KEY) !== 'off'
+    } catch {
+      return true
+    }
+  })
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
@@ -109,6 +118,15 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
       <Board
         game={replaying ? timeline[replayAt] : game}
         busy={botRunning || replaying}
+        autoPass={autoPass}
+        onAutoPass={(on) => {
+          setAutoPass(on)
+          try {
+            localStorage.setItem(AUTO_PASS_KEY, on ? 'on' : 'off')
+          } catch {
+            // Not kept: it's on again next time.
+          }
+        }}
         canUndo={history.length > 0 && !botRunning && !replaying}
         onUndo={() => {
           const back = history[history.length - 1]

@@ -1,7 +1,11 @@
 import type { Card, Deck } from '../types'
 import { chosenChampionId } from '../games/riftbound'
 import {
+  abilitiesOf,
+  activate,
   allUnits,
+  canActivate,
+  modesOf,
   canMove,
   canPlay,
   combatMight,
@@ -163,10 +167,42 @@ function playOptions(s: GameState, side: Side, level: Level): GameState[] {
     seen.add(card.id)
     // Spells only when it knows what they do (Easy: only plain damage).
     if (isSpell(card) && (level === 'easy' ? damageSpell(card) == null : !scriptOf(card).full)) continue
-    out.push(play(s, side, i))
+    const modes = modesOf(card)
+    if (modes.length) modes.forEach((_, mode) => out.push(play(s, side, i, { mode })))
+    else out.push(play(s, side, i))
     if (keywordsOf(card).accelerate && canPlay(s, side, card, true)) out.push(play(s, side, i, { accelerate: true }))
   }
   return out.filter((x) => x !== s)
+}
+
+/** Every ability `side` could use now whose text it can read (and whose whole cost the game pays). */
+function abilityOptions(s: GameState, side: Side): GameState[] {
+  const sources = ['legend', ...s.players[side].gear.map((g) => g.uid), ...allUnits(s, side).map((u) => u.uid)]
+  const out: GameState[] = []
+  for (const source of sources) {
+    const card = source === 'legend' ? s.players[side].legend : (s.players[side].gear.find((g) => g.uid === source)?.card ?? allUnits(s, side).find((u) => u.uid === source)?.card)
+    if (!card) continue
+    abilitiesOf(card).forEach((a, i) => {
+      if (!a.effects || a.otherCost || !canActivate(s, side, source, i)) return
+      const t = activate(s, side, source, i)
+      if (t !== s) out.push(t)
+    })
+  }
+  return out
+}
+
+/** Answers to the chain or in a showdown: Reactions (or Actions, by the timing) and abilities it can read. */
+function answers(s: GameState, side: Side): GameState[] {
+  const out: GameState[] = []
+  s.players[side].hand.forEach((card, i) => {
+    if (!canPlay(s, side, card) || !scriptOf(card).full) return
+    const modes = modesOf(card)
+    for (const mode of modes.length ? modes.map((_, m) => m) : [0]) {
+      const t = play(s, side, i, { mode })
+      if (t !== s) out.push(t)
+    }
+  })
+  return [...out, ...abilityOptions(s, side)]
 }
 
 /**
@@ -227,13 +263,10 @@ function showdownAct(s: GameState, side: Side, w: Weights, level: Level): GameSt
   const passing = pass(s, side)
   let best: Option = { state: passing, value: resolved(passing) }
   if (level !== 'hard') return passing
-  s.players[side].hand.forEach((card, i) => {
-    if (!canPlay(s, side, card) || !scriptOf(card).full) return
-    const t = play(s, side, i)
-    if (t === s) return
+  for (const t of answers(s, side)) {
     const value = resolved(t)
     if (value > best.value + 0.5) best = { state: t, value }
-  })
+  }
   return best.state
 }
 
@@ -250,13 +283,10 @@ function chainAct(s: GameState, side: Side, w: Weights, level: Level): GameState
     return evaluate(settle(r), side, w, level)
   }
   let best: Option = { state: passing, value: after(passing) }
-  s.players[side].hand.forEach((card, i) => {
-    if (!canPlay(s, side, card) || !scriptOf(card).full) return
-    const t = play(s, side, i)
-    if (t === s) return
+  for (const t of answers(s, side)) {
     const value = after(t)
     if (value > best.value + 0.5) best = { state: t, value }
-  })
+  }
   return best.state
 }
 
@@ -304,6 +334,10 @@ export function botAct(s: GameState, side: Side = BOT, level: Level = 'normal', 
   const plays = playOptions(s, side, level).map((state) => ({ state, value: evaluate(settle(state), side, w, level) }))
   const bestPlay = plays.sort((a, b) => b.value - a.value)[0]
   if (bestPlay && bestPlay.value > now - 0.5) return bestPlay.state
+  // An ability that leaves it better off (they only cost exhausting the card and what the game pays).
+  const uses = abilityOptions(s, side).map((state) => ({ state, value: evaluate(settle(state), side, w, level) }))
+  const bestUse = uses.sort((a, b) => b.value - a.value)[0]
+  if (bestUse && bestUse.value > now + 0.1) return bestUse.state
 
   const mv = bestMove(s, side, w, level)
   if (mv) {

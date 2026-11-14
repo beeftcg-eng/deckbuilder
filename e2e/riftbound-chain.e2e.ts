@@ -29,6 +29,12 @@ test('against the bot, its cards wait on the chain for your answer, and Gust ret
   await expect(chain.getByText('Answer with a Reaction, or pass to let the top card resolve.')).toBeVisible()
   await expect(theirBase.locator('.rb-unit')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('chain.png') })
+  // Countering it by hand: it goes to their trash, and the bot carries on.
+  await chain.getByRole('button', { name: 'Counter' }).click()
+  await expect(page.locator('.rb-player.theirs').getByText(/Trash 1/)).toBeVisible()
+  await expect(theirBase.locator('.rb-unit')).toHaveCount(0)
+  // The next one it plays, you let resolve.
+  await expect(pass).toBeEnabled({ timeout: 15_000 })
   await pass.click()
   await expect(theirBase.locator('.rb-unit')).toHaveCount(1, { timeout: 10_000 })
 

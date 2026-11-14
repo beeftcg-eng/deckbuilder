@@ -1566,6 +1566,12 @@ export const pt: Messages = {
     chainCard: (who: string, card: string) => `${who}: ${card}`,
     markPrompt: (card: string) => `Qual é o alvo de ${card}? Clique em unidades (opcional) e depois jogue-a.`,
     markPlay: 'Jogar',
+    chainAbility: (card: string) => `habilidade de ${card}`,
+    counter: 'Anular',
+    counterTitle: 'Anule-a: ela some (uma carta vai para o descarte do dono), como faz um feitiço de anular',
+    autoPass: 'Passar por mim quando eu não puder responder',
+    modePrompt: (card: string) => `${card}: escolha um.`,
+    abilityTitle: (text: string, energy: number, power: number, other: string | null) => `${text}\n\nCusto: exaurir${energy ? `, ${energy} de Energia` : ''}${power ? `, ${power} de Poder` : ''}${other ? `, ${other} (faça com as ferramentas)` : ''}`,
     mightNow: (n) => `resta ${n} de resistência`,
   },
 

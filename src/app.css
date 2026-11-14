@@ -5574,6 +5574,20 @@ button.rb-rune {
   border-color: var(--danger);
 }
 
+.rb-autopass {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+}
+
+.rb-ability {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* A unit a card on the chain points at. */
 .rb-unit.aimed {
   outline: 2px dashed var(--danger);
