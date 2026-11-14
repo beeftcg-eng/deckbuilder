@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useAppStore, useCardsById } from '../../state/useAppStore'
 import { recordsFor } from '../../shared/practice/results'
 import { PracticeRecord } from './PracticeRecord'
+import { OnlineGame } from './OnlineGame'
 import { packState, unpackState } from '../../shared/practice/serialize'
 import { useCommunityLists } from '../../state/communityLists'
 import { communityGame } from '../../shared/communityGames'
@@ -95,6 +96,7 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
   /** Every state the game went through, for the replay. */
   const [timeline, setTimeline] = useState<GameState[]>([])
   const [replayAt, setReplayAt] = useState<number | null>(null)
+  const [online, setOnline] = useState(false)
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
@@ -140,8 +142,9 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
     show(g, m, null)
   }
 
+  if (online) return <OnlineGame deck={deck} onClose={onClose} />
   if (!game || !meta) {
-    return <Setup deck={deck} cardsById={cardsById} onStart={begin} onClose={onClose} />
+    return <Setup deck={deck} cardsById={cardsById} onStart={begin} onOnline={() => setOnline(true)} onClose={onClose} />
   }
 
   const replaying = replayAt != null
@@ -195,7 +198,7 @@ export function RiftboundGame({ deck, onClose }: { deck: Deck; onClose: () => vo
 
 // ---------- choosing the opponent ----------
 
-function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: Map<string, Card>; onStart: (g: GameState, meta: GameMeta) => void; onClose: () => void }) {
+function Setup({ deck, cardsById, onStart, onOnline, onClose }: { deck: Deck; cardsById: Map<string, Card>; onStart: (g: GameState, meta: GameMeta) => void; onOnline: () => void; onClose: () => void }) {
   const { lists } = useCommunityLists('riftbound', true)
   const legends = useMemo(() => legendMeta(lists ?? []).slice(0, 30), [lists])
   const myDecks = useAppStore((s) => s.decks).filter((d) => d.gameId === 'riftbound')
@@ -279,10 +282,12 @@ function Setup({ deck, cardsById, onStart, onClose }: { deck: Deck; cardsById: M
               value={opponent.kind === 'none' ? '' : opponent.kind === 'legend' ? `legend:${opponent.legendId}` : `deck:${opponent.deckId}`}
               onChange={(e) => {
                 const v = e.target.value
+                if (v === 'online') return onOnline()
                 setOpponent(v.startsWith('legend:') ? { kind: 'legend', legendId: v.slice(7), listId: null } : v.startsWith('deck:') ? { kind: 'deck', deckId: v.slice(5) } : { kind: 'none' })
               }}
             >
               <option value="">{t.practiceGame.nobody}</option>
+              <option value="online">{t.practiceGame.online}</option>
               {legends.length > 0 && (
                 <optgroup label={t.practiceGame.botLists}>
                   {legends.map((m) => (
@@ -368,11 +373,15 @@ interface BoardProps {
   onChange: (g: GameState) => void
   /** After the game: step through it again. */
   onReplay?: () => void
+  /** Playing a friend online: their name, instead of "the bot". */
+  opponentName?: string
+  /** A line under the top bar (an online game's connection). */
+  status?: string | null
   onRestart: () => void
   onClose: () => void
 }
 
-function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onRestart, onClose }: BoardProps) {
+export function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onRestart, onClose, opponentName, status }: BoardProps) {
   const [selected, setSelected] = useState<string[]>([])
   const [handPick, setHandPick] = useState<number | null>(null)
   const [mulliganPick, setMulliganPick] = useState<number[]>([])
@@ -506,7 +515,19 @@ function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onRestart, onC
   return (
     <div className="rb-board">
       <div className="rb-topbar">
-        <strong>{game.phase === 'over' ? (game.winner === 0 ? t.practiceGame.youWin : t.practiceGame.theyWin) : busy || game.active === 1 ? t.practiceGame.theirTurn(game.turn) : t.practiceGame.yourTurn(game.turn)}</strong>
+        <strong>
+          {game.phase === 'over'
+            ? game.winner === 0
+              ? t.practiceGame.youWin
+              : opponentName
+                ? t.practiceGame.friendWins(opponentName)
+                : t.practiceGame.theyWin
+            : busy || game.active === 1
+              ? opponentName
+                ? t.practiceGame.friendTurn(opponentName, game.turn)
+                : t.practiceGame.theirTurn(game.turn)
+              : t.practiceGame.yourTurn(game.turn)}
+        </strong>
         <span className="rb-score" aria-label={t.practiceGame.scoreLabel(game.players[0].points, game.players[1].points)}>
           {goldfish ? t.practiceGame.points(game.players[0].points) : `${game.players[0].points} – ${game.players[1].points}`}
         </span>
@@ -534,6 +555,7 @@ function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onRestart, onC
         </span>
       </div>
 
+      {status && <div className="rb-prompt rb-status" role="status">{status}</div>}
       {targeting && targetEffect && (
         <div className="rb-prompt" role="status">
           <span>{t.practiceGame.choose(describeEffect(targetEffect))}</span>
@@ -550,7 +572,7 @@ function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onRestart, onC
         <div className="rb-prompt rb-showdown" role="status">
           <span>
             {t.practiceGame.showdown(bfName(game, showdown.battlefield))}{' '}
-            {showdown.focus === 0 ? t.practiceGame.yourAnswer : t.practiceGame.theirAnswer}
+            {showdown.focus === 0 ? t.practiceGame.yourAnswer : opponentName ? t.practiceGame.friendAnswer(opponentName) : t.practiceGame.theirAnswer}
           </span>
           <button className="btn btn-primary" disabled={showdown.focus !== 0 || busy} onClick={() => act(pass(game, 0))}>
             {t.practiceGame.pass}
@@ -560,7 +582,7 @@ function Board({ game, busy, canUndo, onUndo, onChange, onReplay, onRestart, onC
       <div className={`rb-main ${showLog ? 'with-log' : ''}`}>
         <div className="rb-field">
           {!goldfish && <PlayerBar game={game} side={1} onTool={tool} />}
-          {!goldfish && <Base game={game} side={1} selected={selected} targetable={legalNow.map((u) => u.uid)} onUnit={toggle} onDetail={setDetail} />}
+          {!goldfish && <Base game={game} side={1} selected={selected} targetable={legalNow.map((u) => u.uid)} onUnit={toggle} onDetail={setDetail} opponentName={opponentName} />}
 
           <div className="rb-battlefields">
             {game.battlefields.map((bf, i) => (
@@ -757,6 +779,7 @@ function Base({
   onTool,
   dragFor,
   drop,
+  opponentName,
 }: {
   game: GameState
   side: Side
@@ -767,12 +790,14 @@ function Base({
   onTool?: (tl: Tool) => void
   dragFor?: (u: Unit) => DragProps
   drop?: DropProps
+  opponentName?: string
 }) {
   const p = game.players[side]
   const { className: dropClassName = '', ...dropHandlers } = drop ?? { className: '' }
+  const theirLabel = opponentName ? t.practiceGame.friendBase(opponentName) : t.practiceGame.theirBase
   return (
-    <section className={`rb-base ${side === 0 ? 'mine' : 'theirs'} ${dropClassName}`} aria-label={side === 0 ? t.practiceGame.yourBase : t.practiceGame.theirBase} {...dropHandlers}>
-      <span className="rb-zone-label text-dim">{side === 0 ? t.practiceGame.yourBase : t.practiceGame.theirBase}</span>
+    <section className={`rb-base ${side === 0 ? 'mine' : 'theirs'} ${dropClassName}`} aria-label={side === 0 ? t.practiceGame.yourBase : theirLabel} {...dropHandlers}>
+      <span className="rb-zone-label text-dim">{side === 0 ? t.practiceGame.yourBase : theirLabel}</span>
       <div className="rb-units">
         {p.base.map((u) => (
           <UnitChip key={u.uid} unit={u} drag={dragFor?.(u)} targetable={targetable.includes(u.uid)} selected={selected.includes(u.uid)} onClick={() => onUnit(u)} onDetail={() => onDetail(u.card)} />

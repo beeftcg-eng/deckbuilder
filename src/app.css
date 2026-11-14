@@ -6007,3 +6007,12 @@
 .rb-replay input[type='range'] {
   flex: 1 1 200px;
 }
+
+.rb-code {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.rb-status {
+  background: var(--bg-elevated-2);
+}

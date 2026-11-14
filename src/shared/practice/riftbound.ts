@@ -251,7 +251,7 @@ function uid(state: GameState): string {
  * side brings none, so you get two of yours), four cards each, waiting for mulligans. `opponent` null
  * is playing alone: nobody on the other side.
  */
-export function newGame(you: DeckSetup, opponent: DeckSetup | null, options: { first?: Side; random?: () => number; manual?: boolean } = {}): GameState {
+export function newGame(you: DeckSetup, opponent: DeckSetup | null, options: { first?: Side; random?: () => number; manual?: boolean | 'both' } = {}): GameState {
   const random = options.random ?? Math.random
   const players: [Player, Player] = [emptyPlayer(false), emptyPlayer(opponent == null)]
   const setups: [DeckSetup, DeckSetup | null] = [you, opponent]
@@ -276,7 +276,7 @@ export function newGame(you: DeckSetup, opponent: DeckSetup | null, options: { f
     first,
     phase: 'mulligan',
     showdown: null,
-    manual: options.manual ? [0] : [],
+    manual: options.manual === 'both' ? [0, 1] : options.manual ? [0] : [],
     kept: opponent ? [] : [1],
     winner: null,
     log: [],
@@ -302,6 +302,12 @@ export function mulligan(state: GameState, side: Side, handIndexes: number[]): G
   s.kept.push(side)
   log(s, side, 'info', aside.length ? `${who(side)} mulliganed ${aside.length}.` : `${who(side)} kept.`)
   return s.kept.length === 2 ? startTurn(s) : s
+}
+
+/** Starts the first turn once both players have kept (for a game put back together from two moves). */
+export function beginIfKept(state: GameState): GameState {
+  if (state.phase !== 'mulligan' || state.kept.length < 2) return state
+  return startTurn(clone(state))
 }
 
 // ---------- the board ----------
