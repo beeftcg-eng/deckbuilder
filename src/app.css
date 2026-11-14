@@ -5380,10 +5380,11 @@
 
 /* A Riftbound practice game (practice/RiftboundGame.tsx). */
 .rb-game-modal {
-  width: min(1280px, 98vw);
-  max-width: 98vw;
-  height: 94vh;
-  max-height: 94vh;
+  width: min(1800px, 99vw);
+  max-width: 99vw;
+  height: 98vh;
+  height: 98dvh;
+  max-height: 98dvh;
   padding: 10px;
 }
 
@@ -5648,7 +5649,14 @@
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  /* Your hand stays in view at the bottom while the board scrolls. */
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex-shrink: 0;
+  padding: 6px 0 4px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-strong);
 }
 
 .rb-hand-slot {
@@ -6123,16 +6131,6 @@
   .rb-player .btn {
     padding: 4px 8px;
     font-size: 13px;
-  }
-
-  /* Your hand stays in view at the bottom while the board scrolls. */
-  .rb-hand {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
-    padding: 6px 0 2px;
-    background: var(--bg-elevated);
-    border-top: 1px solid var(--border-strong);
   }
 
   .rb-hand-card {
