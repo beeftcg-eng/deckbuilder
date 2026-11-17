@@ -12,8 +12,9 @@ const SETS_URL = 'https://api.riftcodex.com/sets'
 const PAGE_SIZE = 100
 /**
  * A copy of the whole card list (public/card-data/riftbound.json, published with the web app), for when
- * riftcodex is down: its cards as the app last saw them, extras and all. Refreshed by hand from a desktop
- * sync (scripts/update-card-backup.mjs).
+ * riftcodex is down: its cards as the app last saw them, extras and all. The daily deploy rebuilds it whenever riftcodex
+ * answers (scripts/build-card-backup.ts); scripts/update-card-backup.mjs refreshes the copy kept in the
+ * repo from a desktop sync.
  */
 export const BACKUP_URL = 'https://beeftcg-eng.github.io/deckbuilder/card-data/riftbound.json'
 
@@ -153,18 +154,22 @@ async function fetchBackupCards(riftcodexError: unknown, onProgress: (p: FetchPr
   return applyPriceFile(backup.cards, file, (card) => riftboundKeys(card.tcgplayerId, card.sourceId))
 }
 
-async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
-  let cards: Card[]
-  try {
-    cards = withFixedLegendNames(await fetchRiftcodexCards(onProgress))
-  } catch (err) {
-    if (!isOutage(err)) throw err
-    return fetchBackupCards(err, onProgress)
-  }
+/** The whole card list from riftcodex, with the printings it lacks and today's prices. No backup: scripts/build-card-backup.ts publishes this. */
+export async function fetchRiftcodexCatalog(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
+  const cards = withFixedLegendNames(await fetchRiftcodexCards(onProgress))
   // Published with the phone app: TCGplayer market prices, and TCGplayer's printings to add the ones riftcodex lacks.
   const [file, printings] = await Promise.all([loadPriceFile('riftbound'), loadRiftboundPrintings()])
   const all = withOvernumberedKind(onlyOriginsRegularRunes(withPromoRuneArt([...cards, ...extraCards(missingPrintings(printings ?? [], cards), cards)])))
   return applyPriceFile(all, file, (card) => riftboundKeys(card.tcgplayerId, card.sourceId))
+}
+
+async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
+  try {
+    return await fetchRiftcodexCatalog(onProgress)
+  } catch (err) {
+    if (!isOutage(err)) throw err
+    return fetchBackupCards(err, onProgress)
+  }
 }
 
 const deckRules: DeckRules = {

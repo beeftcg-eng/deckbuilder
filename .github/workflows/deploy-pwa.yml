@@ -19,6 +19,7 @@ on:
       - "scripts/build-prices.ts"
       - "scripts/build-community-lists.ts"
       - "scripts/build-ban-lists.ts"
+      - "scripts/build-card-backup.ts"
       - "scripts/check-sources.ts"
       - "scripts/health.ts"
       - ".github/workflows/deploy-pwa.yml"
@@ -70,6 +71,22 @@ jobs:
             [ -f "dist-web/community/$game.json" ] && continue
             curl -sfL "https://beeftcg-eng.github.io/deckbuilder/community/$game.json" -o "dist-web/community/$game.json" || echo "No earlier $game file to keep."
           done
+      # Riftbound card backup (src/shared/games/riftbound.ts, BACKUP_URL): the card list Riftbound sync uses when
+      # riftcodex is down, rebuilt from riftcodex whenever it answers. When it doesn't, the last published file
+      # is kept (or, failing that, the copy in public/card-data that the build already put in place).
+      - name: Riftbound card backup
+        continue-on-error: true
+        run: npx rolldown scripts/build-card-backup.ts --platform node --format esm -o .card-backup/build-card-backup.mjs && node .card-backup/build-card-backup.mjs .card-backup/out
+      - name: Riftbound card backup - keep the last file if not rebuilt
+        run: |
+          mkdir -p dist-web/card-data
+          if [ -f .card-backup/out/riftbound.json ]; then
+            cp .card-backup/out/riftbound.json dist-web/card-data/riftbound.json
+          elif curl -sfL "https://beeftcg-eng.github.io/deckbuilder/card-data/riftbound.json" -o .card-backup-last.json && jq -e '.cards | length > 500' .card-backup-last.json >/dev/null; then
+            mv .card-backup-last.json dist-web/card-data/riftbound.json
+          else
+            echo "Keeping the repo's copy of the Riftbound card backup."
+          fi
       # Ban lists (src/shared/banLists.ts): One Piece and Riftbound as kept in this repo, Yu-Gi-Oh!'s from
       # YGOPRODeck. Published as banlists.json; every app merges it in at launch. When YGOPRODeck can't be
       # read the file still goes out without Yu-Gi-Oh!, and the apps keep the list they have.
