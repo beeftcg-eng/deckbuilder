@@ -139,9 +139,13 @@ async function fetchRiftcodexCards(onProgress: (p: FetchProgress) => void = () =
   return dropEarlyDuplicates(cards)
 }
 
-/** riftcodex being down or unreachable - not a 404 or a change in what it sends, which the backup would only hide. */
+/**
+ * riftcodex being down, unreachable or turning requests away - not a 404 or a change in what it sends, which the
+ * backup would only hide. 403 counts: during its 2026-11-17 outage its Cloudflare front answered some requests
+ * with 403 and let others hang.
+ */
 export function isOutage(err: unknown): boolean {
-  return err instanceof NetworkError || (err instanceof HttpError && (err.status === 429 || err.status >= 500))
+  return err instanceof NetworkError || (err instanceof HttpError && (err.status === 403 || err.status === 429 || err.status >= 500))
 }
 
 /** The backup's cards, today's prices on top. Throws riftcodex's own error when the backup can't be read either. */

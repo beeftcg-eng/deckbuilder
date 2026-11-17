@@ -94,6 +94,16 @@ describe('card backup when riftcodex is down', () => {
     await expect(riftboundAdapter.fetchAllCards(() => {})).rejects.toThrow(/api\.riftcodex\.com/)
   })
 
+  it('loads the backup when riftcodex turns the request away (403)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.includes('riftcodex')) return new Response('', { status: 403 })
+      if (url === BACKUP_URL) return new Response(JSON.stringify({ builtAt: '2026-11-14T00:00:00Z', cards: [backupCard] }))
+      return new Response('', { status: 404 })
+    }))
+    expect((await riftboundAdapter.fetchAllCards(() => {})).map((c) => c.name)).toEqual(['Backup Card'])
+  })
+
   it('does not hide a 404 behind the backup', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response('', { status: url.includes('riftcodex') ? 404 : 200 })))
     await expect(riftboundAdapter.fetchAllCards(() => {})).rejects.toThrow(/404/)
