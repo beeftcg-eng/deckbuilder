@@ -1,6 +1,6 @@
 import type { Card, CardLegalityStatus, Deck, DeckRules, Format } from '../types'
 import type { FetchProgress, GameAdapter, GuidedStage } from './types'
-import { SCRYFALL_HEADERS, fetchJson, fetchJsonWithRetry, sleep } from './fetchUtil'
+import { HttpError, SCRYFALL_HEADERS, fetchJson, fetchJsonWithRetry, fetchWithTimeout, sleep } from './fetchUtil'
 import { toIsoDate } from '../cardSort'
 import { t } from '../i18n'
 
@@ -266,8 +266,8 @@ async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Ca
     fetchFlavorNames().catch(() => new Map<string, string>()),
   ])
   if (!info.jsonl_download_uri) throw new Error("Scryfall didn't say where its card data file is")
-  const res = await fetch(info.jsonl_download_uri, { headers: SCRYFALL_HEADERS })
-  if (!res.ok) throw new Error(`Request failed (${res.status}): ${info.jsonl_download_uri}`)
+  const res = await fetchWithTimeout(info.jsonl_download_uri, { headers: SCRYFALL_HEADERS })
+  if (!res.ok) throw new HttpError(res.status, info.jsonl_download_uri)
   return readBulkCards(res, onProgress, flavorNames)
 }
 

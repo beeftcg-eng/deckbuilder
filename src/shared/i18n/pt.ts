@@ -27,6 +27,9 @@ export const pt: Messages = {
     cards: (n) => `${n} ${plural(n, 'carta', 'cartas')}`,
     moveUp: 'Subir',
     moveDown: 'Descer',
+    siteUnreachable: (host) => `Não foi possível conectar a ${host}. O site pode estar fora do ar, ou você pode estar sem internet. Tente mais tarde.`,
+    siteTimedOut: (host) => `${host} não respondeu a tempo. O site pode estar fora do ar. Tente mais tarde.`,
+    siteServerError: (host, status) => `${host} está com problemas agora (erro ${status}). Tente mais tarde.`,
   },
 
   app: {

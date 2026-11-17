@@ -28,6 +28,9 @@ export const en = {
     cards: (n: number) => `${n} ${plural(n, 'card', 'cards')}`,
     moveUp: 'Move up',
     moveDown: 'Move down',
+    siteUnreachable: (host: string) => `Couldn't reach ${host}. The site may be down, or you may be offline. Try again later.`,
+    siteTimedOut: (host: string) => `${host} didn't answer in time. The site may be down. Try again later.`,
+    siteServerError: (host: string, status: number) => `${host} is having problems right now (error ${status}). Try again later.`,
   },
 
   app: {

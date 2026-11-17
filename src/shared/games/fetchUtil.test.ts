@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { HttpError, fetchJsonWithRetry, mapPool } from './fetchUtil'
+import { HttpError, NetworkError, fetchJson, fetchJsonWithRetry, fetchWithTimeout, mapPool } from './fetchUtil'
 
 const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200 })
 const status = (code: number) => new Response('', { status: code })
@@ -55,5 +55,33 @@ describe('mapPool', () => {
   })
   it('handles an empty list', async () => {
     expect(await mapPool([], 4, async () => 1)).toEqual([])
+  })
+})
+
+describe('clear network errors', () => {
+  it('names the site when the connection fails, instead of "Failed to fetch"', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    const error = (await fetchJson('https://api.riftcodex.com/cards?page=1').catch((e: unknown) => e)) as NetworkError
+    expect(error).toBeInstanceOf(NetworkError)
+    expect(error.message).toMatch(/api\.riftcodex\.com/)
+    expect(error.message).not.toMatch(/Failed to fetch/)
+  })
+
+  it('gives up on a server that never starts answering', async () => {
+    vi.stubGlobal('fetch', vi.fn((_url: string, init: RequestInit) => new Promise((_resolve, reject) => init.signal?.addEventListener('abort', () => reject(init.signal?.reason)))))
+    const error = (await fetchWithTimeout('https://api.riftcodex.com/sets', {}, 10).catch((e: unknown) => e)) as NetworkError
+    expect(error).toBeInstanceOf(NetworkError)
+    expect(error.timedOut).toBe(true)
+    expect(error.message).toMatch(/api\.riftcodex\.com.*in time/)
+  })
+
+  it('says a 5xx is the site having problems, keeping the status', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(status(503)))
+    await expect(fetchJsonWithRetry('https://db.ygoprodeck.com/x', { attempts: 1 })).rejects.toThrow(/db\.ygoprodeck\.com is having problems.*503/)
+  })
+
+  it('reports a dropped connection on the last retry as a NetworkError', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')))
+    await expect(fetchJsonWithRetry('https://api.scryfall.com/x', { attempts: 2, sleep: noWait })).rejects.toBeInstanceOf(NetworkError)
   })
 })

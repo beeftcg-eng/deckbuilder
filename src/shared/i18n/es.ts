@@ -27,6 +27,9 @@ export const es: Messages = {
     cards: (n) => `${n} ${plural(n, 'carta', 'cartas')}`,
     moveUp: 'Subir',
     moveDown: 'Bajar',
+    siteUnreachable: (host) => `No se pudo conectar con ${host}. Puede que el sitio esté caído o que no tengas conexión. Inténtalo más tarde.`,
+    siteTimedOut: (host) => `${host} no respondió a tiempo. Puede que el sitio esté caído. Inténtalo más tarde.`,
+    siteServerError: (host, status) => `${host} tiene problemas en este momento (error ${status}). Inténtalo más tarde.`,
   },
 
   app: {

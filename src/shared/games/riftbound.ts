@@ -2,7 +2,7 @@ import type { Card, DeckRules, Deck, Format } from '../types'
 import { loadPriceFile, applyPriceFile, loadRiftboundPrintings } from '../priceFiles'
 import { riftboundKeys } from '../priceKeys'
 import type { GameAdapter, FetchProgress, GuidedStage } from './types'
-import { fetchJson } from './fetchUtil'
+import { HttpError, NetworkError, fetchJson } from './fetchUtil'
 import { toIsoDate } from '../cardSort'
 import { t } from '../i18n'
 import { extraCards, missingPrintings, onlyOriginsRegularRunes, withFixedLegendNames, withOvernumberedKind, withPromoRuneArt } from './riftboundExtras'
@@ -10,6 +10,17 @@ import { extraCards, missingPrintings, onlyOriginsRegularRunes, withFixedLegendN
 const API_BASE = 'https://api.riftcodex.com/cards'
 const SETS_URL = 'https://api.riftcodex.com/sets'
 const PAGE_SIZE = 100
+/**
+ * A copy of the whole card list (public/card-data/riftbound.json, published with the web app), for when
+ * riftcodex is down: its cards as the app last saw them, extras and all. Refreshed by hand from a desktop
+ * sync (scripts/update-card-backup.mjs).
+ */
+export const BACKUP_URL = 'https://beeftcg-eng.github.io/deckbuilder/card-data/riftbound.json'
+
+interface CardBackupFile {
+  builtAt: string
+  cards: Card[]
+}
 
 export const RUNE_DOMAINS = ['Fury', 'Calm', 'Mind', 'Body', 'Chaos', 'Order'] as const
 
@@ -127,8 +138,29 @@ async function fetchRiftcodexCards(onProgress: (p: FetchProgress) => void = () =
   return dropEarlyDuplicates(cards)
 }
 
+/** riftcodex being down or unreachable - not a 404 or a change in what it sends, which the backup would only hide. */
+export function isOutage(err: unknown): boolean {
+  return err instanceof NetworkError || (err instanceof HttpError && (err.status === 429 || err.status >= 500))
+}
+
+/** The backup's cards, today's prices on top. Throws riftcodex's own error when the backup can't be read either. */
+async function fetchBackupCards(riftcodexError: unknown, onProgress: (p: FetchProgress) => void): Promise<Card[]> {
+  const backup = await fetchJson<CardBackupFile>(BACKUP_URL, 3).catch(() => null)
+  if (!backup?.cards?.length) throw riftcodexError
+  console.warn(`riftcodex unavailable (${riftcodexError instanceof Error ? riftcodexError.message : String(riftcodexError)}); using the card backup from ${backup.builtAt}`)
+  onProgress({ loaded: backup.cards.length, total: backup.cards.length })
+  const file = await loadPriceFile('riftbound')
+  return applyPriceFile(backup.cards, file, (card) => riftboundKeys(card.tcgplayerId, card.sourceId))
+}
+
 async function fetchAllCards(onProgress: (p: FetchProgress) => void): Promise<Card[]> {
-  const cards = withFixedLegendNames(await fetchRiftcodexCards(onProgress))
+  let cards: Card[]
+  try {
+    cards = withFixedLegendNames(await fetchRiftcodexCards(onProgress))
+  } catch (err) {
+    if (!isOutage(err)) throw err
+    return fetchBackupCards(err, onProgress)
+  }
   // Published with the phone app: TCGplayer market prices, and TCGplayer's printings to add the ones riftcodex lacks.
   const [file, printings] = await Promise.all([loadPriceFile('riftbound'), loadRiftboundPrintings()])
   const all = withOvernumberedKind(onlyOriginsRegularRunes(withPromoRuneArt([...cards, ...extraCards(missingPrintings(printings ?? [], cards), cards)])))

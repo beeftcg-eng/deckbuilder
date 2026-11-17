@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { dropEarlyDuplicates, riftboundAdapter } from './riftbound'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { BACKUP_URL, dropEarlyDuplicates, riftboundAdapter } from './riftbound'
 import { buildExportText } from '../export'
 import { catalogOf, makeCard, makeDeck } from '../testFixtures'
 
@@ -68,5 +68,34 @@ describe('dropEarlyDuplicates', () => {
     const cards = dropEarlyDuplicates([early, current, metal, regular])
     expect(cards.map((c) => c.id)).toEqual(['riftbound:current', 'riftbound:metal', 'riftbound:regular'])
     expect(cards[0].formerIds).toEqual(['riftbound:early'])
+  })
+})
+
+describe('card backup when riftcodex is down', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const backupCard = makeCard('riftbound', { name: 'Backup Card', tcgplayerId: '1', price: 1 })
+
+  it('loads the backup when riftcodex can\'t be reached', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.includes('riftcodex')) throw new TypeError('Failed to fetch')
+      if (url === BACKUP_URL) return new Response(JSON.stringify({ builtAt: '2026-11-14T00:00:00Z', cards: [backupCard] }))
+      return new Response(JSON.stringify({ prices: { '1': 2.5 } }))
+    }))
+    const cards = await riftboundAdapter.fetchAllCards(() => {})
+    expect(cards.map((c) => c.name)).toEqual(['Backup Card'])
+    expect(cards[0].price).toBe(2.5) // today's price file on top
+  })
+
+  it('shows riftcodex\'s error when the backup can\'t be read either', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new TypeError('Failed to fetch')
+    }))
+    await expect(riftboundAdapter.fetchAllCards(() => {})).rejects.toThrow(/api\.riftcodex\.com/)
+  })
+
+  it('does not hide a 404 behind the backup', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response('', { status: url.includes('riftcodex') ? 404 : 200 })))
+    await expect(riftboundAdapter.fetchAllCards(() => {})).rejects.toThrow(/404/)
   })
 })
