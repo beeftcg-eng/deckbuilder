@@ -23,6 +23,18 @@ export function createCollectionSlice(ctx: StoreContext) {
       set((s) => ({ settings: { ...s.settings, packOpenings } }))
       persistSettings({ packOpenings })
     },
+    saveTierList: (list) => {
+      const saved = { ...list, updatedAt: new Date().toISOString() }
+      const current = get().settings.tierLists ?? []
+      const tierLists = current.some((l) => l.id === saved.id) ? current.map((l) => (l.id === saved.id ? saved : l)) : [saved, ...current]
+      set((s) => ({ settings: { ...s.settings, tierLists } }))
+      persistSettings({ tierLists })
+    },
+    deleteTierList: (id) => {
+      const tierLists = (get().settings.tierLists ?? []).filter((l) => l.id !== id)
+      set((s) => ({ settings: { ...s.settings, tierLists } }))
+      persistSettings({ tierLists })
+    },
     deletePackOpening: (id) => {
       const packOpenings = (get().settings.packOpenings ?? []).filter((o) => o.id !== id)
       set((s) => ({ settings: { ...s.settings, packOpenings }, activeOpeningId: s.activeOpeningId === id ? null : s.activeOpeningId }))

@@ -20,6 +20,7 @@ const BugReportModal = lazyModal(() => import('./BugReportModal'), 'BugReportMod
 const PatchNotesModal = lazyModal(() => import('./PatchNotesModal'), 'PatchNotesModal')
 const ImportDeckModal = lazyModal(() => import('./ImportDeckModal'), 'ImportDeckModal')
 const ProxyPrintModal = lazyModal(() => import('./ProxyPrintModal'), 'ProxyPrintModal')
+const TierListModal = lazyModal(() => import('./TierListModal'), 'TierListModal')
 const CommunityListsModal = lazyModal(() => import('./CommunityListsModal'), 'CommunityListsModal')
 const CompareDecksModal = lazyModal(() => import('./CompareDecksModal'), 'CompareDecksModal')
 const PairingsAccountModal = lazyModal(() => import('./PairingsAccountModal'), 'PairingsAccountModal')
@@ -98,6 +99,7 @@ export function Sidebar() {
   const [deckFilter, setDeckFilter] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [showProxies, setShowProxies] = useState(false)
+  const [showTierLists, setShowTierLists] = useState(false)
   // A community list (Riftbound from RiftAtlas, One Piece and Pokémon from Limitless) to start the import window with.
   const [showCommunity, setShowCommunity] = useState(false)
   const [importStart, setImportStart] = useState<{ text: string; name: string } | null>(null)
@@ -116,6 +118,7 @@ export function Sidebar() {
   useCommand('import', () => setShowImport(true))
   useCommand('community', () => setShowCommunity(true))
   useCommand('printProxies', () => setShowProxies(true))
+  useCommand('tierLists', () => setShowTierLists(true))
   useCommand('patchNotes', () => setShowPatchNotes(true))
   useCommand('bugReport', () => setShowBugReport(true))
   useCommand('shareApp', () => setShowShareApp(true))
@@ -495,6 +498,9 @@ export function Sidebar() {
           <button className="btn" onClick={() => setShowProxies(true)} title={t.proxies.sidebarTitle}>
             {t.proxies.button}
           </button>
+          <button className="btn" onClick={() => setShowTierLists(true)} title={t.tierLists.buttonTitle}>
+            {t.tierLists.button}
+          </button>
           <button
             className="btn"
             onClick={() => {
@@ -621,6 +627,7 @@ export function Sidebar() {
       )}
 
       {showProxies && <ProxyPrintModal gameId={currentGameId} onClose={() => setShowProxies(false)} />}
+      {showTierLists && <TierListModal gameId={currentGameId} onClose={() => setShowTierLists(false)} />}
       {showImport && (
         <ImportDeckModal
           gameId={currentGameId}

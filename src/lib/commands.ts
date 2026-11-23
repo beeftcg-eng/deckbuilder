@@ -10,6 +10,7 @@ export type CommandId =
   | 'import'
   | 'community'
   | 'printProxies'
+  | 'tierLists'
   | 'patchNotes'
   | 'bugReport'
   | 'shareApp'

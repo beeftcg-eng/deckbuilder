@@ -124,6 +124,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     if (isCommunityGame(currentGameId)) out.push(command('create', 'community', t.palette.communityLists(game.shortName), 'meta community lists riftatlas limitless'))
     if (__SCANNER__) out.push({ id: 'scan', group: 'create', label: t.scanner.open, keywords: 'camera', run: () => store.setShowScanner(true) })
     out.push(command('create', 'printProxies', t.palette.printProxies, 'pdf'))
+    out.push(command('create', 'tierLists', t.tierLists.palette(game.shortName), 'tier list ranking rank content video'))
 
     out.push(
       { id: 'sync', group: 'app', label: t.palette.sync(game.shortName), keywords: 'download refresh', run: () => void store.syncCatalog(currentGameId) },

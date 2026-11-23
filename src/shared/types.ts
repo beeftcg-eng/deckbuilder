@@ -1,6 +1,7 @@
 import type { ValueHistory } from './valueHistory'
 import type { PriceAlerts } from './priceAlerts'
 import type { PackOpening } from './packOpenings'
+import type { TierList } from './tierLists'
 import type { CollectionDetails } from './copyDetails'
 import type { CollectionBatch } from './collectionBatches'
 
@@ -352,6 +353,8 @@ export interface AppSettings {
   listAlerts?: { legends: string[]; seenEvents: string[] }
   /** Pack and box openings, every game's, newest first (packOpenings.ts). */
   packOpenings?: PackOpening[]
+  /** Tier lists, every game's (tierLists.ts). This device only, and in backups. */
+  tierLists?: TierList[]
   /** Recent many-card collection changes, newest first, kept so each can be undone (collectionBatches.ts). This device only. */
   collectionBatches?: CollectionBatch[]
   /** Finish and condition of owned copies that aren't plain Near Mint, by card id (copyDetails.ts). */

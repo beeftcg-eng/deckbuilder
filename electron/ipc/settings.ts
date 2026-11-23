@@ -11,6 +11,7 @@ import { sanitizeValueHistory } from '../../src/shared/valueHistory'
 import { sanitizePriceAlerts } from '../../src/shared/priceAlerts'
 import { sanitizeListAlerts, sanitizeListWatches } from '../../src/shared/communityMeta'
 import { sanitizePackOpenings } from '../../src/shared/packOpenings'
+import { sanitizeTierLists } from '../../src/shared/tierLists'
 import { sanitizeCollectionBatches } from '../../src/shared/collectionBatches'
 import { sanitizeCollectionDetails } from '../../src/shared/copyDetails'
 import { sanitizeBanListsSeen } from '../../src/shared/banLists'
@@ -70,6 +71,7 @@ export function sanitize(raw: unknown): AppSettings {
     if (alerts) settings.listAlerts = alerts
   }
   if (source.packOpenings !== undefined) settings.packOpenings = sanitizePackOpenings(source.packOpenings)
+  if (source.tierLists !== undefined) settings.tierLists = sanitizeTierLists(source.tierLists, GAME_IDS)
   if (source.collectionBatches !== undefined) settings.collectionBatches = sanitizeCollectionBatches(source.collectionBatches, GAME_IDS)
   if (source.collectionDetails !== undefined) settings.collectionDetails = sanitizeCollectionDetails(source.collectionDetails)
   if (source.itemsSynced === true) settings.itemsSynced = true

@@ -2,12 +2,12 @@ import type { AppSettings } from './types'
 
 /**
  * The settings fields that hold the user's own records rather than preferences: pack openings, price
- * alerts, the value graph, collection batches and copy details. They grow with use, so they're kept
+ * alerts, the value graph, collection batches, copy details and tier lists. They grow with use, so they're kept
  * apart from the small preferences (theme, last deck...) that are saved on nearly every click: on the
  * desktop in items.json next to settings.json, in the phone app under their own IndexedDB key. The
  * app still sees one AppSettings; only storage is split.
  */
-export const ITEM_FIELDS = ['packOpenings', 'priceAlerts', 'valueHistory', 'collectionBatches', 'collectionDetails', 'itemsSynced'] as const satisfies readonly (keyof AppSettings)[]
+export const ITEM_FIELDS = ['packOpenings', 'priceAlerts', 'valueHistory', 'collectionBatches', 'collectionDetails', 'itemsSynced', 'tierLists'] as const satisfies readonly (keyof AppSettings)[]
 
 export type ItemField = (typeof ITEM_FIELDS)[number]
 

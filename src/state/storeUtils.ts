@@ -25,6 +25,7 @@ import type {
 import { buildPoolIndex, gameIdOfCardId } from '../shared/collection'
 import type { ParsedDeck } from '../shared/importDeck'
 import type { PackOpening } from '../shared/packOpenings'
+import type { TierList } from '../shared/tierLists'
 import type { BatchItem, BatchSource } from '../shared/collectionBatches'
 import type { CopyDetail } from '../shared/copyDetails'
 import type { UpdateStatus } from '../shared/updateStatus'
@@ -224,6 +225,9 @@ export interface AppState {
   savePackOpening: (opening: PackOpening) => void
   /** Forgets an opening. Its cards stay in the collection. */
   deletePackOpening: (id: string) => void
+  /** Adds or replaces a tier list (tierLists.ts), stamping its updatedAt. */
+  saveTierList: (list: TierList) => void
+  deleteTierList: (id: string) => void
   /** One more (or fewer) of a card in an opening, and in the collection too when the opening adds its pulls there. */
   changePackPull: (openingId: string, cardId: string, delta: number) => Promise<void>
   /** Saves the order of the game tabs in the sidebar. */
