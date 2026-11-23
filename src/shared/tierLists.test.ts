@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_CARDS, POOL, addCards, addTier, cardCount, duplicateTierList, moveCard, newTierList, rankedCount, removeCard, removeTier, resetRanks, sanitizeTierLists, shiftTier, spotOf, tierListText } from './tierLists'
+import { MAX_CARDS, POOL, addCards, addTier, cardCount, duplicateTierList, moveCard, newTierList, rankedCount, removeCard, removeTier, resetRanks, sanitizeTierLists, shiftTier, spotOf, tierListText, pickCards, typeOptions, isPicking } from './tierLists'
 import { makeCard } from './testFixtures'
 
 const base = () => newTierList('riftbound', 'Test')
@@ -100,5 +100,41 @@ describe('tier lists', () => {
     expect(out[1].tiers[0].color).toMatch(/^#/)
     expect(out[1].tiers[0].cardIds).toEqual(['a'])
     expect(out[1].pool).toEqual(['b'])
+  })
+})
+
+describe('picking cards to add', () => {
+  const cards = [
+    makeCard('riftbound', { name: 'Ahri', category: 'Legend', setId: 'new', setName: 'New', number: '2', setReleased: '2026-01-01' }),
+    makeCard('riftbound', { name: 'Ahri', category: 'Legend', setId: 'old', setName: 'Old', number: '9', setReleased: '2025-01-01' }),
+    makeCard('riftbound', { name: 'Garen', category: 'Legend', setId: 'old', setName: 'Old', number: '3', setReleased: '2025-01-01' }),
+    makeCard('riftbound', { name: 'Altar', category: 'Battlefield', setId: 'new', setName: 'New', number: '1', setReleased: '2026-01-01' }),
+    makeCard('riftbound', { name: 'Jinx', category: 'Unit', subtypes: ['Champion'], setId: 'old', setName: 'Old', number: '1', setReleased: '2025-01-01' }),
+  ]
+  const pick = { query: '', setId: '', type: '', onePrinting: false }
+
+  it('picks nothing until there is search text or a filter', () => {
+    expect(isPicking(pick)).toBe(false)
+    expect(pickCards(cards, pick)).toEqual([])
+    expect(pickCards(cards, { ...pick, query: 'a' })).toEqual([])
+  })
+
+  it('filters by type across every set, newest set first', () => {
+    expect(pickCards(cards, { ...pick, type: 'c:Legend' }).map((c) => `${c.name}/${c.setId}`)).toEqual(['Ahri/new', 'Garen/old', 'Ahri/old'])
+    expect(pickCards(cards, { ...pick, type: 'c:Legend', onePrinting: true }).map((c) => `${c.name}/${c.setId}`)).toEqual(['Ahri/new', 'Garen/old'])
+    expect(pickCards(cards, { ...pick, type: 's:Champion' }).map((c) => c.name)).toEqual(['Jinx'])
+  })
+
+  it('combines search, set and type', () => {
+    expect(pickCards(cards, { ...pick, setId: 'old' }).map((c) => c.name)).toEqual(['Jinx', 'Garen', 'Ahri'])
+    expect(pickCards(cards, { ...pick, setId: 'old', type: 'c:Legend', query: 'ga' }).map((c) => c.name)).toEqual(['Garen'])
+  })
+
+  it('offers card types, and subtypes when there are few', () => {
+    const { types, subtypes } = typeOptions(cards)
+    expect(types.map((t) => `${t.label} ${t.count}`)).toEqual(['Legend 3', 'Battlefield 1', 'Unit 1'])
+    expect(subtypes.map((t) => t.value)).toEqual(['s:Champion'])
+    const many = Array.from({ length: 50 }, (_, i) => makeCard('mtg', { name: `C${i}`, subtypes: [`Type${i}`] }))
+    expect(typeOptions(many).subtypes).toEqual([])
   })
 })

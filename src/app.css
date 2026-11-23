@@ -6655,13 +6655,29 @@ button.rb-rune {
   align-items: center;
   text-align: left;
 }
+.tier-games {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* Desktop: the board on the left, the Add cards panel beside it, each scrolling on its own. */
 .tier-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px 14px;
+  min-height: 0;
+  flex: 1;
+}
+.tier-toolbar {
+  grid-column: 1 / -1;
+}
+.tier-main {
   display: flex;
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
   min-height: 0;
-  flex: 1;
   padding-right: 4px;
 }
 .tier-toolbar {
@@ -6859,8 +6875,24 @@ button.rb-rune {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+  border-left: 1px solid var(--border-strong);
+  padding: 0 4px 0 14px;
+}
+.tier-add > * {
+  flex: none;
+}
+.tier-add .search-input {
+  width: 100%;
+}
+.tier-add-hint {
+  font-size: 13px;
+}
+.tier-add-deck {
   border-top: 1px solid var(--border-strong);
-  padding-top: 10px;
+  padding-top: 8px;
+  margin-top: 4px;
 }
 .tier-add-row {
   display: flex;
@@ -6869,12 +6901,17 @@ button.rb-rune {
   align-items: center;
 }
 .tier-add-row select {
-  max-width: 260px;
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 .tier-results {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 8px;
+}
+.tier-result.landscape {
+  grid-column: span 2;
 }
 .tier-result {
   display: flex;
@@ -6900,6 +6937,48 @@ button.rb-rune {
   width: 80px;
   height: 112px;
   object-fit: contain;
+  pointer-events: none;
+}
+.tier-result.landscape img {
+  width: 156px;
+}
+.tier-result-noimg {
+  width: 80px;
+  height: 112px;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+}
+.tier-result[draggable='true'] {
+  cursor: grab;
+}
+/* Narrower windows and phones: one column, the Add cards panel right under the toolbar. */
+@media (max-width: 900px) {
+  .tier-editor {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .tier-main,
+  .tier-add {
+    flex: none;
+    min-height: auto;
+  }
+  .tier-main {
+    overflow: visible;
+    order: 2;
+    padding-right: 0;
+  }
+  .tier-add {
+    overflow: visible;
+    order: 1;
+    border-left: none;
+    border-bottom: 1px solid var(--border-strong);
+    padding: 0 0 10px;
+  }
+  .tier-results {
+    max-height: 360px;
+    overflow-y: auto;
+  }
 }
 .tier-result-name {
   font-weight: 600;

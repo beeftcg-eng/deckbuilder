@@ -1,8 +1,7 @@
 import { Modal } from './Modal'
-import { useEffect, useMemo, useState, type DragEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useAppStore } from '../state/useAppStore'
-import { getAdapter } from '../shared/games/registry'
-import { matchesSearch, matchRank } from '../shared/cardSearch'
+import { GAME_LIST, getAdapter } from '../shared/games/registry'
 import {
   MAX_CARDS,
   MAX_TIERS,
@@ -11,15 +10,19 @@ import {
   addTier,
   cardCount,
   duplicateTierList,
+  isPicking,
   moveCard,
   newTierList,
+  pickCards,
   rankedCount,
   removeCard,
   removeTier,
   resetRanks,
+  setsOf,
   shiftTier,
   spotOf,
   tierListText,
+  typeOptions,
   updateTier,
   type TierList,
   type TierSpot,
@@ -30,20 +33,46 @@ import type { Card, GameId } from '../shared/types'
 import { getLanguage, t } from '../shared/i18n'
 import { CardImageViewer } from './CardImageViewer'
 
-const SEARCH_LIMIT = 24
+/** How many picked cards show at a time; Show more adds this many again. */
+const RESULTS_PAGE = 60
 
 /**
- * The tier list maker (shared/tierLists.ts): a game's saved lists, and the editor for one, where cards
- * from the app's card data are added, dragged (or tapped) into tiers, and saved as a picture.
+ * The tier list maker (shared/tierLists.ts): every game's saved lists (it opens on the game you're
+ * on), and the editor for one, where cards from that game's card data are added, dragged (or tapped)
+ * into tiers, and saved as a picture.
  */
-export function TierListModal({ gameId, onClose }: { gameId: GameId; onClose: () => void }) {
+export function TierListModal({ gameId: startGameId, onClose }: { gameId: GameId; onClose: () => void }) {
+  const [gameId, setGameId] = useState<GameId>(startGameId)
   const adapter = getAdapter(gameId)
   const catalog = useAppStore((s) => s.catalogs[gameId])
+  const cachedCount = useAppStore((s) => s.syncMeta[gameId]?.count ?? 0)
+  const progress = useAppStore((s) => s.syncProgress[gameId])
+  const syncing = progress != null && !progress.done
   const all = useAppStore((s) => s.settings.tierLists)
   const lists = useMemo(() => (all ?? []).filter((l) => l.gameId === gameId).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), [all, gameId])
   const [activeId, setActiveId] = useState<string | null>(null)
   const active = lists.find((l) => l.id === activeId) ?? null
   const [name, setName] = useState('')
+  const [syncError, setSyncError] = useState<string | null>(null)
+
+  // The picked game's cards, when they're downloaded but not loaded yet (only the game you're on loads at startup).
+  useEffect(() => {
+    if (!catalog && cachedCount > 0) void useAppStore.getState().loadCatalog(gameId).catch(() => undefined)
+  }, [gameId, catalog, cachedCount])
+
+  function pickGame(id: GameId) {
+    setGameId(id)
+    setActiveId(null)
+    setSyncError(null)
+  }
+
+  function download() {
+    setSyncError(null)
+    useAppStore
+      .getState()
+      .syncCatalog(gameId)
+      .catch((err) => setSyncError(err instanceof Error ? err.message : String(err)))
+  }
 
   function create() {
     const list = newTierList(gameId, name.trim() || t.tierLists.defaultName(adapter.shortName))
@@ -60,8 +89,33 @@ export function TierListModal({ gameId, onClose }: { gameId: GameId; onClose: ()
           {t.common.close}
         </button>
       </div>
+      {!active && (
+        <div className="tier-games" role="group" aria-label={t.tierLists.pickGame}>
+          {GAME_LIST.map((game) => {
+            const count = (all ?? []).filter((l) => l.gameId === game.id).length
+            return (
+              <button key={game.id} className={`btn ${game.id === gameId ? 'btn-primary' : ''}`} aria-pressed={game.id === gameId} onClick={() => pickGame(game.id)}>
+                {game.shortName}
+                {count > 0 ? ` (${count})` : ''}
+              </button>
+            )
+          })}
+        </div>
+      )}
       {!catalog?.cards.length ? (
-        <div className="text-dim">{t.tierLists.noCards(adapter.shortName)}</div>
+        cachedCount > 0 ? (
+          <div className="text-dim">{t.tierLists.loadingCards(adapter.shortName)}</div>
+        ) : (
+          <div className="tier-home">
+            <div className="text-dim">{t.tierLists.noCards(adapter.shortName)}</div>
+            <div>
+              <button className="btn btn-primary" disabled={syncing} onClick={download}>
+                {syncing ? t.sidebar.syncing(progress?.loaded ?? 0, progress?.total ?? '?') : t.sidebar.syncCardData}
+              </button>
+            </div>
+            {(syncError ?? progress?.error) && <div className="sync-error">{syncError ?? progress?.error}</div>}
+          </div>
+        )
       ) : active ? (
         <TierEditor key={active.id} list={active} cards={catalog.cards} byId={catalog.byId} onBack={() => setActiveId(null)} onOpen={setActiveId} />
       ) : (
@@ -96,34 +150,6 @@ export function TierListModal({ gameId, onClose }: { gameId: GameId; onClose: ()
   )
 }
 
-/** A set's cards, newest set first (by release date, else name). */
-function setsOf(cards: readonly Card[]): { id: string; name: string; cards: Card[] }[] {
-  const sets = new Map<string, { id: string; name: string; date: string; cards: Card[] }>()
-  for (const card of cards) {
-    const set = sets.get(card.setId) ?? { id: card.setId, name: card.setName || card.setId, date: '', cards: [] }
-    const date = card.setReleased ?? card.released ?? ''
-    if (date > set.date) set.date = date
-    set.cards.push(card)
-    sets.set(card.setId, set)
-  }
-  return [...sets.values()].sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name))
-}
-
-/** In collector-number order, keeping only the first printing of each card name when `onePrinting`. */
-function orderedIds(cards: readonly Card[], onePrinting: boolean): string[] {
-  const sorted = [...cards].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }))
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const card of sorted) {
-    if (onePrinting) {
-      if (seen.has(card.name)) continue
-      seen.add(card.name)
-    }
-    out.push(card.id)
-  }
-  return out
-}
-
 function TierEditor(props: { list: TierList; cards: readonly Card[]; byId: Map<string, Card>; onBack: () => void; onOpen: (id: string) => void }) {
   const { list, cards, byId, onBack, onOpen } = props
   const { saveTierList, deleteTierList } = useAppStore.getState()
@@ -133,8 +159,10 @@ function TierEditor(props: { list: TierList; cards: readonly Card[]; byId: Map<s
   const lookup = (id: string) => byId.get(id)
   const save = (next: TierList) => next !== list && saveTierList(next)
 
+  const types = useMemo(() => typeOptions(cards), [cards])
   const [query, setQuery] = useState('')
   const [setId, setSetId] = useState('')
+  const [type, setType] = useState('')
   const [deckId, setDeckId] = useState('')
   const [onePrinting, setOnePrinting] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
@@ -145,11 +173,15 @@ function TierEditor(props: { list: TierList; cards: readonly Card[]; byId: Map<s
   const [exporting, setExporting] = useState(false)
 
   const inList = useMemo(() => new Set([...list.pool, ...list.tiers.flatMap((tier) => tier.cardIds)]), [list])
-  const q = query.trim().toLowerCase()
-  const results = useMemo(
-    () => (q.length < 2 ? [] : cards.filter((c) => matchesSearch(c, q)).sort((a, b) => matchRank(a, q) - matchRank(b, q) || a.name.localeCompare(b.name)).slice(0, SEARCH_LIMIT)),
-    [cards, q],
-  )
+  const pick = { query, setId, type, onePrinting }
+  const picking = isPicking(pick)
+  const picked = useMemo(() => pickCards(cards, { query, setId, type, onePrinting }), [cards, query, setId, type, onePrinting])
+  const notInList = picked.filter((c) => !inList.has(c.id))
+  // Show more, until the search or a filter changes.
+  const pickKey = JSON.stringify(pick)
+  const [shown, setShown] = useState({ key: pickKey, count: RESULTS_PAGE })
+  const shownCount = shown.key === pickKey ? shown.count : RESULTS_PAGE
+  const searchRef = useRef<HTMLInputElement>(null)
   // A card picked and then removed (or gone from the data) isn't picked any more.
   const selectedCard = selected && inList.has(selected) ? (byId.get(selected) ?? null) : null
 
@@ -209,7 +241,13 @@ function TierEditor(props: { list: TierList; cards: readonly Card[]; byId: Map<s
     const id = dragId ?? e.dataTransfer.getData('text/plain')
     setDragId(null)
     setDropRow(null)
-    if (id && inList.has(id)) save(moveCard(list, id, spot, beforeId))
+    if (!id) return
+    if (inList.has(id)) save(moveCard(list, id, spot, beforeId))
+    // A card dragged in from the search results joins the list where it's dropped.
+    else if (byId.has(id)) {
+      if (cardCount(list) >= MAX_CARDS) setMessage(t.tierLists.full(MAX_CARDS))
+      else save(moveCard(list, id, spot, beforeId))
+    }
   }
 
   function cardTile(id: string, spot: TierSpot) {
@@ -295,6 +333,7 @@ function TierEditor(props: { list: TierList; cards: readonly Card[]; byId: Map<s
       {exporting && <TierExportModal list={list} lookup={lookup} onClose={() => setExporting(false)} />}
       {viewing && <CardImageViewer card={viewing} onClose={() => setViewing(null)} />}
 
+      <div className="tier-main">
       <div className="tier-board">
         {list.tiers.map((tier, i) => (
           <div key={tier.id} className="tier-row">
@@ -361,54 +400,88 @@ function TierEditor(props: { list: TierList; cards: readonly Card[]; byId: Map<s
         </div>
       </div>
 
-      <div className="tier-add">
+      </div>
+
+      <div className="tier-add" aria-label={t.tierLists.addCards} role="search">
+        <b>{t.tierLists.addCards}</b>
+        <input ref={searchRef} className="search-input" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.tierLists.search} aria-label={t.tierLists.search} />
         <div className="tier-add-row">
-          <select value={setId} onChange={(e) => setSetId(e.target.value)} aria-label={t.tierLists.pickSet}>
-            <option value="">{t.tierLists.pickSet}</option>
+          <select value={setId} onChange={(e) => setSetId(e.target.value)} aria-label={t.tierLists.setFilter}>
+            <option value="">{t.tierLists.allSets}</option>
             {sets.map((set) => (
               <option key={set.id} value={set.id}>
                 {set.name} ({set.cards.length})
               </option>
             ))}
           </select>
-          <button className="btn" disabled={!setId} onClick={() => add(orderedIds(sets.find((s) => s.id === setId)?.cards ?? [], onePrinting))}>
-            {t.tierLists.addSet}
-          </button>
-          <label className="packs-check">
-            <input type="checkbox" checked={onePrinting} onChange={(e) => setOnePrinting(e.target.checked)} /> {t.tierLists.onePrinting}
-          </label>
-          {gameDecks.length > 0 && (
-            <>
-              <select value={deckId} onChange={(e) => setDeckId(e.target.value)} aria-label={t.tierLists.pickDeck}>
-                <option value="">{t.tierLists.pickDeck}</option>
-                {gameDecks.map((deck) => (
-                  <option key={deck.id} value={deck.id}>
-                    {deck.name}
+          <select value={type} onChange={(e) => setType(e.target.value)} aria-label={t.tierLists.typeFilter}>
+            <option value="">{t.tierLists.allTypes}</option>
+            {types.types.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label} ({option.count})
+              </option>
+            ))}
+            {types.subtypes.length > 0 && (
+              <optgroup label={t.tierLists.subtypes}>
+                {types.subtypes.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} ({option.count})
                   </option>
                 ))}
-              </select>
+              </optgroup>
+            )}
+          </select>
+        </div>
+        <label className="packs-check">
+          <input type="checkbox" checked={onePrinting} onChange={(e) => setOnePrinting(e.target.checked)} /> {t.tierLists.onePrinting}
+        </label>
+        {picking ? (
+          <div className="tier-add-row">
+            <span className="text-dim">{t.tierLists.matches(picked.length)}</span>
+            <button className="btn btn-primary" disabled={notInList.length === 0} onClick={() => add(notInList.map((c) => c.id))}>
+              {t.tierLists.addAll(notInList.length)}
+            </button>
+            {(query || setId || type) && (
               <button
                 className="btn"
-                disabled={!deckId}
                 onClick={() => {
-                  const deck = gameDecks.find((d) => d.id === deckId)
-                  if (deck) add([...new Set(Object.values(deck.zones).flatMap((entries) => entries.map((e) => e.cardId)))].filter((id) => byId.has(id)))
+                  setQuery('')
+                  setSetId('')
+                  setType('')
+                  searchRef.current?.focus()
                 }}
               >
-                {t.tierLists.addDeck}
+                {t.tierLists.clearFilters}
               </button>
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-dim tier-add-hint">{t.tierLists.addHint}</div>
+        )}
         {message && <div className="text-dim">{message}</div>}
-        <input className="search-input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.tierLists.search} aria-label={t.tierLists.search} />
-        {results.length > 0 && (
+        {picked.length > 0 && (
           <div className="tier-results">
-            {results.map((card) => {
+            {picked.slice(0, shownCount).map((card) => {
               const there = inList.has(card.id)
               return (
-                <button key={card.id} className="tier-result" disabled={there} title={there ? t.tierLists.inList : card.name} onClick={() => add([card.id])}>
-                  {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt="" loading="lazy" /> : <span className="tier-card-name">{card.name}</span>}
+                <button
+                  key={card.id}
+                  className={`tier-result ${card.orientation === 'landscape' ? 'landscape' : ''}`}
+                  disabled={there}
+                  title={there ? t.tierLists.inList : card.name}
+                  draggable={!there}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', card.id)
+                    e.dataTransfer.effectAllowed = 'move'
+                    setDragId(card.id)
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null)
+                    setDropRow(null)
+                  }}
+                  onClick={() => add([card.id])}
+                >
+                  {card.imageUrlSmall ? <img src={card.imageUrlSmall} alt="" loading="lazy" draggable={false} /> : <span className="tier-result-noimg" />}
                   <span className="tier-result-name">{card.name}</span>
                   <span className="text-dim tier-result-meta">
                     {card.setCode} · {card.number}
@@ -417,6 +490,33 @@ function TierEditor(props: { list: TierList; cards: readonly Card[]; byId: Map<s
                 </button>
               )
             })}
+          </div>
+        )}
+        {picked.length > shownCount && (
+          <button className="btn" onClick={() => setShown({ key: pickKey, count: shownCount + RESULTS_PAGE })}>
+            {t.tierLists.showMore(picked.length - shownCount)}
+          </button>
+        )}
+        {gameDecks.length > 0 && (
+          <div className="tier-add-row tier-add-deck">
+            <select value={deckId} onChange={(e) => setDeckId(e.target.value)} aria-label={t.tierLists.pickDeck}>
+              <option value="">{t.tierLists.pickDeck}</option>
+              {gameDecks.map((deck) => (
+                <option key={deck.id} value={deck.id}>
+                  {deck.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className="btn"
+              disabled={!deckId}
+              onClick={() => {
+                const deck = gameDecks.find((d) => d.id === deckId)
+                if (deck) add([...new Set(Object.values(deck.zones).flatMap((entries) => entries.map((e) => e.cardId)))].filter((id) => byId.has(id)))
+              }}
+            >
+              {t.tierLists.addDeck}
+            </button>
           </div>
         )}
       </div>

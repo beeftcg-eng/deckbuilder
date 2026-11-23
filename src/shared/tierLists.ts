@@ -1,4 +1,5 @@
 import type { Card, GameId } from './types'
+import { matchesSearch, matchRank } from './cardSearch'
 
 /**
  * Tier lists: rank a game's cards into rows (S, A, B…) and save the result as a picture to share
@@ -193,4 +194,82 @@ export function sanitizeTierLists(raw: unknown, gameIds: readonly string[]): Tie
     })
   }
   return lists
+}
+
+/** A game's sets with their cards, newest set first (by release date, else name). */
+export function setsOf(cards: readonly Card[]): { id: string; name: string; cards: Card[] }[] {
+  const sets = new Map<string, { id: string; name: string; date: string; cards: Card[] }>()
+  for (const card of cards) {
+    const set = sets.get(card.setId) ?? { id: card.setId, name: card.setName || card.setId, date: '', cards: [] }
+    const date = card.setReleased ?? card.released ?? ''
+    if (date > set.date) set.date = date
+    set.cards.push(card)
+    sets.set(card.setId, set)
+  }
+  return [...sets.values()].sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name))
+}
+
+/** A Type filter choice: a card type ("c:Legend") or a subtype ("s:Champion"). */
+export interface TypeOption {
+  value: string
+  label: string
+  count: number
+}
+
+/** Past this many different subtypes (Magic's creature types), the Type filter leaves them out. */
+const MAX_SUBTYPE_OPTIONS = 40
+
+/** The Type filter's choices for a game's cards, most common first: card types, then subtypes when there are few enough. */
+export function typeOptions(cards: readonly Card[]): { types: TypeOption[]; subtypes: TypeOption[] } {
+  const types = new Map<string, number>()
+  const subtypes = new Map<string, number>()
+  for (const card of cards) {
+    if (card.category) types.set(card.category, (types.get(card.category) ?? 0) + 1)
+    for (const sub of card.subtypes) if (sub) subtypes.set(sub, (subtypes.get(sub) ?? 0) + 1)
+  }
+  const list = (counts: Map<string, number>, prefix: string) =>
+    [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([label, count]) => ({ value: `${prefix}:${label}`, label, count }))
+  return { types: list(types, 'c'), subtypes: subtypes.size <= MAX_SUBTYPE_OPTIONS ? list(subtypes, 's') : [] }
+}
+
+export interface CardPick {
+  /** Search text; used from 2 characters. */
+  query: string
+  /** A set id, or '' for every set. */
+  setId: string
+  /** A TypeOption value, or '' for every type. */
+  type: string
+  /** Keep one printing of each card name (the first in the order below). */
+  onePrinting: boolean
+}
+
+/** Whether the pick narrows anything down: an empty one shows no cards rather than the whole game. */
+export function isPicking(pick: CardPick): boolean {
+  return pick.query.trim().length >= 2 || !!pick.setId || !!pick.type
+}
+
+/**
+ * The cards a search and filters pick, for adding to a tier list. With search text, best matches
+ * first; otherwise set by set (newest first, or the one set's collector order).
+ */
+export function pickCards(cards: readonly Card[], pick: CardPick): Card[] {
+  if (!isPicking(pick)) return []
+  const q = pick.query.trim().toLowerCase()
+  const [kind, typeName] = pick.type ? [pick.type.slice(0, 1), pick.type.slice(2)] : ['', '']
+  const matched = cards.filter(
+    (c) =>
+      (!pick.setId || c.setId === pick.setId) &&
+      (!kind || (kind === 'c' ? c.category === typeName : c.subtypes.includes(typeName))) &&
+      (q.length < 2 || matchesSearch(c, q)),
+  )
+  const setRank = new Map(setsOf(cards).map((set, i) => [set.id, i]))
+  const byNumber = (a: Card, b: Card) => a.number.localeCompare(b.number, undefined, { numeric: true })
+  matched.sort(
+    q.length >= 2
+      ? (a, b) => matchRank(a, q) - matchRank(b, q) || a.name.localeCompare(b.name) || (setRank.get(a.setId) ?? 0) - (setRank.get(b.setId) ?? 0) || byNumber(a, b)
+      : (a, b) => (setRank.get(a.setId) ?? 0) - (setRank.get(b.setId) ?? 0) || byNumber(a, b),
+  )
+  if (!pick.onePrinting) return matched
+  const seen = new Set<string>()
+  return matched.filter((c) => !seen.has(c.name) && (seen.add(c.name), true))
 }

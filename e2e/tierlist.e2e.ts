@@ -12,14 +12,33 @@ test('makes a tier list and saves it as a picture', async ({ app }) => {
   await openSidebar(app)
   await app.getByRole('button', { name: '🏆 Tier lists' }).click()
   const dialog = app.getByRole('dialog', { name: /Tier lists/ })
+
+  // Any game can be picked; one without card data offers to download it.
+  await dialog.getByRole('button', { name: 'Riftbound', exact: true }).click()
+  await expect(dialog.getByText('Riftbound’s card data isn’t downloaded yet.', { exact: false })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Sync card data' })).toBeVisible()
+  await dialog.getByRole('button', { name: 'One Piece', exact: true }).click()
   await dialog.getByPlaceholder('Tier list name').fill('OP-09 ranking')
   await dialog.getByRole('button', { name: 'New tier list' }).click()
 
+  // A type across every set: just the Leader.
+  await dialog.getByLabel('Type', { exact: true }).selectOption({ label: 'Leader (1)' })
+  await expect(dialog.getByText('1 card', { exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Clear', exact: true }).click()
+
+  // Search finds a card by name.
+  await dialog.getByPlaceholder('Search cards…').fill('crew member b')
+  await expect(dialog.locator('.tier-result', { hasText: CHARACTERS[1].name })).toBeVisible()
+  await dialog.getByPlaceholder('Search cards…').fill('')
+
   // A whole set into the pool.
-  await dialog.getByLabel('Add a whole set…').selectOption({ label: 'Emperors in the New World (14)' })
-  await dialog.getByRole('button', { name: 'Add set' }).click()
+  await dialog.getByLabel('Set', { exact: true }).selectOption({ label: 'Emperors in the New World (14)' })
+  await dialog.getByRole('button', { name: 'Add all 14' }).click()
   await expect(dialog.getByText('Added 14 cards.')).toBeVisible()
   await expect(dialog.getByText('Unranked (14)')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Add all 0' })).toBeDisabled()
+  await app.screenshot({ path: `test-results/tierlist-add-${test.info().project.name}.png` })
+  await dialog.getByRole('button', { name: 'Clear', exact: true }).click()
 
   // Tap a card, then a tier.
   await dialog.getByRole('button', { name: LEADER.name, exact: true }).click()
